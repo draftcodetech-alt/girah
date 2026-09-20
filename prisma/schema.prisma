@@ -1,8 +1,220 @@
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
+// ────────────────────────────────
+// CATALOG
+// ────────────────────────────────
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id          String             @id @default(cuid())
+  name        String
+  slug        String             @unique
+  description String
+  category    Category           @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  images      ProductImage[]
+  variations  ProductVariation[]
+  reviews     Review[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([categoryId])
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  url       String
+  sortOrder Int     @default(0)
+
+  @@index([productId])
+}
+
+model ProductVariation {
+  id         String      @id @default(cuid())
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId  String
+  name       String // e.g. "Medium Bouquet"
+  price      Int // stored in smallest currency unit (paisa) — never a float, per Reliability NFR
+  stock      Int         @default(0)
+  isEnabled  Boolean     @default(true) // admin can disable independent of stock count — girah.md §16.1
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+}
+
+// ────────────────────────────────
+// ACCOUNTS
+// ────────────────────────────────
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+model User {
+  id            String         @id @default(cuid())
+  role          Role           @default(CUSTOMER)
+  name          String
+  email         String         @unique
+  passwordHash  String
+  phone         String?
+  savedShipping SavedShipping?
+  cart          Cart?
+  orders        Order[]
+  reviews       Review[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model SavedShipping {
+  id         String  @id @default(cuid())
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String  @unique // one-to-one — single saved address per girah.md §13.5
+  fullName   String
+  phone      String
+  address    String
+  city       String
+  postalCode String?
+}
+
+// ────────────────────────────────
+// CART
+// ────────────────────────────────
+
+model Cart {
+  id        String     @id @default(cuid())
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String?    @unique
+  guestId   String?    @unique // anonymous session identifier for guest carts
+  items     CartItem[]
+  updatedAt DateTime   @updatedAt
+}
+
+model CartItem {
+  id          String           @id @default(cuid())
+  cart        Cart             @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId      String
+  variation   ProductVariation @relation(fields: [variationId], references: [id])
+  variationId String
+  quantity    Int
+
+  @@unique([cartId, variationId]) // enforces "same variation combines" at the DB level
+}
+
+// ────────────────────────────────
+// ORDERS
+// ────────────────────────────────
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  COD
+  SAFEPAY
+}
+
+model Order {
+  id              String  @id @default(cuid())
+  orderNumber     String  @unique // e.g. "GIR-10482", generated at creation
+  user            User?   @relation(fields: [userId], references: [id])
+  userId          String?
+  // guest snapshot — always populated, even for registered users, so the order
+  // never depends on the User record surviving (a deleted account shouldn't corrupt history)
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  shippingAddress String
+  shippingCity    String
+  shippingPostal  String?
+  deliveryNotes   String?
+
+  items    OrderItem[]
+  subtotal Int
+  shipping Int         @default(0) // always 0 — free shipping, per girah.md §3.4
+  total    Int
+
+  orderStatus   OrderStatus   @default(PENDING)
+  paymentMethod PaymentMethod
+  paymentStatus PaymentStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([orderStatus])
+}
+
+model OrderItem {
+  id            String           @id @default(cuid())
+  order         Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId       String
+  variation     ProductVariation @relation(fields: [variationId], references: [id])
+  variationId   String
+  // FROZEN SNAPSHOT at purchase time — never a live lookup. This is what makes
+  // price-locking real (girah.md §3.8), not just an application-level promise.
+  productName   String
+  variationName String
+  unitPrice     Int
+  quantity      Int
+  subtotal      Int
+
+  @@index([orderId])
+}
+
+// ────────────────────────────────
+// REVIEWS
+// ────────────────────────────────
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Review {
+  id        String       @id @default(cuid())
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  user      User         @relation(fields: [userId], references: [id])
+  userId    String
+  rating    Int
+  text      String
+  status    ReviewStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+
+  @@index([productId])
+  @@index([status])
 }

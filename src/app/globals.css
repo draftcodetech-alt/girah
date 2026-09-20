@@ -1,26 +1,64 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  /* ── Brand colors — girah.md §1/§6 ── */
+  --color-sage: #526B5A;
+  --color-sage-soft: #8FA58F;
+  --color-cream: #FAF8F1;
+  --color-sage-light: #E9EFE7;
+  --color-gold: #C49A5A;
+  --color-charcoal: #29302B;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* ── UI tokens ── */
+  --color-border: #D8DED6;
+  --color-muted: #6F786F;
+  --color-placeholder: #8A928A;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* ── Semantic colors — never used as primary brand color ── */
+  --color-success: #4F7A5A;
+  --color-warning: #A8793A;
+  --color-error: #B45E55;
+  --color-info: #5E7880;
+
+  /* ── Fonts (variables populated by next/font in layout.tsx) ── */
+  --font-display: var(--font-playfair), serif;
+  --font-body: var(--font-dm-sans), sans-serif;
+
+  /* ── Type scale — girah.md §6 ── */
+  --text-display: 64px;
+  --text-display--line-height: 1.05;
+  --text-h1: 52px;
+  --text-h1--line-height: 1.1;
+  --text-h2: 40px;
+  --text-h2--line-height: 1.15;
+  --text-h3: 28px;
+  --text-h3--line-height: 1.2;
+  --text-card-title: 18px;
+  --text-card-title--line-height: 1.3;
+  --text-body: 16px;
+  --text-body--line-height: 1.6;
+  --text-small: 14px;
+  --text-small--line-height: 1.5;
+  --text-label: 12px;
+  --text-label--line-height: 1.4;
+  --text-button: 14px;
+  --text-button--line-height: 1;
+
+  /* ── Radius — girah.md §6.7 ── */
+  --radius-control: 6px;
+  --radius-surface: 8px;
+  --radius-panel: 12px;
+
+  /* ── Shadows — girah.md §6.8 ── */
+  --shadow-subtle: 0 2px 8px rgba(41, 48, 43, 0.08);
+  --shadow-elevated: 0 8px 24px rgba(41, 48, 43, 0.12);
+
+  /* Breakpoints: Tailwind v4 defaults (640/768/1024/1280) already match
+     girah.md §6.9 exactly — intentionally not overridden. */
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-cream);
+  color: var(--color-charcoal);
+  font-family: var(--font-body);
 }
