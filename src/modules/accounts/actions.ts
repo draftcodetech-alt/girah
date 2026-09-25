@@ -22,6 +22,13 @@ export async function login(input: LoginInput): Promise<AccountActionResult> {
       password: parsed.data.password,
       redirect: false,
     });
+
+    // Auth.js swallows some failures (e.g. config errors) as a non-throwing
+    // Response — never report success without proof of a live session (C3).
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "Unable to sign in right now. Please try again." };
+    }
     return { success: true };
   } catch (error) {
     if (error instanceof AuthError) {
@@ -125,7 +132,12 @@ export async function changePassword(input: ChangePasswordInput): Promise<Accoun
   }
 
   const newHash = await bcrypt.hash(parsed.data.newPassword, 10);
-  await db.user.update({ where: { id: session.user.id }, data: { passwordHash: newHash } });
+  // sessionVersion bump rotates every live session for this account — a
+  // stolen token must not survive a password change (Phase 1 C2).
+  await db.user.update({
+    where: { id: session.user.id },
+    data: { passwordHash: newHash, sessionVersion: { increment: 1 } },
+  });
 
   return { success: true };
 }

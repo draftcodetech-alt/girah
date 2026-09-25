@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import { auth } from "@/lib/auth";
 import { resolveCartIdentity } from "@/modules/cart/identity";
 import { checkoutSchema, type CheckoutInput } from "./schema";
-import { priceCartItemsFresh, UnavailableVariationError } from "./pricing";
+import { priceCartItemsFresh, UnavailableVariationError, InvalidQuantityError } from "./pricing";
 import { decrementStockForItems, InsufficientStockError } from "./stock";
 
 export type PlaceOrderResult =
@@ -101,7 +101,11 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
 
     return { success: true, orderNumber: order.orderNumber, orderId: order.id };
   } catch (error) {
-    if (error instanceof InsufficientStockError || error instanceof UnavailableVariationError) {
+    if (
+      error instanceof InsufficientStockError ||
+      error instanceof UnavailableVariationError ||
+      error instanceof InvalidQuantityError
+    ) {
       return {
         success: false,
         error:

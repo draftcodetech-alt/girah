@@ -79,6 +79,9 @@ model User {
   passwordHash  String
   phone         String?
   isActive      Boolean        @default(true)
+  // Bumped whenever existing sessions must die (account disable, password change).
+  // The jwt callback compares it against the token and invalidates on mismatch.
+  sessionVersion Int           @default(0)
   savedShipping SavedShipping?
   cart          Cart?
   orders        Order[]

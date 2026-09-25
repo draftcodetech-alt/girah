@@ -61,7 +61,12 @@ export async function toggleCustomerActive(id: string): Promise<AdminActionResul
   const user = await db.user.findUnique({ where: { id }, select: { isActive: true } });
   if (!user) return { success: false, error: "Customer not found." };
 
-  await db.user.update({ where: { id }, data: { isActive: !user.isActive } });
+  // sessionVersion bump kills every live JWT for this account — disabling an
+  // account must log it out immediately, not when its 30-day token expires (C2).
+  await db.user.update({
+    where: { id },
+    data: { isActive: !user.isActive, sessionVersion: { increment: 1 } },
+  });
   revalidatePath("/admin/customers");
   return { success: true };
 }

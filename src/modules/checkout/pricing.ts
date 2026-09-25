@@ -22,6 +22,12 @@ export async function priceCartItemsFresh(
   });
 
   const lines: PricedLine[] = items.map((item) => {
+    // Defense-in-depth (Phase 1 C1): cart quantities are validated at the
+    // action layer and constrained by a DB CHECK, but pricing must never
+    // compute a negative or fractional subtotal even if a bad row slips in.
+    if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+      throw new InvalidQuantityError(item.variationId);
+    }
     const variation = variations.find((v) => v.id === item.variationId);
     if (!variation || !variation.isEnabled) {
       throw new UnavailableVariationError(item.variationId);
@@ -43,5 +49,12 @@ export class UnavailableVariationError extends Error {
   constructor(public variationId: string) {
     super(`Variation ${variationId} is no longer available.`);
     this.name = "UnavailableVariationError";
+  }
+}
+
+export class InvalidQuantityError extends Error {
+  constructor(public variationId: string) {
+    super(`Invalid quantity for variation ${variationId}.`);
+    this.name = "InvalidQuantityError";
   }
 }

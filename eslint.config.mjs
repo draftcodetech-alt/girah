@@ -21,6 +21,14 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Tests may reach into module internals (white-box testing) — the
+  // modith boundary rule governs production code only.
+  {
+    files: ["tests/**"],
+    rules: {
+      "no-restricted-imports": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
