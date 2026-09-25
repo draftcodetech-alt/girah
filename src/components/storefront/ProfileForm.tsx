@@ -119,7 +119,17 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           </div>
 
           {passwordError && <p className="font-body text-small text-error">{passwordError}</p>}
-          {passwordSuccess && <p className="font-body text-small text-success">✓ Password changed</p>}
+          {passwordSuccess ? (
+            // Phase 4 L11: the sessionVersion bump deliberately signs the
+            // caller out (stolen tokens die) — say so honestly instead of
+            // showing a success the next request will contradict.
+            <div className="text-small" role="status">
+              <p className="font-body text-success">✓ Password changed — please sign in again.</p>
+              <a href="/login" className="font-body text-small text-sage font-medium underline mt-1 inline-block">
+                Sign in again
+              </a>
+            </div>
+          ) : null}
 
           <button
             type="submit"

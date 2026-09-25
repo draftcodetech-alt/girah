@@ -44,8 +44,28 @@ export async function markCodPaymentReceived(orderId: string): Promise<AdminActi
   if (order.paymentMethod !== "COD") {
     return { success: false, error: "Only Cash on Delivery orders can be marked paid manually." };
   }
+  // Phase 4 M2: PAID/REFUNDED are terminal (webhook CAS invariants + audit
+  // trail) and a CANCELLED order must not read as paid afterwards. Only the
+  // live PENDING -> PAID transition is legal.
+  if (order.orderStatus === "CANCELLED") {
+    return { success: false, error: "Cancelled orders cannot be marked paid." };
+  }
+  if (order.paymentStatus !== "PENDING") {
+    return {
+      success: false,
+      error: `Payment is already ${order.paymentStatus} — it cannot be marked paid manually.`,
+    };
+  }
 
-  await db.order.update({ where: { id: orderId }, data: { paymentStatus: "PAID" } });
+  // CAS on paymentStatus so two admins racing (or the row changing between
+  // the read above and this write) can never double-apply the transition.
+  const updated = await db.order.updateMany({
+    where: { id: orderId, paymentStatus: "PENDING" },
+    data: { paymentStatus: "PAID" },
+  });
+  if (updated.count === 0) {
+    return { success: false, error: "Payment status changed — reload the page and try again." };
+  }
   revalidatePath("/admin/orders");
   return { success: true };
 }

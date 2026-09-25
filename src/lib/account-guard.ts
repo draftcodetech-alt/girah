@@ -5,6 +5,10 @@ export type FreshAccount = {
   isActive: boolean;
   role: Role;
   sessionVersion: number;
+  // Phase 4 L6: profile fields ride along on the same read so the jwt
+  // callback can refresh a stale name/email without a second query.
+  name: string;
+  email: string;
 };
 
 /**
@@ -19,6 +23,6 @@ export async function getFreshAccount(userId: string): Promise<FreshAccount | nu
   if (!userId) return null;
   return db.user.findUnique({
     where: { id: userId },
-    select: { isActive: true, role: true, sessionVersion: true },
+    select: { isActive: true, role: true, sessionVersion: true, name: true, email: true },
   });
 }

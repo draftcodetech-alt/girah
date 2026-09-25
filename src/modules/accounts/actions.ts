@@ -3,6 +3,7 @@ import { loginSchema, registerSchema, updateProfileSchema, changePasswordSchema,
 
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { auth, signIn } from "@/lib/auth";
 
@@ -47,7 +48,11 @@ export async function register(input: RegisterInput): Promise<AccountActionResul
     return { success: false, error: "Please check the highlighted fields.", fieldErrors };
   }
 
-  const existing = await db.user.findUnique({ where: { email: parsed.data.email } });
+  // Phase 4 L1: case-insensitive so a mixed-case variant of an existing
+  // account (including legacy mixed-case rows) can't create a twin.
+  const existing = await db.user.findFirst({
+    where: { email: { equals: parsed.data.email, mode: "insensitive" } },
+  });
   if (existing) {
     return {
       success: false,
@@ -57,9 +62,23 @@ export async function register(input: RegisterInput): Promise<AccountActionResul
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
-  await db.user.create({
-    data: { name: parsed.data.name, email: parsed.data.email, passwordHash, role: "CUSTOMER" },
-  });
+  try {
+    await db.user.create({
+      data: { name: parsed.data.name, email: parsed.data.email, passwordHash, role: "CUSTOMER" },
+    });
+  } catch (error) {
+    // Phase 4 L2: the pre-check above closes the common case; this covers the
+    // race where two submits slip past it. Schema normalization guarantees
+    // both racers wrote the same lowercase value, so the unique index fires.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return {
+        success: false,
+        error: "Please check the highlighted fields.",
+        fieldErrors: { email: "This email is already associated with an account." },
+      };
+    }
+    throw error;
+  }
 
   try {
     // Auto sign-in after registration, per girah.md §13.2 (success -> My Account directly).
@@ -86,7 +105,7 @@ export async function updateProfile(input: UpdateProfileInput): Promise<AccountA
   }
 
   const emailTaken = await db.user.findFirst({
-    where: { email: parsed.data.email, NOT: { id: session.user.id } },
+    where: { email: { equals: parsed.data.email, mode: "insensitive" }, NOT: { id: session.user.id } },
   });
   if (emailTaken) {
     return {
@@ -96,10 +115,22 @@ export async function updateProfile(input: UpdateProfileInput): Promise<AccountA
     };
   }
 
-  await db.user.update({
-    where: { id: session.user.id },
-    data: { name: parsed.data.name, email: parsed.data.email, phone: parsed.data.phone || null },
-  });
+  try {
+    await db.user.update({
+      where: { id: session.user.id },
+      data: { name: parsed.data.name, email: parsed.data.email, phone: parsed.data.phone || null },
+    });
+  } catch (error) {
+    // Phase 4 L2: covers the TOCTOU race around the pre-check above.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return {
+        success: false,
+        error: "Please check the highlighted fields.",
+        fieldErrors: { email: "This email is already in use." },
+      };
+    }
+    throw error;
+  }
 
   return { success: true };
 }

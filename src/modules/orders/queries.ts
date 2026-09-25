@@ -2,14 +2,22 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { OrderView } from "./types";
 
-// No ownership check here deliberately: guest checkout has no account to check
-// ownership against, and the order's cuid functions as an unguessable bearer
-// reference for the confirmation page — the same pattern most stores use.
-// A LOGGED-IN customer's "My Orders" list (Phase 7) DOES need an ownership
-// check, since that's browsing by ID predictably, not landing via a fresh order.
+// Owner-or-bearer access (Phase 4 M5):
+// - Guest order (userId null): the cuid IS the unguessable bearer reference
+//   for the confirmation page — guest checkout has no account to check
+//   ownership against, so holding the fresh link is the credential.
+// - Account order (userId set): the confirmation URL must not leak the
+//   customer's name/address/items to anyone but its owner — require a
+//   session whose user id matches; missing session or mismatch -> null,
+//   which the page turns into a 404.
 export async function getOrderById(id: string): Promise<OrderView | null> {
   const order = await db.order.findUnique({ where: { id }, include: { items: true } });
   if (!order) return null;
+
+  if (order.userId) {
+    const session = await auth();
+    if (!session?.user || session.user.id !== order.userId) return null;
+  }
 
   return {
     id: order.id,

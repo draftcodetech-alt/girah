@@ -58,8 +58,15 @@ export async function getAdminCustomerById(id: string) {
 export async function toggleCustomerActive(id: string): Promise<AdminActionResult> {
   await requireAdmin();
 
-  const user = await db.user.findUnique({ where: { id }, select: { isActive: true } });
+  const user = await db.user.findUnique({ where: { id }, select: { isActive: true, role: true } });
   if (!user) return { success: false, error: "Customer not found." };
+
+  // Phase 4 L3: the list/detail queries filter role: CUSTOMER, but a server
+  // action is invokable by raw id — this path must never disable an admin
+  // account (self-inflicted lockouts included).
+  if (user.role !== "CUSTOMER") {
+    return { success: false, error: "Admin accounts cannot be disabled here." };
+  }
 
   // sessionVersion bump kills every live JWT for this account — disabling an
   // account must log it out immediately, not when its 30-day token expires (C2).

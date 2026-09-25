@@ -17,5 +17,13 @@ export default defineConfig({
     fileParallelism: false,
     testTimeout: 30000,
     hookTimeout: 120000,
+    // next-auth imports extensionless subpaths (next/server) that Node's
+    // native ESM loader can't resolve — process it through Vite instead.
+    // Needed since Phase 4: orders/actions.ts now imports @/lib/auth.
+    server: {
+      deps: {
+        inline: ["next-auth", "@auth/core"],
+      },
+    },
   },
 });

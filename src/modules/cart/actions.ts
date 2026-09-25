@@ -86,12 +86,12 @@ export async function updateCartItemQuantity(
       include: { cart: true, variation: true },
     });
 
-    if (!item) {
-      return { success: true };
-    }
-
-    if (!ownsCart(identity, item.cart)) {
-      return { success: false, error: "Cart item not found." };
+    // Phase 4 L9: a missing item and someone else's item used to return
+    // DIFFERENT responses (success vs error), turning these actions into an
+    // existence oracle for crafted cart-item ids. Both cases now return the
+    // exact same refusal — only items in the caller's own cart ever resolve.
+    if (!item || !ownsCart(identity, item.cart)) {
+      return { success: false, error: "Item not found in your cart." };
     }
 
     if (quantity < 1) {

@@ -45,7 +45,9 @@ export function AdminOrderRow({ order }: { order: Order }) {
       <div className="flex items-center gap-3">
         <span className="font-body text-small text-muted">
           Payment: {paymentStatus}
-          {order.paymentMethod === "COD" && paymentStatus !== "PAID" && (
+          {order.paymentMethod === "COD" &&
+            paymentStatus === "PENDING" &&
+            status !== "CANCELLED" && (
             <button
               onClick={handleMarkPaid}
               disabled={isPending}

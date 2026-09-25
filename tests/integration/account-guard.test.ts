@@ -17,6 +17,10 @@ describe("getFreshAccount", () => {
       isActive: true,
       role: "CUSTOMER",
       sessionVersion: 0,
+      // Phase 4 L6: profile fields ride along on the same read so the jwt
+      // callback can refresh a stale name/email without a second query.
+      name: "Test User",
+      email: user.email,
     });
   });
 

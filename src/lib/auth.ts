@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { getFreshAccount } from "@/lib/account-guard";
+import { isRateLimited, recordFailure, resetRateLimit } from "@/lib/rate-limit";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: "jwt" }, // Credentials provider requires JWT — technical-design.md Decisions Log #15
@@ -19,22 +20,42 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      authorize: async (credentials) => {
+      authorize: async (credentials, request) => {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
 
-        const user = await db.user.findUnique({
-          where: { email: credentials.email as string },
+        // Phase 4 L1: normalize at the choke point too — the login form
+        // lowercases via its schema, but a raw /api/auth call may not.
+        const email = (credentials.email as string).trim().toLowerCase();
+
+        // Phase 4 M3: key by email+IP so one attacker IP can't spray accounts
+        // and a single account can't absorb unlimited guesses. Rejected before
+        // any DB work; success clears the budget below.
+        const ip =
+          request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+          request.headers.get("x-real-ip") ||
+          "unknown";
+        const rateKey = `${email}|${ip}`;
+        if (isRateLimited(rateKey)) {
+          return null;
+        }
+
+        // Phase 4 L1: case-insensitive match so legacy mixed-case rows keep
+        // working while new writes are stored lowercase.
+        const user = await db.user.findFirst({
+          where: { email: { equals: email, mode: "insensitive" } },
         });
 
         if (!user) {
+          recordFailure(rateKey);
           return null;
         }
 
         if (!user.isActive) {
           // Same generic failure as any other invalid login — never reveal
           // that this specific account exists and is disabled.
+          recordFailure(rateKey);
           return null;
         }
 
@@ -44,8 +65,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         );
 
         if (!isValidPassword) {
+          recordFailure(rateKey);
           return null;
         }
+
+        resetRateLimit(rateKey);
 
         return {
           id: user.id,
@@ -82,6 +106,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return null;
       }
       token.role = account.role;
+      // Phase 4 L6: refresh profile fields on every read so a rename or
+      // email change (done elsewhere) doesn't live in a stale JWT up to 30d.
+      token.name = account.name;
+      token.email = account.email;
       return token;
     },
     async session({ session, token }) {

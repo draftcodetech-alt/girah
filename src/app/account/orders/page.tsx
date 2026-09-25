@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { getMyOrders } from "@/modules/orders";
 
 function formatPrice(paisa: number): string {
@@ -6,6 +8,13 @@ function formatPrice(paisa: number): string {
 }
 
 export default async function OrdersPage() {
+  // Phase 4 L5: inline guard (proxy.ts is defense-in-depth, not the only
+  // line of defense) — getMyOrders must never run without a real session.
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/login");
+  }
+
   const orders = await getMyOrders();
 
   if (orders.length === 0) {
