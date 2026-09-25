@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/require-admin";
@@ -85,11 +86,28 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Ad
 
 export async function deleteProduct(id: string): Promise<AdminActionResult> {
   await requireAdmin();
-  // onDelete: Cascade on ProductImage/ProductVariation (per schema.prisma) —
-  // deleting a product safely removes its images/variations too. Existing
-  // OrderItem rows are UNAFFECTED since they store frozen product/variation
-  // names as plain strings, not a live foreign key dependency — girah.md §3.8.
-  await db.product.delete({ where: { id } });
+  // Images/variations cascade (schema.prisma), but OrderItem.variationId is
+  // a LIVE foreign key (restrict) and CartItem.variationId likewise — the
+  // frozen productName/variationName fields are extra snapshot metadata, not
+  // a substitute for the relation. Products referenced by orders or carts
+  // therefore cannot be deleted; surface that as a friendly error instead of
+  // an unhandled P2003/P2014 — girah.md §3.8.
+  try {
+    await db.product.delete({ where: { id } });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2003" || error.code === "P2014") {
+        return {
+          success: false,
+          error: "This product can't be deleted because existing orders or carts still reference it.",
+        };
+      }
+      if (error.code === "P2025") {
+        return { success: false, error: "Product not found." };
+      }
+    }
+    throw error;
+  }
   revalidatePath("/admin/products");
   revalidatePath("/shop");
   return { success: true };

@@ -72,22 +72,23 @@ enum Role {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  role          Role           @default(CUSTOMER)
-  name          String
-  email         String         @unique
-  passwordHash  String
-  phone         String?
-  isActive      Boolean        @default(true)
+  id               String            @id @default(cuid())
+  role             Role              @default(CUSTOMER)
+  name             String
+  email            String            @unique
+  passwordHash     String
+  phone            String?
+  isActive         Boolean           @default(true)
   // Bumped whenever existing sessions must die (account disable, password change).
   // The jwt callback compares it against the token and invalidates on mismatch.
-  sessionVersion Int           @default(0)
-  savedShipping SavedShipping?
-  cart          Cart?
-  orders        Order[]
-  reviews       Review[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  sessionVersion   Int               @default(0)
+  savedShipping    SavedShipping?
+  cart             Cart?
+  orders           Order[]
+  reviews          Review[]
+  stockAdjustments StockAdjustment[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
 model SavedShipping {
@@ -231,7 +232,12 @@ model StockAdjustment {
   adjustment    Int
   newStock      Int
   reason        String
+  // Phase 2: WHO made this adjustment (admin manual adjust or cancel-restock).
+  // NULL only for legacy rows created before this column existed.
+  adminId       String?
+  admin         User?            @relation(fields: [adminId], references: [id], onDelete: SetNull)
   createdAt     DateTime         @default(now())
 
   @@index([variationId])
+  @@index([adminId])
 }

@@ -4,7 +4,8 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/require-admin";
 import type { AdminActionResult } from "./products";
-import { orderStatusSchema, type OrderStatusInput } from "./schema";
+import { type OrderStatusInput } from "./schema";
+import { updateOrderStatusCore } from "./order-ops";
 
 export async function getAdminOrders() {
   await requireAdmin();
@@ -20,16 +21,12 @@ export async function getAdminOrderById(id: string) {
 }
 
 export async function updateOrderStatus(orderId: string, input: OrderStatusInput): Promise<AdminActionResult> {
-  await requireAdmin();
-
-  const parsed = orderStatusSchema.safeParse(input);
-  if (!parsed.success) {
-    return { success: false, error: "Invalid status." };
+  const session = await requireAdmin();
+  const result = await updateOrderStatusCore(orderId, input, session.user.id);
+  if (result.success) {
+    revalidatePath("/admin/orders");
   }
-
-  await db.order.update({ where: { id: orderId }, data: { orderStatus: parsed.data.orderStatus } });
-  revalidatePath("/admin/orders");
-  return { success: true };
+  return result;
 }
 
 // COD-ONLY. This function deliberately has NO parameter or code path that
