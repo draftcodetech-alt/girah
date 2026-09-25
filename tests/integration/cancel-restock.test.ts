@@ -72,7 +72,7 @@ describe("updateOrderStatusCore state machine + restock", () => {
     expect(fresh.orderStatus).toBe("CANCELLED");
   });
 
-  it("cancelling a PAID order does NOT restock (refund path owns it)", async () => {
+  it("cancelling a PAID COD order records REFUNDED (cash returned offline) and restocks", async () => {
     const { variation } = await createTestProduct();
     const admin = await createTestUser({ role: "ADMIN" });
     const order = await placeTestOrder([{ variationId: variation.id, quantity: 2 }]);
@@ -83,11 +83,11 @@ describe("updateOrderStatusCore state machine + restock", () => {
     expect(result.success).toBe(true);
 
     const fresh = await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } });
-    expect(fresh.stock).toBe(3); // unchanged — 5 − 2 from checkout
-    expect(await db.stockAdjustment.count()).toBe(0);
-    expect((await db.order.findUniqueOrThrow({ where: { id: order.id } })).orderStatus).toBe(
-      "CANCELLED"
-    );
+    expect(fresh.stock).toBe(5); // restocked: 3 + 2
+    expect(await db.stockAdjustment.count()).toBe(1);
+    const orderFresh = await db.order.findUniqueOrThrow({ where: { id: order.id } });
+    expect(orderFresh.orderStatus).toBe("CANCELLED");
+    expect(orderFresh.paymentStatus).toBe("REFUNDED");
   });
 
   it("rejects jumps backwards or over steps", async () => {

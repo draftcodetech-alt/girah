@@ -1,8 +1,8 @@
 "use server";
-import { createSafepayCheckoutUrl } from "@/modules/payments/safepay";
+import { createSafepayCheckoutUrl } from "@/modules/payments";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
-import { resolveCartIdentity } from "@/modules/cart/identity";
+import { resolveCartIdentity } from "@/modules/cart";
 import { checkoutSchema, type CheckoutInput } from "./schema";
 import { placeOrderCore, type PlaceOrderResult } from "./place-order";
 
@@ -31,7 +31,7 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
         orderId: result.orderId,
         amountInPaisa: result.total,
         redirectUrl: `${process.env.NEXT_PUBLIC_APP_URL}/order/${result.orderId}/confirmation`,
-        cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/checkout`,
+        cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/order/${result.orderId}/confirmation?cancelled=1`,
       });
       return { ...result, checkoutUrl };
     } catch (safepayError) {

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import type { OrderStatus } from "@prisma/client";
+import { refundSafepayPayment } from "@/modules/payments";
 import type { AdminActionResult } from "./products";
 import { orderStatusSchema } from "./schema";
 
@@ -25,8 +26,9 @@ export class ConcurrentOrderUpdateError extends Error {
 
 /**
  * Core of `updateOrderStatus`, extracted from the "use server" wrapper so
- * the state machine + restock behaviour can be integration-tested without
- * Next request context. Auth is the caller's job (requireAdmin → adminId).
+ * the state machine + refund + restock behaviour can be integration-tested
+ * without Next request context. Auth is the caller's job (requireAdmin →
+ * adminId). Cancelling a PAID order issues the refund BEFORE mutating state.
  */
 export async function updateOrderStatusCore(
   orderId: string,
@@ -57,10 +59,41 @@ export async function updateOrderStatusCore(
     return { success: false, error: `Cannot move an order from ${order.orderStatus} to ${next}.` };
   }
 
-  // Restock when an unpaid order is cancelled. PAID orders are deliberately
-  // excluded: their refund/return path (Phase 3) must own restocking, so
-  // stock can never be credited twice for the same order.
-  const shouldRestock = next === "CANCELLED" && order.paymentStatus !== "PAID";
+  const wasPaid = order.paymentStatus === "PAID";
+  let refundIssued = false;
+
+  // Cancelling a PAID order must return the money BEFORE any state changes:
+  //  - Safepay: call the refund API; if it fails the cancellation is refused
+  //    and the order is left untouched (never cancel without refunding).
+  //  - COD: staff return cash offline, so cancellation itself records the
+  //    money as returned (paymentStatus -> REFUNDED below).
+  // Unpaid orders (PENDING/FAILED/REFUNDED) need no refund call.
+  if (next === "CANCELLED" && wasPaid && order.paymentMethod === "SAFEPAY") {
+    if (!order.safepayTracker) {
+      return {
+        success: false,
+        error:
+          "This paid order has no Safepay payment reference recorded. Refund it from the Safepay dashboard first — once it shows REFUNDED, cancel it here (the order will restock).",
+      };
+    }
+    try {
+      await refundSafepayPayment(order.safepayTracker, order.total);
+      refundIssued = true;
+    } catch (error) {
+      console.error(`Safepay refund refused for order ${order.orderNumber}:`, error);
+      return {
+        success: false,
+        error:
+          "Safepay rejected the refund — the order was NOT cancelled and nothing changed. Resolve the payment issue and try again.",
+      };
+    }
+  }
+
+  // Restock on EVERY cancellation. The old "skip if PAID" carve-out existed
+  // only because refunds weren't wired up yet; with the refund path in place,
+  // CANCELLED always pairs with returned stock (REFUNDED is distinct from
+  // PAID, so the CAS below keeps an already-refunded payment status intact).
+  const shouldRestock = next === "CANCELLED";
 
   try {
     await db.$transaction(
@@ -74,7 +107,12 @@ export async function updateOrderStatusCore(
             orderStatus: order.orderStatus,
             paymentStatus: order.paymentStatus,
           },
-          data: { orderStatus: next },
+          data: {
+            orderStatus: next,
+            // A cancelled PAID order now holds no captured money: Safepay
+            // refund succeeded above (or COD cash returned offline).
+            ...(next === "CANCELLED" && wasPaid ? { paymentStatus: "REFUNDED" as const } : {}),
+          },
         });
         if (claimed.count === 0) {
           throw new ConcurrentOrderUpdateError();
@@ -101,7 +139,7 @@ export async function updateOrderStatusCore(
                 previousStock: variation.stock - item.quantity,
                 adjustment: item.quantity,
                 newStock: variation.stock,
-                reason: `Order ${order.orderNumber} cancelled`,
+                reason: `Order ${order.orderNumber} cancelled${wasPaid ? " — payment refunded" : ""}`,
                 adminId,
               },
             });
@@ -111,6 +149,19 @@ export async function updateOrderStatusCore(
       { maxWait: 5000, timeout: 10000 }
     );
   } catch (error) {
+    if (refundIssued) {
+      // The refund is already on its way out — state may now disagree with
+      // the money. Loud log for reconciliation, whatever the failure was.
+      console.error(
+        `CRITICAL: refund issued for order ${order.orderNumber} (tracker ${order.safepayTracker}) but the cancellation could not be committed:`,
+        error
+      );
+      return {
+        success: false,
+        error:
+          "The refund was issued but the order could not be updated — verify the refund in the Safepay dashboard, then contact support.",
+      };
+    }
     if (error instanceof ConcurrentOrderUpdateError) {
       return { success: false, error: "This order was changed by someone else. Refresh and try again." };
     }
