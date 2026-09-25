@@ -1,0 +1,67 @@
+"use server";
+
+import { db } from "@/lib/db";
+import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/lib/require-admin";
+import type { AdminActionResult } from "./products";
+
+// Explicit `select` everywhere in this file — passwordHash is NEVER included,
+// by construction, not by remembering to strip it after the fact. girah.md §16.2.
+const SAFE_CUSTOMER_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  phone: true,
+  isActive: true,
+  createdAt: true,
+} as const;
+
+export async function getAdminCustomers(search?: string) {
+  await requireAdmin();
+  return db.user.findMany({
+    where: {
+      role: "CUSTOMER",
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" } },
+              { email: { contains: search, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    },
+    select: { ...SAFE_CUSTOMER_SELECT, _count: { select: { orders: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getAdminCustomerById(id: string) {
+  await requireAdmin();
+
+  const customer = await db.user.findUnique({
+    where: { id, role: "CUSTOMER" },
+    select: SAFE_CUSTOMER_SELECT,
+  });
+  if (!customer) return null;
+
+  const orders = await db.order.findMany({
+    where: { userId: id },
+    include: { items: true },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const savedShipping = await db.savedShipping.findUnique({ where: { userId: id } });
+
+  return { customer, orders, savedShipping };
+}
+
+export async function toggleCustomerActive(id: string): Promise<AdminActionResult> {
+  await requireAdmin();
+
+  const user = await db.user.findUnique({ where: { id }, select: { isActive: true } });
+  if (!user) return { success: false, error: "Customer not found." };
+
+  await db.user.update({ where: { id }, data: { isActive: !user.isActive } });
+  revalidatePath("/admin/customers");
+  return { success: true };
+}

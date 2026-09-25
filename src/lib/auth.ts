@@ -27,6 +27,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
+        if (!user.isActive) {
+          // Same generic failure as any other invalid login — never reveal
+          // that this specific account exists and is disabled.
+          return null;
+        }
+
         const isValidPassword = await bcrypt.compare(
           credentials.password as string,
           user.passwordHash

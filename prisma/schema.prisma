@@ -78,6 +78,7 @@ model User {
   email         String         @unique
   passwordHash  String
   phone         String?
+  isActive      Boolean        @default(true)
   savedShipping SavedShipping?
   cart          Cart?
   orders        Order[]
