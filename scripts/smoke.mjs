@@ -112,6 +112,7 @@ if (!variation) {
 const admin = await apiLogin("dev-admin@girah.test", "DevAdmin123!");
 const customer = await apiLogin("dev-customer@girah.test", "DevCustomer123!");
 
+await hit("public / renders (homepage)", "/");
 await hit("public /login renders", "/login");
 await hit("public /register renders", "/register");
 await hit("admin /admin/orders renders", "/admin/orders", admin);

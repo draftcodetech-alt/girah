@@ -547,6 +547,32 @@ check("updateOrderStatus action id resolved", Boolean(ids.updateOrderStatus), "m
   check("auth layout keeps the header", loginPage.html.includes('href="/cart"'));
   const accountOrders = await get("/account/orders", adminLogin.jar);
   check("account layout keeps the header", accountOrders.html.includes('href="/cart"'));
+
+  // ── Phase 9: homepage, header search, footer scoping, breadcrumbs ─────────
+  check(
+    "homepage is not create-next-app boilerplate",
+    !home.html.includes("Deploy Now") && !home.html.includes("create-next-app"),
+    "boilerplate leaked into /"
+  );
+  check("homepage hero links to /shop", home.html.includes('href="/shop"'));
+  check("homepage renders the footer", home.html.includes("<footer"));
+  check(
+    "header ships a search form posting to /shop",
+    home.html.includes('action="/shop"') && home.html.includes('name="search"')
+  );
+  check("auth layout renders the footer", loginPage.html.includes("<footer"));
+  check("account layout renders the footer", accountOrders.html.includes("<footer"));
+  check(
+    "admin console ships no storefront footer",
+    !adminHome.html.includes("<footer"),
+    "Footer leaked into /admin"
+  );
+  const shopPage = await get("/shop");
+  check(
+    "shop renders breadcrumbs",
+    shopPage.html.includes('aria-label="Breadcrumb"'),
+    `status ${shopPage.status}`
+  );
 }
 
 // ── cleanup ─────────────────────────────────────────────────────────────────

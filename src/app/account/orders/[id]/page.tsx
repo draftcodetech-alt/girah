@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getMyOrderById } from "@/modules/orders";
 import { formatPrice, formatDate } from "@/lib/format";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 export default async function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,6 +10,14 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
 
   return (
     <div className="max-w-[700px] mx-auto px-4 py-12">
+      <Breadcrumbs
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Account", href: "/account" },
+          { label: "Orders", href: "/account/orders" },
+          { label: `Order #${order.orderNumber}` },
+        ]}
+      />
       <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">
         Order #{order.orderNumber}
       </h1>

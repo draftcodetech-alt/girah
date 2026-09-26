@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getMyOrders } from "@/modules/orders";
 import { formatPrice } from "@/lib/format";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 export default async function OrdersPage() {
   // Phase 4 L5: inline guard (proxy.ts is defense-in-depth, not the only
@@ -17,6 +18,9 @@ export default async function OrdersPage() {
   if (orders.length === 0) {
     return (
       <div className="max-w-[1280px] mx-auto px-4 py-16 text-center">
+        <Breadcrumbs
+          items={[{ label: "Home", href: "/" }, { label: "Account", href: "/account" }, { label: "Orders" }]}
+        />
         <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">Orders</h1>
         <p className="font-body text-body text-muted mt-4">You haven&apos;t placed any orders yet.</p>
         <Link
@@ -31,6 +35,9 @@ export default async function OrdersPage() {
 
   return (
     <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
+      <Breadcrumbs
+        items={[{ label: "Home", href: "/" }, { label: "Account", href: "/account" }, { label: "Orders" }]}
+      />
       <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal mb-8">Orders</h1>
       <div className="divide-y divide-border">
         {orders.map((order) => (

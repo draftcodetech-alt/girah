@@ -52,6 +52,19 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 
 **Gate required at end of every phase:** `npm run test` + `npx tsc --noEmit` + `npm run lint` (baseline) + `npx prisma validate` + `npm run build` → commit → push.
 
+**Feature phases (9–16)** — agreed after the fix plan finished. User decisions: storefront-first ordering, transactional emails with **Resend** (dev-log fallback until the key exists), **hand-rolled** CSS/SVG charts, extras = **wishlist + site search** (no coupons, no dark mode).
+
+| Phase | Scope | Status |
+|-------|-------|--------|
+| **9** | Storefront shell: homepage rewrite, header (search + mobile menu), footer, breadcrumbs, `src/components/ui` primitives | ✅ **DONE** (§17) |
+| 10 | Reviews & recommendations: submit/display/moderation, related products, card ratings | ⬜ **(next)** |
+| 11 | Admin catalog completeness: product images, price, variation CRUD, category CRUD, delete | ⬜ |
+| 12 | Account completion: addresses (`SavedShipping` wiring), cancel/reorder/receipt, sub-nav | ⬜ |
+| 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ⬜ |
+| 14 | Emails (Resend): order/status/welcome + forgot/reset password | ⬜ |
+| 15 | Wishlist + dedicated `/search` results page | ⬜ |
+| 16 | Design system & polish: primitives migration, skeletons, a11y pass | ⬜ |
+
 ---
 
 ## 3. Review findings (source of the phase plan)
@@ -254,7 +267,9 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**All 8 fix phases are complete** (§4, §10–§16). Remaining work is outside the fix plan: the Phase 6 and Phase 7 manual browser checklists (§14.5, §15.5), adding the two CI secrets (§16.4), and whatever features/review rounds come next. Feature work was frozen until this plan finished — that freeze can now be lifted.
+**Phase 10 — reviews & recommendations** (feature plan, §2): storefront rating summary + approved-review list + submit form on `/product/[slug]` (the `Review` model exists but has zero UI), average rating on `ProductCard`, related products, and an admin moderation queue to replace the `/admin/reviews` stub.
+
+Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5) and **Phase 9** (§17.5). CI secrets were added in Phase 8 (§16.4) and the pipeline is green.
 
 ---
 
@@ -647,3 +662,59 @@ The whole point of making the scripts self-contained: created a scratch Neon DB 
 - **Playwright**: declined by user decision — the HTTP suites (68 checks, no browser deps, run in CI) are the accepted automation layer.
 - **Coverage**: explicitly declined; test counts in §2 are the measure.
 - **Cart stepper pattern**: `useActionState` + hidden `op` inputs + `role="alert"` is now the repo convention for client-dispatched action feedback (documented in §8-adjacent README conventions).
+
+
+---
+
+## 17. Phase 9 — storefront shell — detailed log (what & why)
+
+First feature phase (feature plan §2). The fix plan ended at Phase 8; this phase only **adds UI** — no schema changes, no new dependencies, no behaviour changes to existing flows.
+
+### 17.1 Decisions (user-confirmed umbrella + per-phase defaults D1–D5)
+
+- Umbrella: storefront-first · Resend emails later · hand-rolled charts · extras = wishlist + site search.
+- **D1** Footer in the three Header layouts (`(storefront)`, `(auth)`, `account`) — never admin (E2E asserts `/admin` has no `href="/cart"`; footer must not leak either).
+- **D2** Breadcrumbs on storefront + account only; admin keeps its sidebar.
+- **D3** Hero is text + brand-color panels — no photo (`public/` had only create-next-app svgs; photography is a content task).
+- **D4** **No DB query in Header** — header stays static (wordmark, Shop, search, Account/Sign In, Cart, hamburger). Category discovery lives in the footer, homepage strip and `/shop` tabs.
+- **D5** Footer links = existing routes only. About/FAQ/Contact/legal pages do not exist and are **not** linked (a unit test enforces a dead-link whitelist).
+
+### 17.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | Homepage was untouched create-next-app boilerplate ("Deploy Now", `next.svg`, dark-mode template) | Real data-driven homepage: hero → category strip (hidden when empty) → featured grid (first 6 of `getProducts`, using `ProductCard`'s existing `number` prop) → trust strip → story band; empty-DB fallback copy | `src/app/(storefront)/page.tsx` (69 boilerplate lines replaced) |
+| 2 | `Header` was a "MINIMAL SCAFFOLD" (logo + Account + Cart only), no search, no mobile nav | Rewritten: desktop nav + GET search form → `/shop` + auth link + `CartBadge` + hamburger; new client `MobileMenu` drawer (search form, links, `aria-expanded`/`aria-controls`, Escape closes) | `src/components/shared/Header.tsx`, `MobileMenu.tsx` |
+| 3 | **No footer anywhere** in the app | New async `Footer` (brand blurb, shop + category links from `getCategories()`, account links, trust line, ©) mounted in the 3 layouts, which now wrap children in `<main className="flex-1">` (body is already `flex flex-col`, so the footer sticks to the bottom) | `src/components/shared/Footer.tsx` + 3 layouts |
+| 4 | No breadcrumbs | Accessible `Breadcrumbs` (`nav[aria-label]`, `aria-current="page"` on the last crumb) on `/shop`, `/product/[slug]` (with category), `/account`, `/account/orders`, `/account/orders/[id]`, `/account/profile` | `src/components/shared/Breadcrumbs.tsx` + 6 pages |
+| 5 | No shared UI primitives — every page repeats raw class strings | `src/components/ui/{Button,ButtonLink,Input,Field}.tsx` on the design tokens (`--radius-control`, `bg-sage`, `border-border`, …). **Only Phase 9 UI uses them for now** — migrating old call sites is Phase 16 | `src/components/ui/` |
+| 6 | create-next-app assets in `public/` | `next/vercel/file/globe/window.svg` deleted (only the boilerplate homepage referenced them) | `public/` |
+
+### 17.3 Empty-database proof (homepage must survive CI's unseeded test DB)
+
+Scratch Neon DB `girah_p9fresh` (migrated, never seeded) + `next start -p 3101`: `/` → **200**, featured grid renders the "being restocked" fallback, category strip correctly hidden, `<footer>` present, hero CTA present, `/shop` + `/login` → 200. Scratch DB dropped afterwards; build output confirms `/` is `ƒ (Dynamic)` (no build-time data baked in).
+
+### 17.4 Tests & gate
+
+- Unit **125 → 151** (new `tests/unit/storefront-shell.test.ts`, **26**): homepage not boilerplate + data-driven, svgs deleted, Header search/mobile-menu wiring, footer in 3 layouts and absent in admin, **dead-link whitelist**, breadcrumb accessibility + presence on 6 pages, primitives exist and use tokens (incl. the `Omit<…, "size">` guard).
+- Smoke **8 → 9 pages** (`GET /` added). E2E **68 → 76 checks**: no boilerplate on `/`, hero → `/shop`, footer on `/` + `/login` + `/account/orders`, **no footer in `/admin`**, header search form, breadcrumbs on `/shop`.
+- Gate: `npm run test` **275/275** (151 unit / 13 files + 124 integration / 23 files) · `tsc --noEmit` clean · `npm run lint` **0 errors / 0 warnings** · `prisma validate` + `migrate status` (7, none new) · `npm run build` green · **smoke 9/9 + E2E 76/76** on dev DB · fresh-DB proof (§17.3).
+
+### 17.5 Manual browser checklist (needs a human; server on `:3100`, log `/tmp/opencode/phase9-server.log`)
+
+1) Desktop header shows wordmark + Shop + search box + Account + Cart · 2) search box submits → `/shop?search=…` results · 3) at ≤640px the hamburger opens the drawer (search + links), Escape/close button dismisses it · 4) footer renders on `/`, `/shop`, `/login`, `/account` but **not** `/admin` · 5) footer category links filter `/shop` · 6) homepage shows hero + featured products + trust strip + story band · 7) breadcrumbs on `/shop` and a product page (category crumb filters correctly) · 8) account pages show Home / Account / … crumbs.
+
+### 17.6 Errors hit in Phase 9 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | `tsc`: `Input.tsx(15): Type '"md"' is not assignable to type 'never'` (+ call-site errors in Header/MobileMenu) | intersecting my `size?: "md"\|"sm"` with React's numeric `size` on `InputHTMLAttributes` → `never` | `Omit<InputHTMLAttributes<HTMLInputElement>, "size">` — asserted by the unit test |
+| 2 | `tsc`/lint: `ButtonLink` imported the deleted `ButtonLinkProps` | I removed that stray type from `Button.tsx` in the same batch I created it | import trimmed to `buttonClassName` + variant/size types |
+| 3 | Dead-link unit test failed: 0 hrefs found | Footer routes live in `href: "/shop"` const arrays and flow through `<FooterLink>` — there are no literal `href="…"` attributes to match | regex now matches both `href="…"` and `href: "…"` |
+| 4 | A multi-step shell block returned "(no output)" mid-phase | tooling/quoting noise in a throwaway `set -e` block — the same steps all worked when run individually | re-ran stepwise; no code impact |
+
+### 17.7 Decisions recorded
+
+- Primitives are **additive**: existing forms/pages keep their inline classes until Phase 16 (avoids touching Phase 1–6 verified behaviour).
+- `Field` ships unused-by-pages on purpose (Phase 12/14 forms adopt it); the unit test keeps it honest.
+- Homepage `metadata` untouched (root title/description apply); no per-page `<title>` experiments (Phase 7 lesson).

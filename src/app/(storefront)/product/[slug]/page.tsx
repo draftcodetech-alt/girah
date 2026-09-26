@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getProductBySlug } from "@/modules/catalog";
 import { ProductGallery } from "@/components/storefront/ProductGallery";
 import { PurchasePanel } from "@/components/storefront/PurchasePanel";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
@@ -17,6 +18,14 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   return (
     <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
+      <Breadcrumbs
+        items={[
+          { label: "Home", href: "/" },
+          { label: "Shop", href: "/shop" },
+          { label: product.category.name, href: `/shop?category=${product.category.slug}` },
+          { label: product.name },
+        ]}
+      />
       <div className="flex flex-col lg:flex-row gap-12">
         <div className="lg:w-[60%]">
           <ProductGallery images={product.images} alt={product.name} />

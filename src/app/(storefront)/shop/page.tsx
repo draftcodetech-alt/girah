@@ -4,6 +4,7 @@ import { ProductCard } from "@/components/storefront/ProductCard";
 import { CategoryTabs } from "@/components/storefront/CategoryTabs";
 import { SortSelect } from "@/components/storefront/SortSelect";
 import { ShopFilters } from "@/components/storefront/ShopFilters";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 type ShopPageProps = {
   searchParams: Promise<{
@@ -31,6 +32,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
   return (
     <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
+      <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Shop" }]} />
       <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal text-center">
         Shop
       </h1>

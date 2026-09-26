@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { logout } from "@/modules/accounts/actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 export default async function AccountPage() {
   const session = await auth();
@@ -14,6 +15,7 @@ export default async function AccountPage() {
 
   return (
     <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
+      <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Account" }]} />
       <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">My Account</h1>
       <p className="font-body text-body text-muted mt-2">Welcome back, {session.user.name}</p>
 
