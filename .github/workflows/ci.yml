@@ -23,6 +23,8 @@ jobs:
       # (e.g. postgresql://…/girah_ci on the same Neon instance).
       DATABASE_URL_TEST: ${{ secrets.DATABASE_URL_TEST }}
       # Non-secret CI stand-ins mirroring .env.example — no real credentials.
+      # (The E2E suite's real Cloudinary upload check self-skips while
+      # CLOUDINARY_API_KEY is the placeholder "0".)
       AUTH_SECRET: ci-secret-not-for-production
       NEXTAUTH_SECRET: ci-secret-not-for-production
       AUTH_URL: http://localhost:3100

@@ -1023,8 +1023,14 @@ let p11Order = null;
   });
   check("refused upload stores no row", imageCountAfterRefusal === 2, `${imageCountAfterRefusal}`);
 
-  // Real upload only where credentials exist — CI has no Cloudinary secrets.
-  if (process.env.CLOUDINARY_CLOUD_NAME) {
+  // Real upload only where usable credentials exist — CI injects placeholder
+  // stand-ins (CLOUDINARY_API_KEY: "0") mirroring .env.example, so the key
+  // check keeps that run honest without ever calling Cloudinary for real.
+  const hasRealCloudinary =
+    Boolean(process.env.CLOUDINARY_CLOUD_NAME) &&
+    Boolean(process.env.CLOUDINARY_API_KEY) &&
+    process.env.CLOUDINARY_API_KEY !== "0";
+  if (hasRealCloudinary) {
     const png = Buffer.from(
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
       "base64"
@@ -1046,7 +1052,7 @@ let p11Order = null;
       uploaded?.url ?? "row missing"
     );
   } else {
-    check("real Cloudinary upload (skipped — no CLOUDINARY_CLOUD_NAME)", true, "skipped");
+    check("real Cloudinary upload (skipped — placeholder or missing credentials)", true, "skipped");
   }
 
   // Reorder via the action: gapless sortOrder either way.
