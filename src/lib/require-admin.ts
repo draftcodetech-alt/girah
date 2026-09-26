@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth";
 import { getFreshAccount } from "@/lib/account-guard";
 
 /**
- * Call this at the top of every admin Server Action, starting in Phase 8.
+ * Call this at the top of every admin Server Action.
  * Never returns a silent false, so a forgotten check fails loud, not quiet.
  *
  * Phase 1 C2: re-reads the account from the DB instead of trusting the

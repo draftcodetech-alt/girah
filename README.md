@@ -46,6 +46,37 @@ npm run test:watch
 
 Tests always run against the **`girah_test`** database — derived from `DATABASE_URL` (or taken as-is from `DATABASE_URL_TEST` in CI) — never the dev/prod database. Integration files run serially and the global setup migrates the test schema.
 
+### HTTP end-to-end + smoke (no browser)
+
+```bash
+npm run build
+DATABASE_URL=<url> npm start &        # production server, default port 3100
+npm run test:smoke                    # 8 sensitive pages render without error
+npm run test:e2e                      # 68 checks: actions, redirects, guards, 404s
+```
+
+Both scripts are **self-contained**: they create their own users, products and
+probe order, then clean up, so they work against a fresh unseeded database
+(`E2E_BASE_URL` overrides the server origin; point `DATABASE_URL` at the same
+database the server is using).
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and on pull requests:
+prisma validate → lint (0/0) → `tsc` → unit tests → integration tests → build →
+boot the production server → smoke + E2E.
+
+It needs two repository secrets (**Settings → Secrets → Actions**):
+
+| Secret | Purpose |
+|--------|---------|
+| `DATABASE_URL` | Neon connection string (locates the test database; never written to by tests) |
+| `DATABASE_URL_TEST` | Isolated database used by the integration suite and E2E (e.g. `…/girah_ci`) |
+
+Everything else (`AUTH_SECRET`, Safepay/Cloudinary placeholders, …) is set
+inline in the workflow as non-secret stand-ins — there are no real credentials
+in CI.
+
 ## Scripts
 
 | Script | Purpose |
@@ -55,6 +86,8 @@ Tests always run against the **`girah_test`** database — derived from `DATABAS
 | `npm start` | Serve the production build |
 | `npm run lint` | ESLint (must be 0 errors / 0 warnings) |
 | `npm test` | Unit + integration suites |
+| `npm run test:smoke` | Page-render smoke suite (server must be running) |
+| `npm run test:e2e` | 68-check HTTP E2E suite (server must be running) |
 | `npx prisma migrate dev` | Create/apply migrations |
 | `npx prisma db seed` | Seed demo data |
 
@@ -76,6 +109,8 @@ src/modules     domain modules — accounts, admin, cart, catalog, checkout, ord
 src/lib         cross-cutting helpers (db, auth, session, format, rate-limit, …)
 prisma          schema + migrations + seed
 tests/          unit/, integration/, setup/
+scripts/        HTTP E2E + smoke suites (npm run test:e2e / test:smoke)
+.github/        CI workflow
 ```
 
 ## Conventions
@@ -87,4 +122,4 @@ tests/          unit/, integration/, setup/
 
 ## Status
 
-This repo is mid-way through an 8-phase bug-fix plan: phases 1–7 are complete (security, stock/order integrity, Safepay, accounts/authz, cart/catalog, forms/admin feedback, hygiene), phase 8 (test automation + CI) is pending. The full plan, findings and per-phase logs live in [`contextopencode.md`](./contextopencode.md).
+All 8 phases of the bug-fix plan are complete (security, stock/order integrity, Safepay, accounts/authz, cart/catalog, forms/admin feedback, hygiene, test automation + CI). The full plan, findings and per-phase logs live in [`contextopencode.md`](./contextopencode.md).

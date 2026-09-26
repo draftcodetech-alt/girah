@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getCart } from "@/modules/cart";
-import { updateCartItemQuantity, removeCartItem } from "@/modules/cart/actions";
+import { CartLineControls } from "@/components/storefront/CartLineControls";
 import { formatPrice } from "@/lib/format";
 
 export default async function CartPage() {
@@ -32,21 +32,7 @@ export default async function CartPage() {
 
       <div className="flex flex-col lg:flex-row gap-12 mt-8 items-start">
         <div className="flex-1 w-full divide-y divide-border">
-          {cart.items.map((item) => {
-                        async function decrement() {
-              "use server";
-              await updateCartItemQuantity(item.id, item.quantity - 1);
-            }
-            async function increment() {
-              "use server";
-              await updateCartItemQuantity(item.id, item.quantity + 1);
-            }
-            async function remove() {
-              "use server";
-              await removeCartItem(item.id);
-            }
-
-            return (
+          {cart.items.map((item) => (
               <div key={item.id} className="flex gap-4 py-6">
                 <div className="relative w-[120px] aspect-4/5 shrink-0 rounded-[var(--radius-control)] overflow-hidden bg-sage-light">
                   {item.imageUrl && (
@@ -66,43 +52,17 @@ export default async function CartPage() {
                   <p className="font-body text-small text-muted mt-1">{item.variationName}</p>
                   <p className="font-body text-body text-sage mt-2">{formatPrice(item.unitPrice)}</p>
 
-                  <div className="flex items-center gap-4 mt-4">
-                    <div className="flex items-center h-12 w-[144px] rounded-[var(--radius-control)] border border-border">
-                      <form action={decrement}>
-                        <button
-                          aria-label="Decrease quantity"
-                          disabled={item.quantity <= 1 || !item.isEnabled || item.availableStock <= 0}
-                          className="flex-1 h-12 w-12 disabled:text-placeholder text-charcoal"
-                        >
-                          −
-                        </button>
-                      </form>
-                      <span className="font-body text-body px-3 flex-1 text-center">{item.quantity}</span>
-                      <form action={increment}>
-                        <button
-                          aria-label="Increase quantity"
-                          disabled={
-                            item.quantity >= item.availableStock ||
-                            !item.isEnabled ||
-                            item.availableStock <= 0
-                          }
-                          className="flex-1 h-12 w-12 disabled:text-placeholder text-charcoal"
-                        >
-                          +
-                        </button>
-                      </form>
-                    </div>
-                    <form action={remove}>
-                      <button aria-label={`Remove ${item.productName}`} className="text-muted hover:text-error font-body text-small">
-                        Remove
-                      </button>
-                    </form>
-                  </div>
+                  <CartLineControls
+                    cartItemId={item.id}
+                    productName={item.productName}
+                    quantity={item.quantity}
+                    availableStock={item.availableStock}
+                    isEnabled={item.isEnabled}
+                  />
                 </div>
                 <p className="font-body text-body font-medium text-charcoal">{formatPrice(item.subtotal)}</p>
               </div>
-            );
-          })}
+            ))}
         </div>
 
         <div className="w-full lg:w-[360px] shrink-0 bg-sage-light rounded-[var(--radius-surface)] p-6 lg:sticky lg:top-24">

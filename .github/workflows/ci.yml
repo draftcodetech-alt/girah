@@ -1,0 +1,97 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Real database — only used to locate the test database; tests never write to it.
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      # Isolated database for the integration suite and the E2E/smoke runs
+      # (e.g. postgresql://…/girah_ci on the same Neon instance).
+      DATABASE_URL_TEST: ${{ secrets.DATABASE_URL_TEST }}
+      # Non-secret CI stand-ins mirroring .env.example — no real credentials.
+      AUTH_SECRET: ci-secret-not-for-production
+      NEXTAUTH_SECRET: ci-secret-not-for-production
+      AUTH_URL: http://localhost:3100
+      NEXTAUTH_URL: http://localhost:3100
+      NEXT_PUBLIC_APP_URL: http://localhost:3100
+      SAFEPAY_API_KEY: ci-placeholder
+      SAFEPAY_API_SECRET: ci-placeholder
+      SAFEPAY_WEBHOOK_SECRET: ci-placeholder
+      CLOUDINARY_CLOUD_NAME: ci
+      CLOUDINARY_API_KEY: "0"
+      CLOUDINARY_API_SECRET: ci-placeholder
+      RESEND_API_KEY: ci-placeholder
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Require database secrets
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$DATABASE_URL_TEST" ]; then
+            echo "::error::Set the DATABASE_URL and DATABASE_URL_TEST repository secrets (Settings → Secrets → Actions)."
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: Prisma generate + validate
+        run: |
+          npx prisma generate
+          npx prisma validate
+
+      - name: Lint (must be 0 errors / 0 warnings)
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      # Global setup migrates DATABASE_URL_TEST (prisma migrate deploy) — the
+      # suite never touches the dev database.
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Build
+        run: npm run build
+
+      - name: Smoke + E2E against the production server
+        run: |
+          set -e
+          DATABASE_URL="$DATABASE_URL_TEST" npx next start -p 3100 > /tmp/girah-server.log 2>&1 &
+          ready=0
+          for i in $(seq 1 30); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:3100/login)" = "200" ]; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != "1" ]; then
+            echo "::error::server never became ready"
+            tail -100 /tmp/girah-server.log
+            exit 1
+          fi
+          DATABASE_URL="$DATABASE_URL_TEST" npm run test:smoke
+          DATABASE_URL="$DATABASE_URL_TEST" npm run test:e2e

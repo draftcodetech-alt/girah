@@ -42,13 +42,13 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | Phase | Scope | Status |
 |-------|-------|--------|
 | **1** | Critical security: C1 cart quantity injection, C2 stale-session auth, C3 trustHost/false-success login, .env.example, **Vitest harness** | ✅ **DONE** |
-| 2 | Stock & order integrity: restock-on-cancel, duplicate-order race, adjustStock race, order-number retry, state machine, audit actor | ⬜ |
-| 3 | Safepay flow: retry action + payment-state confirmation page, cancelUrl fix, webhook amount check/JSON guard/refunds | ⬜ |
-| 4 | Accounts & authz: email lowercase, P2002 handling, profile refresh, toggle `role:CUSTOMER` guard, requireAdmin error UX | ⬜ |
-| 5 | Cart & catalog: guest-cart merge, qty-0 fix, disabled-line UX, float price filter, Rs. Infinity, filter preservation, shared formatPrice | ⬜ |
-| 6 | Forms & admin feedback: React-19 form-reset fix (6 forms), action-result handling in admin rows | ✅ **DONE** |
+| 2 | Stock & order integrity: restock-on-cancel, duplicate-order race, adjustStock race, order-number retry, state machine, audit actor | ✅ **DONE** (§10) |
+| 3 | Safepay flow: retry action + payment-state confirmation page, cancelUrl fix, webhook amount check/JSON guard/refunds | ✅ **DONE** (§11) |
+| 4 | Accounts & authz: email lowercase, P2002 handling, profile refresh, toggle `role:CUSTOMER` guard, requireAdmin error UX | ✅ **DONE** (§12) |
+| 5 | Cart & catalog: guest-cart merge, qty-0 fix, disabled-line UX, float price filter, Rs. Infinity, filter preservation, shared formatPrice | ✅ **DONE** (§13) |
+| 6 | Forms & admin feedback: React-19 form-reset fix (6 forms), action-result handling in admin rows | ✅ **DONE** (§14) |
 | 7 | Hygiene: lint → 0, delete temp files, 404/error/loading pages, proxy callbackUrl, Header scoping, TZ dates, README, Prisma cleanup | ✅ **DONE** (§15) |
-| 8 | Test automation full-out: CI workflow, more suites, optional Playwright | ⬜ **(next)** (harness landed in Phase 1 by user request) |
+| 8 | Test automation: CI workflow, committed E2E/smoke suites, cart-stepper result surfacing (Playwright + coverage declined) | ✅ **DONE** (§16) |
 
 **Gate required at end of every phase:** `npm run test` + `npx tsc --noEmit` + `npm run lint` (baseline) + `npx prisma validate` + `npm run build` → commit → push.
 
@@ -254,7 +254,7 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**Phase 8 — test automation:** CI workflow (lint 0/0 + `tsc` + tests + prisma + build), more suites, optional Playwright, and committing the E2E scripts (currently living in `/tmp/opencode/`, wiped between sessions) under `scripts/`. Phases 1–7 complete (§4, §10–§15).
+**All 8 fix phases are complete** (§4, §10–§16). Remaining work is outside the fix plan: the Phase 6 and Phase 7 manual browser checklists (§14.5, §15.5), adding the two CI secrets (§16.4), and whatever features/review rounds come next. Feature work was frozen until this plan finished — that freeze can now be lifted.
 
 ---
 
@@ -588,3 +588,61 @@ Verified empirically on the production build, and documented by Next itself (`no
 | 6 | `/product/<missing>` was 404 before Phase 7, 200 after | streaming trade-off (§15.3) — first suspected `generateMetadata` could fix it | documented + `noindex` asserted; `generateMetadata` experiments reverted |
 | 7 | `/tmp/opencode/*.mjs` scripts (E2E, smoke) are not in git | `/tmp` is wiped between sessions (same as §13.5 #3) | recreate each time; **Phase 8 should commit them under `scripts/`** |
 
+
+---
+
+## 16. Phase 8 — test automation & CI — detailed log (what & why)
+
+### 16.1 Scope decisions (user-confirmed before execution)
+
+| # | Question | Decision |
+|---|----------|----------|
+| 1 | CI database | **Neon via GitHub secrets** (`DATABASE_URL` + a dedicated `DATABASE_URL_TEST`). No local `postgres` service container: `@prisma/adapter-neon` is WebSocket/Neon-only — swapping drivers for CI was explicitly rejected. |
+| 2 | Browser E2E | **No Playwright.** Commit the existing HTTP E2E/smoke scripts into `scripts/` and run them in CI instead. |
+| 3 | Functional gaps | **Fix the cart-stepper silent failure** — the only functional change in this phase. |
+| 4 | Coverage tooling | **No** coverage tooling. |
+
+### 16.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | Cart steppers ignored `CartActionResult` — an admin-refused / stock-refused change looked like a success (steppers revert silently) | New `"use client"` `CartLineControls` with `useActionState` over hidden `op` inputs (`inc\|dec\|remove`); refusal renders `role="alert"`. Inline `"use server"` closures removed from the cart page (map → expression form). DOM/aria/disabled rules unchanged so the E2E `stepperDisabled()`/`lineBlock()` checks still pass. | `src/components/storefront/CartLineControls.tsx`, `src/app/(storefront)/cart/page.tsx` |
+| 2 | Guard against a silent re-regression | Unit test asserts the refusal path renders the alert, the success path doesn't, and `op` values are the only dispatch | `tests/unit/cart-line-controls.test.ts` (**6**) |
+| 3 | E2E + smoke lived only in `/tmp/opencode/` — wiped between sessions (lost once, already recreated 3×) | Committed as `scripts/e2e.mjs` + `scripts/smoke.mjs`; `npm run test:e2e` / `npm run test:smoke`. `ROOT` derived from `import.meta.url`; `E2E_BASE_URL` (default `http://localhost:3100`) instead of a hardcoded origin. | `scripts/`, `package.json` |
+| 4 | Both suites were **dev-DB-state dependent**: hardcoded variation ids (`V_SMALL`…), an existing `CONFIRMED` order, seed product slugs, and `category.findFirst()` (null → crash on an empty DB) | Fully self-provisioning: `fixtureProduct()` creates product + 3 variations (named like the seed's) in a created-or-reused category; `probeOrder()` creates the order to probe the illegal transition; smoke gained `ensureUser()` (the 2 known test accounts) + a fixture variation when unseeded. Assertions retargeted to the fixture's names/slugs. | `scripts/e2e.mjs`, `scripts/smoke.mjs` |
+| 5 | No CI at all | `.github/workflows/ci.yml`: secrets guard → `npm ci` → `prisma generate` + `validate` → lint 0/0 → `tsc` → unit → integration → build → boot `next start` on the **test** DB → smoke → E2E. Concurrency cancel + `permissions: contents: read` + 25-min timeout. | `.github/workflows/ci.yml` |
+| 6 | Stale comments / docs | `require-admin.ts` "starting in Phase 8" reworded; README got **E2E**, **CI** and `scripts/` sections; §2 rows 2–8 marked ✅; §9 rewritten. | `src/lib/require-admin.ts`, `README.md`, this file |
+
+### 16.3 Fresh-database proof (why #4 mattered)
+
+The whole point of making the scripts self-contained: created a scratch Neon DB `girah_e2efresh` (migrations only, **never seeded**), built, ran `next start` against it → **smoke 8/8 + E2E 68/68 on an empty database**, then verified leftovers: `products 0, orders 0, carts 0` (only the 2 ensured accounts + a fixture category). Scratch DB dropped afterwards. Both suites also re-run green against the dev DB (final gate).
+
+### 16.4 CI design & the secrets you must add
+
+- **Required repository secrets** (Settings → Secrets → Actions — the agent cannot create them, so CI stays red until they exist):
+  - `DATABASE_URL` — main Neon URL (only used to *locate* the test DB; tests never write to it)
+  - `DATABASE_URL_TEST` — isolated DB for integration tests + E2E, e.g. `…/girah_ci`
+- Everything else is an **inline non-secret stand-in** mirroring `.env.example` (`AUTH_SECRET`, `NEXT_PUBLIC_APP_URL=http://localhost:3100`, `SAFEPAY_*`, `CLOUDINARY_*`, `RESEND_API_KEY`) — no real credentials in CI.
+- `npx prisma generate` is an explicit step (package.json has no postinstall).
+- A **secrets guard** fails fast with an actionable error rather than silently running E2E against the main DB.
+- Integration tests resolve the test DB from `DATABASE_URL_TEST` (`tests/setup/env.ts`); the global setup runs `prisma migrate deploy` against it — CI never migrates dev.
+- **Risk flagged:** `@prisma/adapter-neon` needs WebSocket egress to Neon from GitHub runners. If that is blocked, the fallback is lint/tsc/unit/build-only CI (flagged to the user; no adapter swap planned).
+
+### 16.5 Tests & gate
+
+- Unit **119 → 125** (new `cart-line-controls`, 6); integration unchanged **124**; total **243 → 249**.
+- Gate: `npm run test` **249/249** · `tsc --noEmit` clean · **`npm run lint` 0 errors / 0 warnings** · `prisma validate` + `migrate status` (7 migrations, none new) · `npm run build` green · **smoke 8/8 + E2E 68/68** on both the fresh and the dev database · **CI workflow validated** (YAML parse OK).
+
+### 16.6 Errors hit in Phase 8 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | Throwaway `echo "target db: $(node -e "new URL(process.argv[1])")"` → `TypeError: Invalid URL`, and `migrate deploy` then ran without my explicit env | `process.argv[1]` was never passed to that inline node call; the empty `DATABASE_URL` made Prisma fall back to `.env` | Verified afterwards that the scratch URL/migrations were actually correct (the error was cosmetic — my debug echo, not the pipeline); dropped the throwaway line |
+| 2 | `prisma db execute` with a `SELECT` → "Either --url or --schema must be provided" | I passed `DATABASE_URL` via env instead of `--url` (execute doesn't read it) | Used `--url` / skipped the probe — migration status already proved the schema |
+
+### 16.7 Decisions recorded
+
+- **Soft-404 trade-off stands** (§15.3): E2E asserts `noindex` instead of a 404 status on streamed pages.
+- **Playwright**: declined by user decision — the HTTP suites (68 checks, no browser deps, run in CI) are the accepted automation layer.
+- **Coverage**: explicitly declined; test counts in §2 are the measure.
+- **Cart stepper pattern**: `useActionState` + hidden `op` inputs + `role="alert"` is now the repo convention for client-dispatched action feedback (documented in §8-adjacent README conventions).
