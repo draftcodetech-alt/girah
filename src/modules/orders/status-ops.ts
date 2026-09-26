@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import type { OrderStatus } from "@prisma/client";
 import { refundSafepayPayment } from "@/modules/payments";
-import type { AdminActionResult } from "./products";
+import type { OrderActionResult } from "./types";
 import { orderStatusSchema } from "./schema";
 
 // Allowed order-status transitions (Phase 2). Linear forward path with
@@ -25,16 +25,18 @@ export class ConcurrentOrderUpdateError extends Error {
 }
 
 /**
- * Core of `updateOrderStatus`, extracted from the "use server" wrapper so
- * the state machine + refund + restock behaviour can be integration-tested
- * without Next request context. Auth is the caller's job (requireAdmin →
- * adminId). Cancelling a PAID order issues the refund BEFORE mutating state.
+ * Core of the order-status state machine, shared by the admin wrapper
+ * (`updateOrderStatus`, adminId set) and the customer `cancelMyOrder` action
+ * (adminId null). Extracted from the "use server" wrapper so the state
+ * machine + refund + restock behaviour can be integration-tested without
+ * Next request context. Auth is the caller's job. Cancelling a PAID order
+ * issues the refund BEFORE mutating state.
  */
 export async function updateOrderStatusCore(
   orderId: string,
   input: unknown,
-  adminId: string
-): Promise<AdminActionResult> {
+  adminId: string | null
+): Promise<OrderActionResult> {
   const parsed = orderStatusSchema.safeParse(input);
   if (!parsed.success) {
     return { success: false, error: "Invalid status." };
@@ -139,7 +141,10 @@ export async function updateOrderStatusCore(
                 previousStock: variation.stock - item.quantity,
                 adjustment: item.quantity,
                 newStock: variation.stock,
-                reason: `Order ${order.orderNumber} cancelled${wasPaid ? " — payment refunded" : ""}`,
+                reason:
+                  adminId === null
+                    ? `Order ${order.orderNumber} cancelled by customer`
+                    : `Order ${order.orderNumber} cancelled${wasPaid ? " — payment refunded" : ""}`,
                 adminId,
               },
             });
@@ -170,4 +175,22 @@ export async function updateOrderStatusCore(
   }
 
   return { success: true };
+}
+
+/**
+ * Customer self-service cancel eligibility (Phase 12): UNPAID orders only,
+ * while the shop hasn't started preparing them (PENDING/CONFIRMED). Paid,
+ * PROCESSING/SHIPPED, DELIVERED and CANCELLED orders must go through
+ * support/admin — this keeps the customer path entirely refund-free.
+ * Pure so both the page (to decide whether to render the button) and the
+ * action (to re-validate, never trusting the client) share ONE rule.
+ */
+export function canCustomerCancel(order: {
+  orderStatus: string;
+  paymentStatus: string;
+}): boolean {
+  return (
+    order.paymentStatus === "PENDING" &&
+    (order.orderStatus === "PENDING" || order.orderStatus === "CONFIRMED")
+  );
 }

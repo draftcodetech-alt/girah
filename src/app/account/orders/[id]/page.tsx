@@ -1,7 +1,10 @@
 import { notFound } from "next/navigation";
-import { getMyOrderById } from "@/modules/orders";
+import Link from "next/link";
+import { getMyOrderById, canCustomerCancel } from "@/modules/orders";
 import { formatPrice, formatDate } from "@/lib/format";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
+import { CancelOrderButton } from "@/components/storefront/CancelOrderButton";
+import { ReorderButton } from "@/components/storefront/ReorderButton";
 
 export default async function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -59,6 +62,21 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
         <p className="font-body text-body text-charcoal">
           Order: {order.orderStatus} — Payment: {order.paymentStatus}
         </p>
+      </div>
+
+      {/* Action bar (Phase 12): cancel only for unpaid/not-yet-prepared
+          orders (server re-validates), reorder anywhere, receipt always. */}
+      <div className="flex flex-wrap items-start gap-4 mt-8">
+        {canCustomerCancel(order) && (
+          <CancelOrderButton orderId={order.id} orderNumber={order.orderNumber} />
+        )}
+        <ReorderButton orderId={order.id} />
+        <Link
+          href={`/account/orders/${order.id}/receipt`}
+          className="h-12 px-6 inline-flex items-center rounded-[var(--radius-control)] font-body text-button font-semibold bg-cream text-charcoal border border-border"
+        >
+          View receipt
+        </Link>
       </div>
     </div>
   );

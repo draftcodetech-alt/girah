@@ -59,8 +59,8 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | **9** | Storefront shell: homepage rewrite, header (search + mobile menu), footer, breadcrumbs, `src/components/ui` primitives | ✅ **DONE** (§17) |
 | **10** | Reviews & recommendations: submit/display/moderation, related products, card ratings | ✅ **DONE** (§18) |
 | 11 | Admin catalog completeness: product images, price, variation CRUD, category CRUD, delete | ✅ **DONE** (§19) |
-| 12 | Account completion: addresses (`SavedShipping` wiring), cancel/reorder/receipt, sub-nav | ⬜ **(next)** |
-| 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ⬜ |
+| **12** | Account completion: addresses (`SavedShipping` wiring), cancel/reorder/receipt, sub-nav | ✅ **DONE** (§20) |
+| 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ⬜ **(next)** |
 | 14 | Emails (Resend): order/status/welcome + forgot/reset password | ⬜ |
 | 15 | Wishlist + dedicated `/search` results page | ⬜ |
 | 16 | Design system & polish: primitives migration, skeletons, a11y pass | ⬜ |
@@ -267,9 +267,9 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**Phase 12 — account completion** (feature plan, §2): wire the `SavedShipping` address model into checkout/account (saved-address CRUD + one-click select), order **cancel / reorder / receipt** flows for customers, and the account sub-nav. Existing scaffolding: `src/app/account/*` pages, order actions in `src/modules/orders`.
+**Phase 13 — admin ops & dashboard** (feature plan, §2): metrics/dashboard (hand-rolled CSS/SVG charts — no chart library), admin order detail + refund flow, stock history view, admin filters. Existing scaffolding: `src/modules/admin/*`, `/admin/orders` list, `adjustStock` + `StockAdjustment` audit rows (Phase 2), order state machine incl. refund CAS (Phase 3).
 
-Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5) and **Phase 11** (§19.5). CI secrets were added in Phase 8 (§16.4) and the pipeline is green.
+Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5), **Phase 11** (§19.5) and **Phase 12** (§20.5). CI secrets were added in Phase 8 (§16.4) and the pipeline is green (last verified at Phase 11, run `36235044087`; Phase 12 push triggers the next run).
 
 ---
 
@@ -842,3 +842,73 @@ Product CRUD and variation *edit* existed; this phase made the catalog fully man
 - `updateVariation`'s paisa contract is kept deliberately (Phase 5 callers) while `createVariation` speaks rupees; the conversion lives server-side in each action.
 - Limits frozen at **10 images / 3.5 MB / 4 mb action body** — any bump must move both `MAX_IMAGE_BYTES` and `bodySizeLimit` together (unit test keeps them paired).
 - Non-`res.cloudinary.com` URLs are treated as non-optimizable (placeholder div) rather than added to the `images.remotePatterns` allowlist.
+
+---
+
+## 20. Phase 12 — account completion — detailed log (what & why)
+
+Scope: wire `SavedShipping` into checkout + a new `/account/addresses` page, customer **cancel / reorder / receipt**, and the account section sub-nav. No migration (8 stays 8), no new dependencies.
+
+### 20.1 Decisions (user-confirmed before execution)
+
+1. **Cancel = unpaid only.** Eligibility is `paymentStatus === "PENDING"` AND `orderStatus ∈ {PENDING, CONFIRMED}`. Paid, PROCESSING/SHIPPED, DELIVERED orders refuse with distinct messages and route to support/admin — the customer path can therefore **never** reach refund logic (no refund code is reachable from it).
+2. **Checkout = prefill + save checkbox.** Signed-in users get their saved address + profile email prefilled and a `Save as my shipping address` checkbox (default checked). The upsert runs **after** the order commits, best-effort (same swallow-and-log pattern as the Safepay URL) — a storage failure never fails an order.
+3. **Reorder = stay + inline summary.** `Buy again` keeps the customer on the order page and reports `role="status"` ("Added N items — M unavailable (…)") or `role="alert"`; no navigation.
+
+### 20.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | The order status state machine (CAS, restock, audit) lived in the **admin** module; customers had no cancel | `git mv src/modules/admin/order-ops.ts → src/modules/orders/status-ops.ts`; `adminId: string \| null` (NULL = customer, existing convention in `StockAdjustment`); customer cancel reason `"Order {n} cancelled by customer"` keeps the admin string byte-identical; `OrderStatusInput`/`orderStatusSchema` moved to `orders/schema.ts`; `OrderActionResult` type added; admin barrel re-imports from `@/modules/orders` | `src/modules/orders/{status-ops,schema,types,index}.ts`, `src/modules/admin/{orders,schema,index}.ts` |
+| 2 | `SavedShipping` existed in the schema but was wired **nowhere** | New `src/modules/addresses/`: `schema.ts` (shared `shippingFields` + `savedShippingSchema`), `ops.ts` (`upsertSavedShippingForUser` — one row per user, `"" → NULL` postal), `actions.ts` (`saveShippingAddress`/`deleteShippingAddress`, validate-first, revalidates `/account/addresses` + `/checkout`), `queries.ts` (`getMyShippingAddress`), barrel | `src/modules/addresses/` |
+| 3 | Checkout always started blank and forgot the address | `checkout/schema.ts` **composes `shippingFields`** (address form and checkout can't drift) + optional `saveAddress`; `placeOrder` upserts the address after `placeOrderCore` succeeds, inside try/catch; `checkout/page.tsx` passes profile email + saved address; `CheckoutForm` prefills every shipping field + email, renders the checkbox only for signed-in users, submits `saveAddress: formData.get("saveAddress") === "on"` | `src/modules/checkout/*`, `checkout/page.tsx`, `CheckoutForm.tsx` |
+| 4 | No customer cancel | `canCustomerCancel(order)` (pure — page renders the button, action re-validates, ONE rule) in `status-ops.ts`; `cancelMyOrder` action: auth → owner-scoped fetch → `"Order not found."` (indistinguishable from missing, same rule as `retrySafepayPayment`) → distinct refusal messages (already cancelled/delivered/being prepared/already paid) → `updateOrderStatusCore(…, null)` → revalidates `/account/orders`, the order, `("/", "layout")`; `CancelOrderButton` two-step (`Cancel order` → `Yes, cancel order #N`, `role="alert"`) | `orders/{actions,status-ops}.ts`, `components/storefront/CancelOrderButton.tsx` |
+| 5 | No reorder | `reorderOrder` loops the existing `addToCart(variationId, quantity)` per line (so qty validation, live stock, disabled-line refusal, merging and revalidation are the ONE implementation), aggregates `{added, skipped: ["Product — Variation"]}`, fails with the skipped list when nothing is available; `ReorderButton` stays on the page, `router.refresh()` for the badge | `orders/actions.ts`, `components/storefront/ReorderButton.tsx` |
+| 6 | No receipt/invoice; detail page deliberately withholds PII | `OrderView.items` gains `variationId` (type + all three mappers); `getMyOrderForReceipt(id)` returns the full delivery block (email/phone/postal/notes/createdAt/totals), owner-only, `null` otherwise; `/account/orders/[id]/receipt` page renders the printable invoice with `print:hidden` chrome + `PrintButton` (`window.print()`); detail page gains the action bar: Cancel (gated) / Buy again / View receipt | `orders/{types,queries}.ts`, `app/account/orders/[id]/{page.tsx,receipt/page.tsx}`, `components/storefront/{PrintButton}.tsx` |
+| 7 | No account section navigation | `AccountNav` (client, `usePathname`, exact-or-prefix match with separator guard so `/account/orders` never lights up for a sibling prefix, `aria-current="page"`, **no** `role="tab"`) mounted once in `account/layout.tsx`; dashboard gains a Shipping Address card; footer gains `/account/addresses` | `components/storefront/AccountNav.tsx`, `app/account/{layout,page}.tsx`, `Footer.tsx` |
+| 8 | Breadcrumb/footer unit tests knew nothing of the new pages | `storefront-shell.test.ts`: allowed href set += `/account/addresses`; breadcrumb list += addresses + receipt pages | `tests/unit/storefront-shell.test.ts` |
+
+### 20.3 Behaviour worth knowing before touching this code
+
+- **`canCustomerCancel` is the single eligibility rule** — never inline a second copy in a page or action. It is deliberately narrower than the admin machine.
+- **The customer cancel path contains no refund logic.** Reaching `updateOrderStatusCore` with `orderStatus: CANCELLED` implies payment was PENDING, so `adminId: null` never pairs with a refund audit row. **TOCTOU accepted:** eligibility is pre-checked then CAS'd — a concurrent transition could cancel a just-turned-PROCESSING order whose payment is still PENDING (harmless: stock is restocked, no money moved). Documented, not locked.
+- **Ownership errors are anti-enumeration:** stranger id and missing id both answer `"Order not found."` (cancel, reorder, receipt query).
+- **Anonymous `/account/*` POSTs never reach actions** — `src/proxy.ts` 307s them to `/login?callbackUrl=…` first (E2E asserts the bounce; the action's own session check is integration-tested).
+- **Soft-404 status:** `src/app/account/loading.tsx` streams the shell, so a `notFound()` from these pages answers **200 + "Page not found" content** — the exact trade-off Phase 7 documented for `/product/[slug]`. Assert content, not status (E2E does).
+- Saved-address storage is **best-effort after order commit**; failures log (`console.error("Failed to save shipping address:", …)`) and the order still succeeds.
+- Guest orders are not reorderable and not receiptable (receipt query requires a session; there is no guest ownership story).
+
+### 20.4 Tests & gate
+
+- Unit **186 → 220** (16 files): new `tests/unit/account-completion.test.ts` (**32**) — `canCustomerCancel` matrix (PENDING/CONFIRMED × PENDING allowed; PROCESSING/SHIPPED/DELIVERED/CANCELLED and any PAID/REFUNDED/FAILED refused), `savedShippingSchema` (valid, `""/undefined` postal, required fields, length caps), checkout composition (shared error message, `saveAddress` optional, `paymentMethod` still validated), AccountNav source wiring (`aria-current`, prefix+separator guard, layout mount, footer link), checkout prefill/checkbox/best-effort-save source wiring, cancel two-step / reorder inline / receipt `print:hidden` / `addToCart` replay. Plus 2 breadcrumb-list entries in `storefront-shell.test.ts`.
+- Integration **170 → 196** (29 files): `customer-cancel.test.ts` (**8**) — session, stranger ≡ missing error, owner cancel → CANCELLED + restock + `adminId: null` audit + `"cancelled by customer"` reason, CONFIRMED ok, PROCESSING/PAID/CANCELLED/DELIVERED refusals with zero side effects; `reorder.test.ts` (**6**) — session, stranger ≡ missing, happy path into the account cart, disabled line skipped by name, all-unavailable failure, empty order; `addresses.test.ts` (**8**) — session, field errors, upsert stays one row, two users independent, idempotent delete, prefill nulls, `"" → NULL` postal; `receipt.test.ts` (**4**) — guest null, stranger ≡ missing null, full invoice view for owner, **detail view asserts PII keys absent**.
+- Gate: `npm run test` **416/416** (220 unit / 16 files + 196 integration / 29 files) · `tsc --noEmit` clean · `npm run lint` **0/0** · `prisma validate` + `migrate status` (**8**, unchanged — no migration) · `npm run build` green (+`/account/addresses`, +`/account/orders/[id]/receipt` routes) · **smoke 14/14 + E2E 183/183** on the dev DB · post-run leftover query **0** (orders, products, carts, users, and no stray `SavedShipping` row for `dev-customer`).
+
+### 20.5 Manual browser checklist (needs a human; server on `:3100`)
+
+1. `/account` → Shipping Address card, sub-nav shows Overview current (`aria-current`), footer link works.
+2. `/account/addresses` → save (values persist after reload), edit + save updates, Delete → two-step confirm → form empties; invalid submit shows `role="alert"` field errors without wiping input.
+3. Logged-out `/checkout` → no prefill, no checkbox. Logged-in → saved address + profile email prefilled, checkbox present (checked).
+4. Place an order **unchecked** → saved address unchanged; **checked** (edit city first) → `/account/addresses` shows the new city.
+5. `/account/orders/<unpaid>` → Cancel order → confirm text → order becomes CANCELLED, button disappears, stock back; Paid/PROCESSING orders show no Cancel and the action would refuse.
+6. Buy again → stays on page, `role="status"` summary with skipped names if any, cart badge increments.
+7. View receipt → invoice with full address/phone/email; `Print receipt` opens print preview with nav/chrome hidden.
+8. Receipt + detail URLs as a different signed-in user → "Page not found".
+
+### 20.6 Errors hit in Phase 12 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | Smoke: `/account/addresses` + receipt **404** although `npm run build` listed both routes | the **Phase 11 server (pid 67041)** was still bound to `:3100` — `lsof -ti:3100` returned empty (permission/namespace), so my `lsof … xargs kill` falsely reported "port free"; my new `next start` died on `EADDRINUSE` | kill the known pids, verify with `ss -ltnp \| grep 3100`, restart, re-check — **never trust `lsof` emptiness alone here; `ss` is authoritative** |
+| 2 | Reorder integration: `db.cart.findUniqueOrThrow` failed in the "nothing available" test | `addToCart` refuses the out-of-stock line **before** any cart row exists | assert with `findFirst` + conditional zero-line check |
+| 3 | E2E: 3× "…without a session" got `json: null` | the **proxy 307-redirects anonymous POSTs** to `/account/*` before Next ever dispatches the action → non-flight response | assert `3xx + location /login` (that IS the enforcement chain; the action's own `auth()` check stays integration-tested) |
+| 4 | E2E: stranger receipt/detail returned **200**, not 404 | `src/app/account/loading.tsx` streams the shell → `notFound()` arrives after the 200 header (the documented Phase 7 soft-404 trade-off) | assert `"Page not found"` content + owner PII absent, not status — same as the existing `/product/[slug]` checks |
+| 5 | Draft test used `db.product.findUniqueOrThrow({ where: { productId } })` | Product's PK is `id`; `productId` lives on the child rows | fixed to `where: { id: variation.productId }` before the suite ever ran |
+
+### 20.7 Decisions recorded
+
+- User answered the three scope questions with the recommended options: **unpaid-only cancel**, **prefill + save checkbox**, **stay + inline reorder summary**.
+- No migration: `SavedShipping` already existed; `StockAdjustment.adminId` is nullable by design ("NULL = legacy/customer" — Phase 12 now gives it its second, intended meaning).
+- Shared shipping rules live once (`shippingFields` in `src/modules/addresses/schema.ts`) and are composed into `checkoutSchema` — drift between the address form and checkout is impossible by construction.
+- All new account components live in `src/components/storefront/` (ProfileForm precedent); actions/queries stay in the module the ESLint boundary allows (`@/modules/*/actions` or the barrel).
+- E2E's anonymous-action checks intentionally assert the **proxy bounce**, not the action's session error — two layers, tested at the layer that runs.

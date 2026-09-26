@@ -3,6 +3,7 @@ import { createSafepayCheckoutUrl } from "@/modules/payments";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { resolveCartIdentity } from "@/modules/cart";
+import { upsertSavedShippingForUser } from "@/modules/addresses";
 import { checkoutSchema, type CheckoutInput } from "./schema";
 import { placeOrderCore, type PlaceOrderResult } from "./place-order";
 
@@ -24,6 +25,16 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   if (!result.success) return result;
 
   revalidatePath("/", "layout");
+
+  // Opt-in saved address (Phase 12): same swallow-and-log rule as Safepay —
+  // the order is already committed, a storage hiccup must not fail it.
+  if (data.saveAddress && session?.user?.id) {
+    try {
+      await upsertSavedShippingForUser(session.user.id, data);
+    } catch (saveError) {
+      console.error("Failed to save shipping address:", saveError);
+    }
+  }
 
   if (data.paymentMethod === "SAFEPAY") {
     try {

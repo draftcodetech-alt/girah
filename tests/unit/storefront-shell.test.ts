@@ -92,6 +92,7 @@ describe("Phase 9: Footer", () => {
       "/account",
       "/account/orders",
       "/account/profile",
+      "/account/addresses",
     ]);
     const literalHrefs = [
       ...[...footer.matchAll(/href="([^"]+)"/g)].map((match) => match[1]), // JSX href="…"
@@ -121,6 +122,8 @@ describe("Phase 9: breadcrumbs", () => {
     "src/app/account/orders/page.tsx",
     "src/app/account/orders/[id]/page.tsx",
     "src/app/account/profile/page.tsx",
+    "src/app/account/addresses/page.tsx",
+    "src/app/account/orders/[id]/receipt/page.tsx",
   ])("%s renders Breadcrumbs", (relativePath) => {
     expect(readSource(relativePath)).toMatch(/<Breadcrumbs/);
   });

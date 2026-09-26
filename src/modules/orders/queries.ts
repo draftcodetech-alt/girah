@@ -33,6 +33,7 @@ export async function getOrderById(id: string): Promise<OrderView | null> {
     shippingCity: order.shippingCity,
     createdAt: order.createdAt,
     items: order.items.map((i) => ({
+      variationId: i.variationId,
       productName: i.productName,
       variationName: i.variationName,
       unitPrice: i.unitPrice,
@@ -66,6 +67,7 @@ export async function getMyOrders(): Promise<OrderView[]> {
     shippingCity: order.shippingCity,
     createdAt: order.createdAt,
     items: order.items.map((i) => ({
+      variationId: i.variationId,
       productName: i.productName,
       variationName: i.variationName,
       unitPrice: i.unitPrice,
@@ -100,6 +102,72 @@ export async function getMyOrderById(id: string): Promise<OrderView | null> {
     customerName: order.customerName,
     shippingAddress: order.shippingAddress,
     shippingCity: order.shippingCity,
+    createdAt: order.createdAt,
+    items: order.items.map((i) => ({
+      variationId: i.variationId,
+      productName: i.productName,
+      variationName: i.variationName,
+      unitPrice: i.unitPrice,
+      quantity: i.quantity,
+      subtotal: i.subtotal,
+    })),
+  };
+}
+// Receipt/invoice snapshot (Phase 12) — the order detail view deliberately
+// keeps out PII (email/phone/postal/notes); the receipt is owner-only and
+// needs the full delivery block for a printable document.
+export type ReceiptView = {
+  id: string;
+  orderNumber: string;
+  orderStatus: string;
+  paymentStatus: string;
+  paymentMethod: string;
+  subtotal: number;
+  shipping: number;
+  total: number;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddress: string;
+  shippingCity: string;
+  shippingPostal: string | null;
+  deliveryNotes: string | null;
+  createdAt: Date;
+  items: {
+    productName: string;
+    variationName: string;
+    unitPrice: number;
+    quantity: number;
+    subtotal: number;
+  }[];
+};
+
+export async function getMyOrderForReceipt(id: string): Promise<ReceiptView | null> {
+  const session = await auth();
+  if (!session?.user) return null;
+
+  const order = await db.order.findFirst({
+    where: { id, userId: session.user.id },
+    include: { items: { orderBy: { id: "asc" } } },
+  });
+  if (!order) return null;
+
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    orderStatus: order.orderStatus,
+    paymentStatus: order.paymentStatus,
+    paymentMethod: order.paymentMethod,
+    subtotal: order.subtotal,
+    shipping: order.shipping,
+    total: order.total,
+    customerName: order.customerName,
+    customerEmail: order.customerEmail,
+    customerPhone: order.customerPhone,
+    shippingAddress: order.shippingAddress,
+    shippingCity: order.shippingCity,
+    shippingPostal: order.shippingPostal,
+    deliveryNotes: order.deliveryNotes,
     createdAt: order.createdAt,
     items: order.items.map((i) => ({
       productName: i.productName,

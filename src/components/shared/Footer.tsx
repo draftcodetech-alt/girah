@@ -13,6 +13,7 @@ const ACCOUNT_LINKS = [
   { label: "My account", href: "/account" },
   { label: "Orders", href: "/account/orders" },
   { label: "Profile", href: "/account/profile" },
+  { label: "Shipping address", href: "/account/addresses" },
   { label: "Sign in", href: "/login" },
   { label: "Create account", href: "/register" },
 ];

@@ -1,14 +1,16 @@
 import { z } from "zod";
+import { shippingFields } from "@/modules/addresses";
 
 export const checkoutSchema = z.object({
-  fullName: z.string().trim().min(1, "Full name is required").max(200),
-  phone: z.string().trim().min(1, "Phone number is required").max(30),
+  // Shipping fields come from the addresses module so /account/addresses
+  // and checkout can never drift apart (Phase 12).
+  ...shippingFields,
   email: z.string().trim().email("Please enter a valid email address"),
-  address: z.string().trim().min(1, "Address is required").max(500),
-  city: z.string().trim().min(1, "City is required").max(100),
-  postalCode: z.string().trim().max(20).optional().or(z.literal("")),
   deliveryNotes: z.string().trim().max(500).optional().or(z.literal("")),
   paymentMethod: z.enum(["COD", "SAFEPAY"]),
+  // Optional "save as my shipping address" checkbox — only ever upserted
+  // for signed-in users, after the order has already committed.
+  saveAddress: z.boolean().optional(),
 });
 
 export type CheckoutInput = z.infer<typeof checkoutSchema>;

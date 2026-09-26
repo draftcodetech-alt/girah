@@ -1,3 +1,7 @@
+export type OrderActionResult =
+  | { success: true }
+  | { success: false; error: string };
+
 export type OrderView = {
   id: string;
   orderNumber: string;
@@ -12,6 +16,7 @@ export type OrderView = {
   shippingCity: string;
   createdAt: Date;
   items: {
+    variationId: string;
     productName: string;
     variationName: string;
     unitPrice: number;

@@ -46,8 +46,3 @@ export const stockAdjustmentSchema = z.object({
   reason: z.string().trim().min(1, "A reason is required"),
 });
 export type StockAdjustmentInput = z.infer<typeof stockAdjustmentSchema>;
-
-export const orderStatusSchema = z.object({
-  orderStatus: z.enum(["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"]),
-});
-export type OrderStatusInput = z.infer<typeof orderStatusSchema>;

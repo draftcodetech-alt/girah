@@ -1177,12 +1177,317 @@ let p11Order = null;
   );
 }
 
+// ── 16. Phase 12: account completion — addresses, cancel/reorder, receipt ──
+const p12Orders = [];
+{
+  for (const name of ["cancelMyOrder", "reorderOrder", "saveShippingAddress", "deleteShippingAddress"]) {
+    check(`action id resolved: ${name}`, Boolean(ids[name]), "missing from server-reference-manifest.json");
+  }
+
+  // --- saved shipping address -------------------------------------------
+  const anonAddresses = await get("/account/addresses");
+  check(
+    "anon GET /account/addresses → /login",
+    anonAddresses.status >= 300 && anonAddresses.status < 400 && (anonAddresses.location ?? "").includes("/login"),
+    `${anonAddresses.status} ${anonAddresses.location}`
+  );
+
+  const addressesPage = await get("/account/addresses", loginJar);
+  check(
+    "/account/addresses renders the address form",
+    addressesPage.status === 200 &&
+      addressesPage.html.includes("Shipping Address") &&
+      addressesPage.html.includes('name="fullName"'),
+    `${addressesPage.status}`
+  );
+
+  const SAVED = {
+    fullName: "E2E Saved",
+    phone: "03001112233",
+    address: "9 E2E Lane",
+    city: "Islamabad",
+    postalCode: "44000",
+  };
+  const firstSave = await callAction("/account/addresses", ids.saveShippingAddress, [SAVED], loginJar);
+  check("saveShippingAddress → success", firstSave.json?.success === true, JSON.stringify(firstSave.json));
+  let savedRow = await db.savedShipping.findUnique({ where: { userId: customer.id } });
+  check("saved address row exists", savedRow?.city === "Islamabad", JSON.stringify(savedRow));
+
+  const secondSave = await callAction(
+    "/account/addresses",
+    ids.saveShippingAddress,
+    [{ ...SAVED, city: "Lahore" }],
+    loginJar
+  );
+  savedRow = await db.savedShipping.findUnique({ where: { userId: customer.id } });
+  const savedCount = await db.savedShipping.count({ where: { userId: customer.id } });
+  check(
+    "second save UPDATES the single row",
+    secondSave.json?.success === true && savedCount === 1 && savedRow?.city === "Lahore",
+    `count=${savedCount} city=${savedRow?.city}`
+  );
+
+  // The proxy guards /account/* BEFORE the action runs — an anonymous POST
+  // bounces to /login; the action's own session check is integration-tested.
+  const anonSave = await callAction("/account/addresses", ids.saveShippingAddress, [SAVED], null);
+  check(
+    "save without a session is bounced to /login",
+    anonSave.status >= 300 && anonSave.status < 400 && (anonSave.location ?? "").includes("/login"),
+    `${anonSave.status} ${anonSave.location}`
+  );
+
+  // Checkout prefill — signed in, cart filled, saved row present.
+  await seedUserCart(customer.id, [{ variationId: V_SMALL, quantity: 1 }]);
+  const checkoutPage = await get("/checkout", loginJar);
+  check(
+    "checkout prefills the saved address fields",
+    checkoutPage.html.includes('value="E2E Saved"') && checkoutPage.html.includes('value="9 E2E Lane"'),
+    "prefill values missing from SSR"
+  );
+  check("checkout renders the save-address checkbox", checkoutPage.html.includes('name="saveAddress"'), "checkbox missing");
+
+  // opt-out checkout must NOT touch the stored address…
+  const placeNoSave = await callAction("/checkout", ids.placeOrder, [{ ...CHECKOUT, saveAddress: false }], loginJar);
+  if (placeNoSave.json?.orderId) p12Orders.push(placeNoSave.json.orderId);
+  savedRow = await db.savedShipping.findUnique({ where: { userId: customer.id } });
+  check(
+    "placeOrder(saveAddress:false) leaves the stored address alone",
+    placeNoSave.json?.success === true && savedRow?.city === "Lahore",
+    `success=${placeNoSave.json?.success} city=${savedRow?.city}`
+  );
+
+  // …and the opt-in checkout refreshes it AFTER the order commits.
+  await seedUserCart(customer.id, [{ variationId: V_SINGLE, quantity: 1 }]);
+  const placeSave = await callAction("/checkout", ids.placeOrder, [{ ...CHECKOUT, saveAddress: true }], loginJar);
+  if (placeSave.json?.orderId) p12Orders.push(placeSave.json.orderId);
+  savedRow = await db.savedShipping.findUnique({ where: { userId: customer.id } });
+  check(
+    "placeOrder(saveAddress:true) upserts the stored address",
+    placeSave.json?.success === true && savedRow?.city === "Karachi",
+    `success=${placeSave.json?.success} city=${savedRow?.city}`
+  );
+
+  const firstDelete = await callAction("/account/addresses", ids.deleteShippingAddress, [], loginJar);
+  const secondDelete = await callAction("/account/addresses", ids.deleteShippingAddress, [], loginJar);
+  check(
+    "deleteShippingAddress removes the row and is idempotent",
+    firstDelete.json?.success === true &&
+      secondDelete.json?.success === true &&
+      (await db.savedShipping.findUnique({ where: { userId: customer.id } })) === null,
+    `${JSON.stringify(firstDelete.json)} / ${JSON.stringify(secondDelete.json)}`
+  );
+
+  // --- account shell: card, sub-nav, footer --------------------------------
+  const accountPage = await get("/account", loginJar);
+  check("dashboard renders the Shipping Address card", accountPage.html.includes('href="/account/addresses"'));
+  check(
+    "AccountNav marks Overview as current on /account",
+    /<a[^>]*href="\/account"[^>]*aria-current="page"|<a[^>]*aria-current="page"[^>]*href="\/account"/.test(accountPage.html),
+    "aria-current missing on the Overview tab"
+  );
+  const ordersList = await get("/account/orders", loginJar);
+  check(
+    "AccountNav marks Orders as current on /account/orders",
+    /<a[^>]*href="\/account\/orders"[^>]*aria-current="page"|<a[^>]*aria-current="page"[^>]*href="\/account\/orders"/.test(
+      ordersList.html
+    ),
+    "aria-current missing on the Orders tab"
+  );
+  const homeAgain = await get("/");
+  check("footer links /account/addresses", homeAgain.html.includes('href="/account/addresses"'));
+
+  // --- customer-owned order fixtures --------------------------------------
+  const baseOrder = {
+    userId: customer.id,
+    customerName: "E2E Phase12",
+    customerEmail: "e2e-p12@example.com",
+    customerPhone: "03001234567",
+    shippingAddress: "9 E2E Lane",
+    shippingCity: "Islamabad",
+    shippingPostal: "44000",
+    subtotal: 180000,
+    total: 180000,
+    paymentMethod: "COD",
+    items: {
+      create: {
+        variationId: V_SMALL,
+        productName: FIXTURE_NAME,
+        variationName: "Small Bouquet",
+        unitPrice: 180000,
+        quantity: 1,
+        subtotal: 180000,
+      },
+    },
+  };
+  const unpaidOrder = await db.order.create({
+    data: {
+      ...baseOrder,
+      orderNumber: `GIR-P12A${TS.toString(16).padStart(12, "0").slice(-12)}`,
+      orderStatus: "PENDING",
+      paymentStatus: "PENDING",
+    },
+  });
+  const paidOrder = await db.order.create({
+    data: {
+      ...baseOrder,
+      orderNumber: `GIR-P12B${TS.toString(16).padStart(12, "0").slice(-12)}`,
+      orderStatus: "CONFIRMED",
+      paymentStatus: "PAID",
+    },
+  });
+  const processingOrder = await db.order.create({
+    data: {
+      ...baseOrder,
+      orderNumber: `GIR-P12C${TS.toString(16).padStart(12, "0").slice(-12)}`,
+      orderStatus: "PROCESSING",
+      paymentStatus: "PENDING",
+    },
+  });
+  p12Orders.push(unpaidOrder.id, paidOrder.id, processingOrder.id);
+
+  // --- order detail + receipt ---------------------------------------------
+  const detailPage = await get(`/account/orders/${unpaidOrder.id}`, loginJar);
+  check(
+    "order detail renders Cancel / Buy again / View receipt",
+    detailPage.status === 200 &&
+      detailPage.html.includes("Cancel order") &&
+      detailPage.html.includes("Buy again") &&
+      detailPage.html.includes("View receipt"),
+    `${detailPage.status}`
+  );
+  check(
+    "order detail withholds contact PII",
+    !detailPage.html.includes("e2e-p12@example.com") && !detailPage.html.includes("03001234567"),
+    "receipt-only PII leaked into the detail view"
+  );
+
+  const receiptPage = await get(`/account/orders/${unpaidOrder.id}/receipt`, loginJar);
+  check(
+    "receipt renders the invoice + print button",
+    receiptPage.status === 200 &&
+      receiptPage.html.includes("e2e-p12@example.com") &&
+      receiptPage.html.includes("9 E2E Lane") &&
+      receiptPage.html.includes("Print receipt"),
+    `${receiptPage.status}`
+  );
+  check("receipt hides page chrome when printing", receiptPage.html.includes("print:hidden"), "print:hidden missing");
+
+  const strangerReceipt = await get(`/account/orders/${unpaidOrder.id}/receipt`, adminLogin.jar);
+  // loading.tsx streams the shell first — same soft-404 trade-off Phase 7
+  // documented for /product/[slug]: assert our not-found VIEW, not the status.
+  check(
+    "stranger GET receipt renders the 404 view",
+    strangerReceipt.html.includes("Page not found") && !strangerReceipt.html.includes("e2e-p12@example.com"),
+    `${strangerReceipt.status}`
+  );
+  const anonReceipt = await get(`/account/orders/${unpaidOrder.id}/receipt`);
+  check(
+    "anon GET receipt → /login",
+    anonReceipt.status >= 300 && anonReceipt.status < 400 && (anonReceipt.location ?? "").includes("/login"),
+    `${anonReceipt.status} ${anonReceipt.location}`
+  );
+  const strangerDetail = await get(`/account/orders/${unpaidOrder.id}`, adminLogin.jar);
+  check(
+    "stranger GET order detail renders the 404 view",
+    strangerDetail.html.includes("Page not found") && !strangerDetail.html.includes("e2e-p12@example.com"),
+    `${strangerDetail.status}`
+  );
+
+  // --- cancel: refusals first, owner last ---------------------------------
+  const paidCancel = await callAction(`/account/orders/${paidOrder.id}`, ids.cancelMyOrder, [paidOrder.id], loginJar);
+  check(
+    "cancel refuses a PAID order (no customer refund path)",
+    paidCancel.json?.success === false && /already been paid/i.test(paidCancel.json?.error ?? ""),
+    JSON.stringify(paidCancel.json)
+  );
+  const procCancel = await callAction(
+    `/account/orders/${processingOrder.id}`,
+    ids.cancelMyOrder,
+    [processingOrder.id],
+    loginJar
+  );
+  check(
+    "cancel refuses a PROCESSING order",
+    procCancel.json?.success === false && /already being prepared/i.test(procCancel.json?.error ?? ""),
+    JSON.stringify(procCancel.json)
+  );
+  const strangerCancel = await callAction(
+    `/account/orders/${unpaidOrder.id}`,
+    ids.cancelMyOrder,
+    [unpaidOrder.id],
+    adminLogin.jar
+  );
+  check(
+    "cancel by a stranger → generic not-found",
+    strangerCancel.json?.success === false && strangerCancel.json?.error === "Order not found.",
+    JSON.stringify(strangerCancel.json)
+  );
+  const anonCancel = await callAction(`/account/orders/${unpaidOrder.id}`, ids.cancelMyOrder, [unpaidOrder.id], null);
+  check(
+    "cancel without a session is bounced to /login",
+    anonCancel.status >= 300 && anonCancel.status < 400 && (anonCancel.location ?? "").includes("/login"),
+    `${anonCancel.status} ${anonCancel.location}`
+  );
+
+  const stockBefore = (await db.productVariation.findUniqueOrThrow({ where: { id: V_SMALL } })).stock;
+  const cancel = await callAction(`/account/orders/${unpaidOrder.id}`, ids.cancelMyOrder, [unpaidOrder.id], loginJar);
+  const stockAfter = (await db.productVariation.findUniqueOrThrow({ where: { id: V_SMALL } })).stock;
+  check("owner cancels the unpaid order", cancel.json?.success === true, JSON.stringify(cancel.json));
+  check(
+    "cancelled order restocks the item",
+    stockAfter === stockBefore + 1,
+    `${stockBefore} → ${stockAfter}`
+  );
+  const cancelledRow = await db.order.findUniqueOrThrow({ where: { id: unpaidOrder.id } });
+  check("order is CANCELLED in the DB", cancelledRow.orderStatus === "CANCELLED", cancelledRow.orderStatus);
+  const auditRow = await db.stockAdjustment.findFirst({ where: { reason: { contains: "cancelled by customer" } } });
+  check("restock audit row is customer-attributed (adminId null)", Boolean(auditRow) && auditRow.adminId === null);
+
+  const afterCancel = await get(`/account/orders/${unpaidOrder.id}`, loginJar);
+  check("cancelled order hides the Cancel button", !afterCancel.html.includes("Cancel order"), "Cancel button still rendered");
+  check("cancelled order still offers Buy again", afterCancel.html.includes("Buy again"));
+
+  // --- reorder ---------------------------------------------------------------
+  const anonReorder = await callAction(`/account/orders/${paidOrder.id}`, ids.reorderOrder, [paidOrder.id], null);
+  check(
+    "reorder without a session is bounced to /login",
+    anonReorder.status >= 300 && anonReorder.status < 400 && (anonReorder.location ?? "").includes("/login"),
+    `${anonReorder.status} ${anonReorder.location}`
+  );
+  const strangerReorder = await callAction(
+    `/account/orders/${paidOrder.id}`,
+    ids.reorderOrder,
+    [paidOrder.id],
+    adminLogin.jar
+  );
+  check(
+    "reorder by a stranger → generic not-found",
+    strangerReorder.json?.success === false && strangerReorder.json?.error === "Order not found.",
+    JSON.stringify(strangerReorder.json)
+  );
+
+  await wipeUserCart(customer.id);
+  const reorder = await callAction(`/account/orders/${paidOrder.id}`, ids.reorderOrder, [paidOrder.id], loginJar);
+  check(
+    "reorder replays the order lines into the cart",
+    reorder.json?.success === true && reorder.json?.added >= 1,
+    JSON.stringify(reorder.json)
+  );
+  const reorderCart = await db.cart.findUnique({ where: { userId: customer.id }, include: { items: true } });
+  check(
+    "cart carries the reordered line",
+    Boolean(reorderCart?.items.find((i) => i.variationId === V_SMALL)),
+    JSON.stringify(reorderCart?.items ?? null)
+  );
+}
+
 // ── cleanup ─────────────────────────────────────────────────────────────────
 await wipeUserCart(customer.id);
 await db.cart.deleteMany({ where: { guestId: { startsWith: "e2e-guest-" } } });
 if (newUser) await db.user.delete({ where: { id: newUser.id } }); // cascades their cart
 await db.order.delete({ where: { id: probeOrder.id } }).catch(() => {});
 if (reviewOrder) await db.order.delete({ where: { id: reviewOrder.id } }).catch(() => {});
+for (const orderId of p12Orders) await db.order.delete({ where: { id: orderId } }).catch(() => {});
 if (p11Order) await db.order.delete({ where: { id: p11Order.id } }).catch(() => {});
 if (p11Product) await db.product.delete({ where: { id: p11Product.id } }).catch(() => {});
 for (const product of [...Object.values(floatProducts), unavailableProduct, fixtureProduct]) {

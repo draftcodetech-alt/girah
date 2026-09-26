@@ -28,6 +28,10 @@ export default async function AccountPage() {
           <h2 className="font-body text-card-title text-charcoal">Profile</h2>
           <p className="font-body text-small text-muted mt-2">Manage your account information</p>
         </Link>
+        <Link href="/account/addresses" className="bg-sage-light rounded-[var(--radius-surface)] p-6 hover:bg-sage-light/70">
+          <h2 className="font-body text-card-title text-charcoal">Shipping Address</h2>
+          <p className="font-body text-small text-muted mt-2">Save the address checkout fills in for you</p>
+        </Link>
       </div>
 
       <form action={logout} className="mt-8">

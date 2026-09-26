@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { db } from "@/lib/db";
 import { placeOrderCore } from "@/modules/checkout/place-order";
-import { updateOrderStatusCore } from "@/modules/admin/order-ops";
+import { updateOrderStatusCore } from "@/modules/orders/status-ops";
 import { refundSafepayPayment } from "@/modules/payments/safepay";
 import type { CheckoutInput } from "@/modules/checkout/schema";
 import { resetDb, createTestProduct, createTestUser } from "../setup/helpers";

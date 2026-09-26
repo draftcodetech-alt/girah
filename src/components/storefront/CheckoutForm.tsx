@@ -4,9 +4,20 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { placeOrder } from "@/modules/checkout/actions";
 import type { CartView } from "@/modules/cart";
+import type { SavedShippingView } from "@/modules/addresses";
 import { formatPrice } from "@/lib/format";
 
-export function CheckoutForm({ cart }: { cart: CartView }) {
+type CheckoutFormProps = {
+  cart: CartView;
+  /** Saved address of a signed-in user — prefills the shipping fields. */
+  savedAddress?: SavedShippingView | null;
+  /** Signed-in user's profile email ("" for guests). */
+  defaultEmail?: string | null;
+  /** Only signed-in users get the save-address checkbox. */
+  showSaveOption?: boolean;
+};
+
+export function CheckoutForm({ cart, savedAddress, defaultEmail, showSaveOption }: CheckoutFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -29,6 +40,9 @@ export function CheckoutForm({ cart }: { cart: CartView }) {
         postalCode: (formData.get("postalCode") as string) || "",
         deliveryNotes: (formData.get("deliveryNotes") as string) || "",
         paymentMethod,
+        // Opt-in: only ever saved for signed-in users, AFTER the order
+        // commits (the action swallows save failures so an order never fails).
+        saveAddress: formData.get("saveAddress") === "on",
       });
 
       if (result.success) {
@@ -63,17 +77,17 @@ export function CheckoutForm({ cart }: { cart: CartView }) {
           <div className="space-y-4">
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Full Name *</label>
-              <input name="fullName" required className={inputClass("fullName")} />
+              <input name="fullName" required defaultValue={savedAddress?.fullName ?? ""} className={inputClass("fullName")} />
               {fieldErrors.fullName && <p role="alert" className="text-small text-error mt-1">{fieldErrors.fullName}</p>}
             </div>
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Phone Number *</label>
-              <input name="phone" required className={inputClass("phone")} />
+              <input name="phone" required defaultValue={savedAddress?.phone ?? ""} className={inputClass("phone")} />
               {fieldErrors.phone && <p role="alert" className="text-small text-error mt-1">{fieldErrors.phone}</p>}
             </div>
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Email *</label>
-              <input name="email" type="email" required className={inputClass("email")} />
+              <input name="email" type="email" required defaultValue={defaultEmail ?? ""} className={inputClass("email")} />
               {fieldErrors.email && <p role="alert" className="text-small text-error mt-1">{fieldErrors.email}</p>}
             </div>
           </div>
@@ -86,22 +100,28 @@ export function CheckoutForm({ cart }: { cart: CartView }) {
           <div className="space-y-4">
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Address *</label>
-              <input name="address" required className={inputClass("address")} />
+              <input name="address" required defaultValue={savedAddress?.address ?? ""} className={inputClass("address")} />
               {fieldErrors.address && <p role="alert" className="text-small text-error mt-1">{fieldErrors.address}</p>}
             </div>
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">City *</label>
-              <input name="city" required className={inputClass("city")} />
+              <input name="city" required defaultValue={savedAddress?.city ?? ""} className={inputClass("city")} />
               {fieldErrors.city && <p role="alert" className="text-small text-error mt-1">{fieldErrors.city}</p>}
             </div>
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Postal Code</label>
-              <input name="postalCode" className={inputClass("postalCode")} />
+              <input name="postalCode" defaultValue={savedAddress?.postalCode ?? ""} className={inputClass("postalCode")} />
             </div>
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Delivery Notes</label>
               <textarea name="deliveryNotes" rows={3} className={`${inputClass("deliveryNotes")} h-auto py-3`} />
             </div>
+            {showSaveOption && (
+              <label className="flex items-center gap-2 font-body text-small text-charcoal cursor-pointer">
+                <input type="checkbox" name="saveAddress" defaultChecked className="accent-sage size-4" />
+                Save as my shipping address
+              </label>
+            )}
           </div>
         </div>
       </div>

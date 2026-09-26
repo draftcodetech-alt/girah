@@ -4,8 +4,7 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/require-admin";
 import type { AdminActionResult } from "./products";
-import { type OrderStatusInput } from "./schema";
-import { updateOrderStatusCore } from "./order-ops";
+import { updateOrderStatusCore, type OrderStatusInput } from "@/modules/orders";
 
 export async function getAdminOrders() {
   await requireAdmin();

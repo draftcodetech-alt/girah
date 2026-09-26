@@ -51,8 +51,8 @@ Tests always run against the **`girah_test`** database — derived from `DATABAS
 ```bash
 npm run build
 DATABASE_URL=<url> npm start &        # production server, default port 3100
-npm run test:smoke                    # 12 sensitive pages render without error
-npm run test:e2e                      # 143 checks: actions, redirects, guards, 404s, shell
+npm run test:smoke                    # 14 sensitive pages render without error
+npm run test:e2e                      # 183 checks: actions, redirects, guards, 404s, shell
 ```
 
 Both scripts are **self-contained**: they create their own users, products and
@@ -91,7 +91,7 @@ in CI.
 | `npm run lint` | ESLint (must be 0 errors / 0 warnings) |
 | `npm test` | Unit + integration suites |
 | `npm run test:smoke` | Page-render smoke suite (server must be running) |
-| `npm run test:e2e` | 143-check HTTP E2E suite (server must be running) |
+| `npm run test:e2e` | 183-check HTTP E2E suite (server must be running) |
 | `npx prisma migrate dev` | Create/apply migrations |
 | `npx prisma db seed` | Seed demo data |
 
@@ -109,7 +109,7 @@ Never reuse these credentials anywhere real, and never run the seed against prod
 ```
 src/app         routes (route groups: (storefront), (auth), account, admin, api)
 src/components  UI (storefront/, admin/, shared/)
-src/modules     domain modules — accounts, admin, cart, catalog, checkout, orders, payments
+src/modules     domain modules — accounts, addresses, admin, cart, catalog, checkout, orders, payments, reviews
 src/lib         cross-cutting helpers (db, auth, session, format, rate-limit, …)
 prisma          schema + migrations + seed
 tests/          unit/, integration/, setup/
@@ -126,4 +126,4 @@ scripts/        HTTP E2E + smoke suites (npm run test:e2e / test:smoke)
 
 ## Status
 
-All 8 phases of the bug-fix plan are complete (security, stock/order integrity, Safepay, accounts/authz, cart/catalog, forms/admin feedback, hygiene, test automation + CI). A follow-up feature/UI plan runs as phases 9–16: **Phase 9 (storefront shell) and Phase 10 (reviews & recommendations — verified-buyer submissions, moderation queue, card ratings, related products) are done**; admin catalog, account, admin dashboard, emails, wishlist/search and design-system polish are next. Plans, findings and per-phase logs live in [`contextopencode.md`](./contextopencode.md).
+All 8 phases of the bug-fix plan are complete (security, stock/order integrity, Safepay, accounts/authz, cart/catalog, forms/admin feedback, hygiene, test automation + CI). A follow-up feature/UI plan runs as phases 9–16: **Phase 9 (storefront shell), Phase 10 (reviews & recommendations — verified-buyer submissions, moderation queue, card ratings, related products), Phase 11 (admin catalog — images, category/variation CRUD, deletes) and Phase 12 (account completion — saved shipping address, customer cancel/reorder/receipt, account sub-nav) are done**; admin dashboard, emails, wishlist/search and design-system polish are next. Plans, findings and per-phase logs live in [`contextopencode.md`](./contextopencode.md).

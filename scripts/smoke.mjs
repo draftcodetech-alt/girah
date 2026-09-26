@@ -128,6 +128,7 @@ await hit("admin /admin/categories renders", "/admin/categories", admin);
 await hit("admin /admin/customers renders", "/admin/customers", admin);
 await hit("admin /admin/reviews renders", "/admin/reviews", admin);
 await hit("customer /account renders", "/account", customer);
+await hit("customer /account/addresses renders", "/account/addresses", customer);
 
 let cart = await db.cart.findUnique({ where: { userId: customerRow.id }, include: { items: true } });
 const seededLine = cart?.items?.[0] ?? null;
@@ -139,6 +140,42 @@ if (!seededLine) {
   });
 }
 await hit("customer /checkout renders with a filled cart", "/checkout", customer);
+
+// Receipt page (Phase 12) needs an order OWNING user — reuse an existing one
+// or seed ours, always cleaned up before the fixture variation is deleted.
+let receiptOrder = await db.order.findFirst({ where: { userId: customerRow.id }, select: { id: true } });
+let seededReceiptOrderId = null;
+if (!receiptOrder) {
+  const seeded = await db.order.create({
+    data: {
+      orderNumber: `GIR-SMOKE-${TS}`,
+      userId: customerRow.id,
+      customerName: "Dev Customer",
+      customerEmail: "dev-customer@girah.test",
+      customerPhone: "03000000000",
+      shippingAddress: "Smoke Street 1",
+      shippingCity: "Islamabad",
+      subtotal: 100000,
+      total: 100000,
+      paymentMethod: "COD",
+      items: {
+        create: [{
+          variationId: variation.id,
+          productName: "Smoke Fixture Item",
+          variationName: "Standard",
+          unitPrice: 100000,
+          quantity: 1,
+          subtotal: 100000,
+        }],
+      },
+    },
+  });
+  seededReceiptOrderId = seeded.id;
+  receiptOrder = { id: seeded.id };
+}
+await hit("customer order receipt renders", `/account/orders/${receiptOrder.id}/receipt`, customer);
+if (seededReceiptOrderId) await db.order.delete({ where: { id: seededReceiptOrderId } }).catch(() => {});
+
 if (!seededLine) await db.cartItem.deleteMany({ where: { cart: { userId: customerRow.id } } });
 if (fixture) await db.product.delete({ where: { id: fixture.id } }).catch(() => {});
 if (fixtureCategory) {
