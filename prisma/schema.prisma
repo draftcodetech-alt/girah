@@ -225,6 +225,9 @@ model Review {
   status    ReviewStatus @default(PENDING)
   createdAt DateTime     @default(now())
 
+  // Phase 10: one review per user per product — enforced at the DB so a
+  // resubmit upserts (and re-enters moderation) instead of duplicating.
+  @@unique([productId, userId])
   @@index([productId])
   @@index([status])
 }

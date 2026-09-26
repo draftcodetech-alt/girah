@@ -31,9 +31,9 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | 9 | User: "yes do phase 1 only" | Phase 1 executed, verified, committed, pushed (§4) |
 | 10 | User: context file request | this document |
 
-**Commits this session:**
+**Commits this session (Phase 1; later phases are listed in their own §N logs):**
 - `6c79b60` Phase 8.5: customers admin + user active state — manually verified (freeze push)
-- `623e55e` Phase 1: critical security fixes + Vitest harness ← **current HEAD**
+- `623e55e` Phase 1: critical security fixes + Vitest harness
 
 ---
 
@@ -57,8 +57,8 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | Phase | Scope | Status |
 |-------|-------|--------|
 | **9** | Storefront shell: homepage rewrite, header (search + mobile menu), footer, breadcrumbs, `src/components/ui` primitives | ✅ **DONE** (§17) |
-| 10 | Reviews & recommendations: submit/display/moderation, related products, card ratings | ⬜ **(next)** |
-| 11 | Admin catalog completeness: product images, price, variation CRUD, category CRUD, delete | ⬜ |
+| **10** | Reviews & recommendations: submit/display/moderation, related products, card ratings | ✅ **DONE** (§18) |
+| 11 | Admin catalog completeness: product images, price, variation CRUD, category CRUD, delete | ⬜ **(next)** |
 | 12 | Account completion: addresses (`SavedShipping` wiring), cancel/reorder/receipt, sub-nav | ⬜ |
 | 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ⬜ |
 | 14 | Emails (Resend): order/status/welcome + forgot/reset password | ⬜ |
@@ -267,9 +267,9 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**Phase 10 — reviews & recommendations** (feature plan, §2): storefront rating summary + approved-review list + submit form on `/product/[slug]` (the `Review` model exists but has zero UI), average rating on `ProductCard`, related products, and an admin moderation queue to replace the `/admin/reviews` stub.
+**Phase 11 — admin catalog completeness** (feature plan, §2). Product create/edit/delete, variation edit and stock adjustment already exist (`src/modules/admin/products.ts`, `variations.ts`) — what's missing: **product image management** (multi-image upload/order/delete: nothing touches `ProductImage` from admin today), **variation create** (only `updateVariation` exists), and **category CRUD** (only `getAdminCategories` — categories are read-only).
 
-Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5) and **Phase 9** (§17.5). CI secrets were added in Phase 8 (§16.4) and the pipeline is green.
+Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5) and **Phase 10** (§18.6). CI secrets were added in Phase 8 (§16.4) and the pipeline is green.
 
 ---
 
@@ -718,3 +718,62 @@ Scratch Neon DB `girah_p9fresh` (migrated, never seeded) + `next start -p 3101`:
 - Primitives are **additive**: existing forms/pages keep their inline classes until Phase 16 (avoids touching Phase 1–6 verified behaviour).
 - `Field` ships unused-by-pages on purpose (Phase 12/14 forms adopt it); the unit test keeps it honest.
 - Homepage `metadata` untouched (root title/description apply); no per-page `<title>` experiments (Phase 7 lesson).
+
+---
+
+## 18. Phase 10 — reviews & recommendations — detailed log (what & why)
+
+The `Review` model (schema + migration 1) existed with **zero UI and zero writers**. This phase adds the whole loop: buyer submits → moderation → storefront display, plus card ratings and related products.
+
+### 18.1 Decisions (user-confirmed before execution)
+
+- **Verified buyers only**: ≥1 **non-CANCELLED** order containing any variation of the product. The gate is checked twice — once to decide whether the form renders (`getReviewSubmissionState`) and again inside `submitReview` (never trust the hidden `productId` a client posted).
+- **One review per user per product**: DB `@@unique([productId, userId])` + `upsert`. Resubmitting (even an already-approved review) updates the same row and **resets it to PENDING** — an edit goes back through moderation.
+- **Reviewer privacy**: storefront shows first name + last initial (`Ayesha Khan` → `Ayesha K.`), "Anonymous" when the account has no name. Admin moderation shows the full name + email (moderators need to identify the account).
+- **Ratings on cards too**: `getProducts` now returns `ratingAverage`/`ratingCount` (APPROVED only), so `/shop` and the homepage featured grid render a star line automatically.
+
+### 18.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | Nothing stopped two reviews from one user per product | Migration 8 `20260926081401_phase10_review_unique` — `CREATE UNIQUE INDEX "Review_productId_userId_key"` | `prisma/migrations/…` (created **manually**: `migrate dev` refuses non-interactive shells here and `script -qec` hung; applied with `migrate deploy` + `prisma generate`) |
+| 2 | Review submission/domain had no module | New `src/modules/reviews/`: `types.ts`, `format.ts` (`formatReviewerName`), `queries.ts` (`getProductReviewsAndRating` APPROVED-only + avg/count + `isMine`, `hasVerifiedPurchase`, `getReviewSubmissionState`), `actions.ts` (`submitReview`: validate-first → auth → product exists → purchase gate → `upsert` → `revalidatePath(/product/<slug>)`), barrel `index.ts` | `src/modules/reviews/` |
+| 3 | `ProductListItem` had no rating | `ratingAverage`/`ratingCount` added to the type; `getProducts` includes APPROVED reviews and computes the fields in the existing map (no extra query) | `src/modules/catalog/{types,queries}.ts` |
+| 4 | No star line on product cards | Renders `★ 4.8 (12)` **only when `ratingCount > 0`** with a descriptive `aria-label` (never a fake 0.0) | `src/components/storefront/ProductCard.tsx` |
+| 5 | Product page ended at the purchase panel | New `Reviews` section: average summary, sign-in prompt (anon) / "Only verified buyers…" (non-buyer) / form (buyer), APPROVED review list (`(You)` tag, `formatDate`), plus "You may also like" — same category, self excluded, take 4 | `src/app/(storefront)/product/[slug]/page.tsx` |
+| 6 | No form or star renderer | `ReviewForm` (client, `useActionState`, star radios + textarea, success → `role="status"` "awaiting approval", errors via `Field` → `role="alert"`) and `RatingStars` (text stars, sr-only label) | `src/components/storefront/{ReviewForm,RatingStars}.tsx` |
+| 7 | `/admin/reviews` was a 3-line stub | Real page: status tabs (`?status=PENDING\|APPROVED\|REJECTED`), newest-first list; `getAdminReviews`/`setReviewStatus` (`requireAdmin` first, validates status, `revalidatePath` product page + queue) | `src/app/admin/reviews/page.tsx`, `src/modules/admin/reviews.ts` (+ barrel), `src/components/admin/ReviewRow.tsx` (client, Approve/Reject, `role="alert"`) |
+
+### 18.3 Behaviour worth knowing before touching this code
+
+- Visibility rule: **APPROVED only**, everywhere on the storefront (product page, rating average, card stars). PENDING/REJECTED never leak — enforced in `queries.ts`/`catalog/queries.ts` and asserted in unit + E2E.
+- `hasVerifiedPurchase` ignores `CANCELLED` orders; a signed-in non-buyer gets a friendly refusal, not an error page.
+- A REJECTED author may resubmit (the upsert resets status to PENDING). The form stays rendered for buyers regardless of status, with a status note above it.
+- `setReviewStatus` revalidates the **product page** (approved → visible, rejected → withdrawn) and the queue.
+
+### 18.4 Tests & gate
+
+- Unit **151 → 166** (new `tests/unit/reviews.test.ts`, **15**): `formatReviewerName` table (6 cases) + source guards — product page wiring, APPROVED-only queries, purchase gate + upsert in the action, form feedback channels, card star guard, rating type fields, admin page no longer a stub, `requireAdmin` in both admin entry points, moderation `role="alert"`.
+- Integration **124 → 142** (new `tests/integration/reviews.test.ts`, **18**): anon/non-buyer/cancelled-order refusals, buyer → PENDING row, validate-first (rating/text/missing product), one-row-per-user resubmit reset, submission-state matrix (anon/buyer/non-buyer), APPROVED-only visibility + averages + `(You)` + name masking, admin list/filter/approve/reject/status validation, both admin entry points reject when `requireAdmin` throws.
+- Smoke **9 → 10 pages** (`GET /admin/reviews` as admin). E2E **76 → 108 checks** (new section 14: action-id resolution, anon prompt + refusal, non-buyer refusal, buyer success → PENDING, pending never rendered (incl. no star summary), moderation queue + anon redirect, approve → public + summary `aria-label` + `(You)` + shop-card star line, resubmit keeps 1 row and re-hides, reject → public/author both hide, status tabs).
+- Gate: `npm run test` **308/308** (166 unit / 14 files + 142 integration / 24 files) · `tsc --noEmit` clean · `npm run lint` **0/0** · `prisma validate` + `migrate status` (**8**, none pending) · `npm run build` green (with `/admin/reviews` as a real route) · **smoke 10/10 + E2E 108/108** on the dev DB · post-run leftover query confirmed **0** e2e products, 0 `GIR-REV*` orders, 0 fixture reviews.
+
+### 18.5 Manual browser checklist (needs a human; server on `:3100`)
+
+1) As an **anonymous** visitor the product page shows "Sign in to review this product", no form, no stars · 2) sign in as an account that **never bought** the product → "Only verified buyers can review this item" · 3) sign in as a buyer → the form appears (star radios turn gold on select, textarea pre-fills your previous text if you have one) · 4) submit → green "Thanks — your review is awaiting approval" + the amber "awaiting approval" note on reload · 5) approve it in `/admin/reviews` → the product page now shows your review with stars, "(You)" and the `4.8 (1)` summary; `/shop` shows the star line on that card · 6) edit + resubmit → back to "awaiting approval", still **one** review in the admin queue · 7) reject it → it disappears from the product page (form still lets you submit again) · 8) "You may also like" lists same-category products excluding the current one.
+
+### 18.6 Errors hit in Phase 10 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | vitest `[PARSE_ERROR] Unexpected flag l in regular expression literal` in the unit test | `/from "@/modules\/reviews"/` — the `/` after `@` closed the regex literal, leaving `modules…` as flags | replaced regex matchers with `toContain("…")` string assertions |
+| 2 | `TypeError: submitReview is not a function` in the integration suite | the action lives in `reviews/actions.ts` (a `"use server"` file) and is intentionally **not** re-exported by the barrel (actions are imported via `@/modules/<name>/actions`) | import `submitReview` from `@/modules/reviews/actions`; queries keep coming from the barrel |
+| 3 | E2E: 3× "pending/rejected text leaked" even though the review list was correct | the author's own text **legitimately** appears in (a) the RSC flight payload — `existing.text` is a client-component prop inside inline `<script>`s — and (b) the `<textarea>`'s pre-filled value; neither is a rendered review | new `visibleHtml()` helper strips `<script>` + `<textarea>` before visibility assertions (first attempt only stripped textareas — confirmed by probing the page HTML with a throwaway script) |
+| 4 | `prisma migrate dev` hangs waiting for an interactive prompt; `script -qec` also hung | shell has no usable TTY for Prisma's safety prompt | write the migration folder by hand (Prisma-identical SQL) → `npx prisma migrate deploy` → `npx prisma generate` (same approach as migration 7/8) |
+
+### 18.7 Decisions recorded
+
+- Moderation is **in-row** (`useTransition` on Approve/Reject), not a separate detail page — there are only 100 reviews max in the list (`take: 100`, newest first; pagination lands with Phase 13 dashboards).
+- `ReviewRow` keeps local `status` state for instant feedback; the server result is authoritative and failures render inline (`role="alert"`) without a page reload.
+- Star rendering is text (`★`/`☆`) — no icon dependency, consistent with the "no new dependencies" rule; `RatingStars` owns the sr-only label so cards and the page summary can't drift apart.
+- `formatReviewerName` is exported from the barrel so unit tests cover the privacy rule directly (and admin never uses it — moderation shows the full account name).

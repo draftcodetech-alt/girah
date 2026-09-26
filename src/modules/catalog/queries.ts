@@ -54,6 +54,9 @@ export async function getProducts(rawFilters: ProductFilters = {}): Promise<Prod
     include: {
       images: { orderBy: { sortOrder: "asc" }, take: 1 },
       variations: true,
+      // Phase 10 card ratings: APPROVED only — pending/rejected must never
+      // leak into shop/homepage averages.
+      reviews: { where: { status: "APPROVED" }, select: { rating: true } },
     },
     orderBy:
       filters.sort === "newest"
@@ -69,6 +72,13 @@ export async function getProducts(rawFilters: ProductFilters = {}): Promise<Prod
     const isOutOfStock =
       p.variations.length > 0 && p.variations.every((v) => !v.isEnabled || v.stock <= 0);
 
+    const approvedRatings = p.reviews.map((review) => review.rating);
+    const ratingCount = approvedRatings.length;
+    const ratingAverage =
+      ratingCount > 0
+        ? Math.round((approvedRatings.reduce((sum, rating) => sum + rating, 0) / ratingCount) * 10) / 10
+        : null;
+
     return {
       id: p.id,
       name: p.name,
@@ -76,6 +86,8 @@ export async function getProducts(rawFilters: ProductFilters = {}): Promise<Prod
       mainImageUrl: p.images[0]?.url ?? null,
       startingPrice,
       isOutOfStock,
+      ratingAverage,
+      ratingCount,
     };
   });
 

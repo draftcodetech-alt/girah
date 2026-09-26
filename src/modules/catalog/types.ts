@@ -5,6 +5,9 @@ export type ProductListItem = {
   mainImageUrl: string | null;
   startingPrice: number; // lowest variation price, in paisa
   isOutOfStock: boolean; // true only when EVERY variation is unavailable
+  // Phase 10: approved-review rating (null/0 when nothing is approved yet).
+  ratingAverage: number | null;
+  ratingCount: number;
 };
 
 export type ProductDetail = {

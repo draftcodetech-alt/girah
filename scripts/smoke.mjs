@@ -119,6 +119,7 @@ await hit("admin /admin/orders renders", "/admin/orders", admin);
 await hit("admin /admin/variations renders", "/admin/variations", admin);
 await hit("admin /admin/products/new renders", "/admin/products/new", admin);
 await hit("admin /admin/customers renders", "/admin/customers", admin);
+await hit("admin /admin/reviews renders", "/admin/reviews", admin);
 await hit("customer /account renders", "/account", customer);
 
 let cart = await db.cart.findUnique({ where: { userId: customerRow.id }, include: { items: true } });

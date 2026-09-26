@@ -177,6 +177,16 @@ function stepperDisabled(block) {
   return Boolean(tag) && /\sdisabled(\s|=|>)/.test(tag);
 }
 
+// The author's own form carries their draft/previous text in two places that
+// are NOT a rendered review: the textarea's defaultValue and the RSC flight
+// payload (client-component props inside inline <script>s). Strip both so a
+// "hidden while pending" check only inspects actually-rendered output.
+function visibleHtml(html) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/g, "")
+    .replace(/<textarea[\s\S]*?<\/textarea>/g, "");
+}
+
 // ── fixtures ────────────────────────────────────────────────────────────────
 // Nothing below depends on `prisma db seed` or on a particular developer
 // database having data — users, products and the probe order are created here.
@@ -575,11 +585,282 @@ check("updateOrderStatus action id resolved", Boolean(ids.updateOrderStatus), "m
   );
 }
 
+// ── 14. Phase 10: reviews — verified buyers, one row, moderation ────────────
+const reviewOrderNumber = `GIR-REV${TS.toString(16).padStart(12, "0").slice(-12)}`;
+let reviewOrder = null;
+{
+  const productPath = `/product/${fixtureProduct.slug}`;
+  const REVIEW_TEXT = "E2E review — gorgeous bouquet and fast delivery.";
+  const reviewInput = {
+    productId: fixtureProduct.id,
+    slug: fixtureProduct.slug,
+    rating: 5,
+    text: REVIEW_TEXT,
+  };
+
+  check(
+    "submitReview action id resolved",
+    Boolean(ids.submitReview),
+    "missing from server-reference-manifest.json"
+  );
+  check(
+    "setReviewStatus action id resolved",
+    Boolean(ids.setReviewStatus),
+    "missing from server-reference-manifest.json"
+  );
+
+  // Anon: sign-in prompt, no form, no empty-state review list.
+  const anonProduct = await get(productPath);
+  check(
+    "anon product page prompts sign-in to review",
+    anonProduct.html.includes("to review this product"),
+    "anon review prompt missing"
+  );
+  check(
+    "product page renders the reviews section",
+    anonProduct.html.includes('id="reviews-heading"'),
+    "reviews heading missing"
+  );
+  check(
+    "no approved reviews → empty-state copy",
+    anonProduct.html.includes("No reviews yet"),
+    "empty-state copy missing"
+  );
+  const anonSubmit = await callAction(productPath, ids.submitReview, [reviewInput]);
+  check(
+    "anon submitReview refused",
+    anonSubmit.json?.success === false && /sign in/i.test(anonSubmit.json?.error ?? ""),
+    JSON.stringify(anonSubmit.json)
+  );
+
+  // Signed-in non-buyer: a valid payload still can't pass the purchase gate.
+  const nonBuyerJar = newJar();
+  const nonBuyerLogin = await callAction("/login", ids.login, [
+    { email: newUser.email, password: "password123" },
+  ], nonBuyerJar);
+  check(
+    "non-buyer can sign in",
+    nonBuyerLogin.json?.success === true && nonBuyerJar.has("authjs.session-token"),
+    JSON.stringify(nonBuyerLogin.json)
+  );
+  const nonBuyerSubmit = await callAction(productPath, ids.submitReview, [reviewInput], nonBuyerJar);
+  check(
+    "signed-in non-buyer submitReview refused",
+    nonBuyerSubmit.json?.success === false && /verified buyers/i.test(nonBuyerSubmit.json?.error ?? ""),
+    JSON.stringify(nonBuyerSubmit.json)
+  );
+
+  // Make the customer a verified buyer: an order containing the fixture.
+  reviewOrder = await db.order.create({
+    data: {
+      orderNumber: reviewOrderNumber,
+      customerName: "Review Buyer",
+      customerEmail: CUSTOMER.email,
+      customerPhone: "03001234567",
+      shippingAddress: "1 Test Street",
+      shippingCity: "Karachi",
+      subtotal: 180000,
+      total: 180000,
+      paymentMethod: "COD",
+      orderStatus: "CONFIRMED",
+      userId: customer.id,
+      items: {
+        create: {
+          variationId: V_SMALL,
+          productName: FIXTURE_NAME,
+          variationName: "Small Bouquet",
+          unitPrice: 180000,
+          quantity: 1,
+          subtotal: 180000,
+        },
+      },
+    },
+  });
+  const buyerSubmit = await callAction(productPath, ids.submitReview, [reviewInput], loginJar);
+  check(
+    "verified buyer submitReview → success",
+    buyerSubmit.json?.success === true,
+    JSON.stringify(buyerSubmit.json)
+  );
+  const pendingRow = await db.review.findFirst({
+    where: { productId: fixtureProduct.id, userId: customer.id },
+  });
+  check(
+    "review stored PENDING for moderation",
+    pendingRow?.status === "PENDING",
+    `${pendingRow?.status}`
+  );
+
+  // PENDING never leaks to the storefront; only the author sees the note.
+  // Scoped slices: neighbouring cards/reviews may carry their own ratings.
+  const pendingPage = await get(productPath, loginJar);
+  const pendingHeadingAt = pendingPage.html.indexOf('id="reviews-heading"');
+  const pendingSummarySlice =
+    pendingHeadingAt >= 0 ? pendingPage.html.slice(pendingHeadingAt, pendingHeadingAt + 600) : "";
+  check(
+    "pending review hidden from the product page",
+    !visibleHtml(pendingPage.html).includes(REVIEW_TEXT),
+    "pending text leaked"
+  );
+  check(
+    "author sees the awaiting-approval note",
+    pendingPage.html.includes("Your review is awaiting approval"),
+    "moderation note missing"
+  );
+  check(
+    "no star summary while the only review is pending",
+    !pendingSummarySlice.includes('aria-label="Rated'),
+    pendingSummarySlice.slice(0, 300)
+  );
+  const anonAfterPending = await get(productPath);
+  check(
+    "anonymous visitor never sees the pending review",
+    !anonAfterPending.html.includes(REVIEW_TEXT),
+    "pending text leaked to anon"
+  );
+
+  // Admin moderation queue: render, filter, approve.
+  const anonReviews = await get("/admin/reviews");
+  check(
+    "anon GET /admin/reviews → login with callbackUrl",
+    anonReviews.status >= 300 && anonReviews.status < 400 &&
+      (anonReviews.location ?? "").includes("/login?callbackUrl=%2Fadmin%2Freviews"),
+    `${anonReviews.status} ${anonReviews.location}`
+  );
+  const reviewsPage = await get("/admin/reviews", adminLogin.jar);
+  check(
+    "admin /admin/reviews renders",
+    reviewsPage.status === 200,
+    `${reviewsPage.status}`
+  );
+  check(
+    "moderation queue lists the pending review",
+    reviewsPage.html.includes(REVIEW_TEXT),
+    "pending review missing from queue"
+  );
+  const approve = await callAction(
+    "/admin/reviews",
+    ids.setReviewStatus,
+    [pendingRow?.id ?? "", "APPROVED"],
+    adminLogin.jar
+  );
+  check(
+    "setReviewStatus APPROVED → success",
+    approve.json?.success === true,
+    JSON.stringify(approve.json)
+  );
+
+  // Approved: visible, rated, attributed to the author as "(You)".
+  const approvedPage = await get(productPath, loginJar);
+  const approvedHeadingAt = approvedPage.html.indexOf('id="reviews-heading"');
+  const approvedSummarySlice =
+    approvedHeadingAt >= 0 ? approvedPage.html.slice(approvedHeadingAt, approvedHeadingAt + 600) : "";
+  check(
+    "approved review is visible on the product page",
+    approvedPage.html.includes(REVIEW_TEXT),
+    "approved text missing"
+  );
+  check(
+    "rating summary renders after approval",
+    approvedSummarySlice.includes('aria-label="Rated 5 out of 5 from 1 review"'),
+    approvedSummarySlice.slice(0, 300)
+  );
+  check(
+    "the author's own review is tagged (You)",
+    approvedPage.html.includes("(You)"),
+    "(You) marker missing"
+  );
+  const anonApproved = await get(productPath);
+  check(
+    "approved review is public",
+    anonApproved.html.includes(REVIEW_TEXT),
+    "approved text not public"
+  );
+  const shopApproved = await get("/shop");
+  const cardAt = shopApproved.html.indexOf(`${FIXTURE_NAME}</h3>`);
+  const cardSlice = cardAt >= 0 ? shopApproved.html.slice(cardAt, cardAt + 500) : "";
+  check(
+    "shop card shows the star line after approval",
+    cardSlice.includes('aria-label="Rated 5 out of 5 from 1 review"'),
+    cardSlice.slice(0, 300)
+  );
+
+  // Resubmission: upserts ONE row and re-enters moderation.
+  const UPDATE_TEXT = "Changed my mind after washing it twice.";
+  const resubmit = await callAction(
+    productPath,
+    ids.submitReview,
+    [{ ...reviewInput, rating: 1, text: UPDATE_TEXT }],
+    loginJar
+  );
+  check(
+    "author resubmit → success",
+    resubmit.json?.success === true,
+    JSON.stringify(resubmit.json)
+  );
+  const rowsForUser = await db.review.count({
+    where: { productId: fixtureProduct.id, userId: customer.id },
+  });
+  check("one review row per user per product", rowsForUser === 1, `${rowsForUser}`);
+  const updatedRow = await db.review.findFirst({
+    where: { productId: fixtureProduct.id, userId: customer.id },
+  });
+  check(
+    "resubmit resets the row to PENDING",
+    updatedRow?.status === "PENDING" && updatedRow?.rating === 1,
+    `${updatedRow?.status} rating=${updatedRow?.rating}`
+  );
+  const afterResubmit = await get(productPath, loginJar);
+  check(
+    "updated review is hidden again until re-approved",
+    !visibleHtml(afterResubmit.html).includes(UPDATE_TEXT),
+    "re-pending text leaked"
+  );
+
+  // Reject: stays out of the storefront, leaves the pending queue.
+  const reject = await callAction(
+    "/admin/reviews",
+    ids.setReviewStatus,
+    [updatedRow?.id ?? "", "REJECTED"],
+    adminLogin.jar
+  );
+  check(
+    "setReviewStatus REJECTED → success",
+    reject.json?.success === true,
+    JSON.stringify(reject.json)
+  );
+  const rejectedPage = await get(productPath);
+  const authorAfterReject = await get(productPath, loginJar);
+  check(
+    "rejected review never renders publicly",
+    !rejectedPage.html.includes(UPDATE_TEXT),
+    "rejected text leaked"
+  );
+  check(
+    "rejected review never renders for the author",
+    !visibleHtml(authorAfterReject.html).includes(UPDATE_TEXT),
+    "rejected text leaked to author"
+  );
+  const pendingTab = await get("/admin/reviews?status=PENDING", adminLogin.jar);
+  check(
+    "status=PENDING tab renders and excludes the rejected row",
+    pendingTab.status === 200 && !pendingTab.html.includes(UPDATE_TEXT),
+    `${pendingTab.status}`
+  );
+  const rejectedTab = await get("/admin/reviews?status=REJECTED", adminLogin.jar);
+  check(
+    "status=REJECTED tab lists the rejected row",
+    rejectedTab.status === 200 && rejectedTab.html.includes(UPDATE_TEXT),
+    `${rejectedTab.status}`
+  );
+}
+
 // ── cleanup ─────────────────────────────────────────────────────────────────
 await wipeUserCart(customer.id);
 await db.cart.deleteMany({ where: { guestId: { startsWith: "e2e-guest-" } } });
 if (newUser) await db.user.delete({ where: { id: newUser.id } }); // cascades their cart
 await db.order.delete({ where: { id: probeOrder.id } }).catch(() => {});
+if (reviewOrder) await db.order.delete({ where: { id: reviewOrder.id } }).catch(() => {});
 for (const product of [...Object.values(floatProducts), unavailableProduct, fixtureProduct]) {
   await db.product.delete({ where: { id: product.id } }).catch(() => {});
 }

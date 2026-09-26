@@ -14,3 +14,6 @@ export type { ProductInput, VariationInput, StockAdjustmentInput } from "./schem
 
 export { getAdminOrders, getAdminOrderById, updateOrderStatus, markCodPaymentReceived } from "./orders";
 export type { OrderStatusInput } from "./schema";
+
+export { getAdminReviews, setReviewStatus } from "./reviews";
+export type { AdminReviewStatus } from "./reviews";

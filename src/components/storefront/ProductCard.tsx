@@ -43,6 +43,17 @@ export function ProductCard({ product, number }: ProductCardProps) {
       </div>
 
       <h3 className="font-body text-card-title text-charcoal mt-4">{product.name}</h3>
+      {product.ratingCount > 0 && (
+        <span
+          className="mt-1.5 flex items-center gap-1.5 font-body text-small text-sage"
+          aria-label={`Rated ${product.ratingAverage} out of 5 from ${product.ratingCount} ${product.ratingCount === 1 ? "review" : "reviews"}`}
+        >
+          <span aria-hidden="true">★</span>
+          <span aria-hidden="true">
+            {product.ratingAverage?.toFixed(1)} ({product.ratingCount})
+          </span>
+        </span>
+      )}
       <p className="font-body text-small text-sage mt-1.5">
         {/* startingPrice is 0 only when the product has no purchasable
             (enabled) variation — never render the nonsense "From Rs. 0". */}
