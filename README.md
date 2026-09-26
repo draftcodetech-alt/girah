@@ -51,8 +51,8 @@ Tests always run against the **`girah_test`** database — derived from `DATABAS
 ```bash
 npm run build
 DATABASE_URL=<url> npm start &        # production server, default port 3100
-npm run test:smoke                    # 10 sensitive pages render without error
-npm run test:e2e                      # 108 checks: actions, redirects, guards, 404s, shell
+npm run test:smoke                    # 12 sensitive pages render without error
+npm run test:e2e                      # 143 checks: actions, redirects, guards, 404s, shell
 ```
 
 Both scripts are **self-contained**: they create their own users, products and
@@ -91,7 +91,7 @@ in CI.
 | `npm run lint` | ESLint (must be 0 errors / 0 warnings) |
 | `npm test` | Unit + integration suites |
 | `npm run test:smoke` | Page-render smoke suite (server must be running) |
-| `npm run test:e2e` | 108-check HTTP E2E suite (server must be running) |
+| `npm run test:e2e` | 143-check HTTP E2E suite (server must be running) |
 | `npx prisma migrate dev` | Create/apply migrations |
 | `npx prisma db seed` | Seed demo data |
 

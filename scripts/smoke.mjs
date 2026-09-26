@@ -118,6 +118,13 @@ await hit("public /register renders", "/register");
 await hit("admin /admin/orders renders", "/admin/orders", admin);
 await hit("admin /admin/variations renders", "/admin/variations", admin);
 await hit("admin /admin/products/new renders", "/admin/products/new", admin);
+const detailProduct = fixture ?? (await db.product.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } }));
+if (detailProduct) {
+  await hit("admin /admin/products/[id] renders", `/admin/products/${detailProduct.id}`, admin);
+} else {
+  checks.push(["admin /admin/products/[id] renders", false, "no product available"]);
+}
+await hit("admin /admin/categories renders", "/admin/categories", admin);
 await hit("admin /admin/customers renders", "/admin/customers", admin);
 await hit("admin /admin/reviews renders", "/admin/reviews", admin);
 await hit("customer /account renders", "/account", customer);

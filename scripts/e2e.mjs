@@ -114,6 +114,32 @@ async function callAction(path, actionId, args, jar = null) {
   };
 }
 
+// Actions whose single argument IS a FormData (file uploads) go over multipart
+// with React's flight encoding: field "0" holds the args JSON pointing at the
+// FormData via "$K<partId>", and fields "_1_<name>" carry its entries. Order
+// matters — the streaming decoder parses field "0" on arrival, so every "_1_"
+// part must be appended BEFORE the root (React's own encoder sets root last).
+async function callActionFormData(path, actionId, formData, jar = null) {
+  const body = new FormData();
+  for (const [key, value] of formData.entries()) body.append(`_1_${key}`, value);
+  body.append("0", JSON.stringify(["$K1"]));
+  const res = await safeFetch(BASE + path, {
+    method: "POST",
+    redirect: "manual",
+    headers: {
+      "Next-Action": actionId,
+      Accept: "text/x-component",
+      Origin: BASE,
+      ...(jar && jar.size ? { Cookie: jarHeader(jar) } : {}),
+    },
+    body,
+  });
+  const setCookies = res.headers.getSetCookie();
+  const text = await res.text();
+  if (jar) applySetCookies(jar, setCookies);
+  return { status: res.status, json: parseActionPayload(text), text };
+}
+
 // Classic Auth.js credentials login (route handler path — used for admin setup).
 async function apiLogin(email, password) {
   const jar = newJar();
@@ -855,12 +881,304 @@ let reviewOrder = null;
   );
 }
 
+// ── 15. Phase 11: admin catalog — images, variation create, category CRUD ──
+let p11Product = null;
+let p11Order = null;
+{
+  for (const name of [
+    "createCategory",
+    "deleteCategory",
+    "createVariation",
+    "uploadProductImage",
+    "deleteProductImage",
+    "moveProductImage",
+    "deleteProduct",
+  ]) {
+    check(
+      `${name} action id resolved`,
+      Boolean(ids[name]),
+      "missing from server-reference-manifest.json"
+    );
+  }
+
+  const catPage = await get("/admin/categories", adminLogin.jar);
+  check("admin /admin/categories renders", catPage.status === 200, `${catPage.status}`);
+
+  // Category create → row + rendered list + offered by the product form.
+  const P11_CAT = { name: `E2E P11 Cat ${TS}`, slug: `e2e-p11-cat-${TS}` };
+  const createCat = await callAction(
+    "/admin/categories",
+    ids.createCategory,
+    [P11_CAT],
+    adminLogin.jar
+  );
+  check("createCategory → success", createCat.json?.success === true, JSON.stringify(createCat.json));
+  const catRow = await db.category.findUnique({ where: { slug: P11_CAT.slug } });
+  check("createCategory stores the row", Boolean(catRow), "row missing");
+  const catListAfter = await get("/admin/categories", adminLogin.jar);
+  check(
+    "category list shows the new category",
+    catListAfter.html.includes(P11_CAT.slug),
+    "slug missing from list"
+  );
+  const newProductPage = await get("/admin/products/new", adminLogin.jar);
+  check(
+    "product form offers inline category creation",
+    newProductPage.html.includes("＋ New category…"),
+    "option missing"
+  );
+  check(
+    "product form lists the new category",
+    newProductPage.html.includes(P11_CAT.slug),
+    "slug missing from select"
+  );
+
+  // In-use refusal (the reused fixture category owns products) …
+  const inUse = await callAction(
+    "/admin/categories",
+    ids.deleteCategory,
+    [category.id],
+    adminLogin.jar
+  );
+  check(
+    "deleteCategory refuses an in-use category",
+    inUse.json?.success === false && /still use this category/i.test(inUse.json?.error ?? ""),
+    JSON.stringify(inUse.json)
+  );
+  // … then the empty one deletes cleanly.
+  const delCat = await callAction(
+    "/admin/categories",
+    ids.deleteCategory,
+    [catRow?.id ?? ""],
+    adminLogin.jar
+  );
+  check("deleteCategory removes an empty category", delCat.json?.success === true, JSON.stringify(delCat.json));
+  const catListFinal = await get("/admin/categories", adminLogin.jar);
+  check(
+    "deleted category is gone from the list",
+    !catListFinal.html.includes(P11_CAT.slug),
+    "slug still rendered"
+  );
+
+  // Product detail: images section + variation create form.
+  const detailPath = `/admin/products/${fixtureProduct.id}`;
+  const detailPage = await get(detailPath, adminLogin.jar);
+  check(
+    "product detail renders the images section",
+    detailPage.html.includes('id="images-heading"'),
+    "images heading missing"
+  );
+  check("product detail offers Add variation", detailPage.html.includes("Add variation"), "button missing");
+
+  // Variation create: rupees in, integer paisa stored, storefront shows it.
+  const P11_VAR = {
+    productId: fixtureProduct.id,
+    name: `E2E XL Bouquet ${TS}`,
+    price: 1800.5,
+    stock: 4,
+    isEnabled: true,
+  };
+  const createVar = await callAction(detailPath, ids.createVariation, [P11_VAR], adminLogin.jar);
+  check("createVariation → success", createVar.json?.success === true, JSON.stringify(createVar.json));
+  const varRow = await db.productVariation.findFirst({ where: { name: P11_VAR.name } });
+  check(
+    "createVariation stores rupees as integer paisa",
+    varRow?.price === 180050 && varRow?.stock === 4,
+    `price=${varRow?.price} stock=${varRow?.stock}`
+  );
+  const storePage = await get(`/product/${fixtureProduct.slug}`);
+  check(
+    "new variation appears on the storefront",
+    storePage.html.includes(P11_VAR.name),
+    "variation name missing"
+  );
+
+  // Images: two rows for reorder/delete; uploads go over flight multipart.
+  const seed1 = await db.productImage.create({
+    data: {
+      productId: fixtureProduct.id,
+      url: "https://res.cloudinary.com/demo/image/upload/v1700000000/girah/e2e-a.jpg",
+      sortOrder: 0,
+    },
+  });
+  const seed2 = await db.productImage.create({
+    data: {
+      productId: fixtureProduct.id,
+      url: "https://res.cloudinary.com/demo/image/upload/v1700000000/girah/e2e-b.jpg",
+      sortOrder: 1,
+    },
+  });
+
+  const badForm = new FormData();
+  badForm.set("productId", fixtureProduct.id);
+  badForm.set("file", new File(["not an image"], "evil.txt", { type: "text/plain" }));
+  const badUpload = await callActionFormData(detailPath, ids.uploadProductImage, badForm, adminLogin.jar);
+  check(
+    "uploadProductImage refuses a .txt file",
+    badUpload.json?.success === false && /JPEG, PNG, WebP, AVIF or GIF/i.test(badUpload.json?.error ?? ""),
+    JSON.stringify(badUpload.json)
+  );
+  const imageCountAfterRefusal = await db.productImage.count({
+    where: { productId: fixtureProduct.id },
+  });
+  check("refused upload stores no row", imageCountAfterRefusal === 2, `${imageCountAfterRefusal}`);
+
+  // Real upload only where credentials exist — CI has no Cloudinary secrets.
+  if (process.env.CLOUDINARY_CLOUD_NAME) {
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      "base64"
+    );
+    const okForm = new FormData();
+    okForm.set("productId", fixtureProduct.id);
+    okForm.set("file", new File([png], "pixel.png", { type: "image/png" }));
+    const okUpload = await callActionFormData(detailPath, ids.uploadProductImage, okForm, adminLogin.jar);
+    check("real Cloudinary upload → success", okUpload.json?.success === true, JSON.stringify(okUpload.json));
+    const uploaded = await db.productImage.findFirst({
+      where: {
+        productId: fixtureProduct.id,
+        id: { notIn: [seed1.id, seed2.id] },
+      },
+    });
+    check(
+      "real upload stores a res.cloudinary.com URL",
+      Boolean(uploaded) && uploaded.url.includes("res.cloudinary.com"),
+      uploaded?.url ?? "row missing"
+    );
+  } else {
+    check("real Cloudinary upload (skipped — no CLOUDINARY_CLOUD_NAME)", true, "skipped");
+  }
+
+  // Reorder via the action: gapless sortOrder either way.
+  const moveFirst = await callAction(
+    detailPath,
+    ids.moveProductImage,
+    [seed2.id, "first"],
+    adminLogin.jar
+  );
+  check("moveProductImage(first) → success", moveFirst.json?.success === true, JSON.stringify(moveFirst.json));
+  const afterFirst = await db.productImage.findMany({
+    where: { productId: fixtureProduct.id },
+    orderBy: { sortOrder: "asc" },
+  });
+  check(
+    "move first pins the image at sortOrder 0",
+    afterFirst[0]?.id === seed2.id && afterFirst.every((row, i) => row.sortOrder === i),
+    JSON.stringify(afterFirst.map((row) => [row.sortOrder, row.id === seed2.id]))
+  );
+  const moveLast = await callAction(
+    detailPath,
+    ids.moveProductImage,
+    [seed2.id, "last"],
+    adminLogin.jar
+  );
+  check("moveProductImage(last) → success", moveLast.json?.success === true, JSON.stringify(moveLast.json));
+  const afterLast = await db.productImage.findMany({
+    where: { productId: fixtureProduct.id },
+    orderBy: { sortOrder: "asc" },
+  });
+  check(
+    "move last appends the image with gapless order",
+    afterLast[afterLast.length - 1]?.id === seed2.id &&
+      afterLast.every((row, i) => row.sortOrder === i),
+    JSON.stringify(afterLast.map((row) => [row.sortOrder, row.id === seed2.id]))
+  );
+
+  const delImg = await callAction(
+    detailPath,
+    ids.deleteProductImage,
+    [seed1.id],
+    adminLogin.jar
+  );
+  check("deleteProductImage → success", delImg.json?.success === true, JSON.stringify(delImg.json));
+  check(
+    "deleted image row is gone",
+    (await db.productImage.findUnique({ where: { id: seed1.id } })) === null,
+    "row still present"
+  );
+
+  // Admin list: cover thumbnail (optimizable host → next/image <img>) + delete.
+  const listPage = await get("/admin/products", adminLogin.jar);
+  const fixtureRowAt = listPage.html.indexOf(FIXTURE_NAME);
+  check(
+    "product list renders the cover thumbnail",
+    fixtureRowAt >= 0 && listPage.html.includes("/_next/image?url="),
+    `fixtureRowAt=${fixtureRowAt}`
+  );
+  check(
+    "product list offers a delete button",
+    /Delete<\/button>/.test(listPage.html),
+    "delete button missing"
+  );
+
+  // deleteProduct: refuses while an order references it, deletes once freed.
+  p11Product = await db.product.create({
+    data: {
+      name: `E2E P11 Delete ${TS}`,
+      slug: `e2e-p11-delete-${TS}`,
+      description: "Phase 11 deleteProduct fixture.",
+      categoryId: category.id,
+      variations: { create: [{ name: "Standard", price: 10000, stock: 3, isEnabled: true }] },
+    },
+    include: { variations: true },
+  });
+  p11Order = await db.order.create({
+    data: {
+      orderNumber: `GIR-P11${TS.toString(16).padStart(12, "0").slice(-12)}`,
+      customerName: "E2E P11",
+      customerEmail: "e2e-p11@example.com",
+      customerPhone: "03001234567",
+      shippingAddress: "1 Test Street",
+      shippingCity: "Karachi",
+      subtotal: 10000,
+      total: 10000,
+      paymentMethod: "COD",
+      items: {
+        create: {
+          variationId: p11Product.variations[0].id,
+          productName: p11Product.name,
+          variationName: "Standard",
+          unitPrice: 10000,
+          quantity: 1,
+          subtotal: 10000,
+        },
+      },
+    },
+  });
+  const refuseDelete = await callAction(
+    "/admin/products",
+    ids.deleteProduct,
+    [p11Product.id],
+    adminLogin.jar
+  );
+  check(
+    "deleteProduct refuses a product referenced by an order",
+    refuseDelete.json?.success === false && /orders or carts/i.test(refuseDelete.json?.error ?? ""),
+    JSON.stringify(refuseDelete.json)
+  );
+  await db.order.delete({ where: { id: p11Order.id } });
+  const doDelete = await callAction(
+    "/admin/products",
+    ids.deleteProduct,
+    [p11Product.id],
+    adminLogin.jar
+  );
+  check(
+    "deleteProduct removes an unreferenced product",
+    doDelete.json?.success === true &&
+      (await db.product.findUnique({ where: { id: p11Product.id } })) === null,
+    JSON.stringify(doDelete.json)
+  );
+}
+
 // ── cleanup ─────────────────────────────────────────────────────────────────
 await wipeUserCart(customer.id);
 await db.cart.deleteMany({ where: { guestId: { startsWith: "e2e-guest-" } } });
 if (newUser) await db.user.delete({ where: { id: newUser.id } }); // cascades their cart
 await db.order.delete({ where: { id: probeOrder.id } }).catch(() => {});
 if (reviewOrder) await db.order.delete({ where: { id: reviewOrder.id } }).catch(() => {});
+if (p11Order) await db.order.delete({ where: { id: p11Order.id } }).catch(() => {});
+if (p11Product) await db.product.delete({ where: { id: p11Product.id } }).catch(() => {});
 for (const product of [...Object.values(floatProducts), unavailableProduct, fixtureProduct]) {
   await db.product.delete({ where: { id: product.id } }).catch(() => {});
 }

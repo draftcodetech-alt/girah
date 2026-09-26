@@ -58,8 +58,8 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 |-------|-------|--------|
 | **9** | Storefront shell: homepage rewrite, header (search + mobile menu), footer, breadcrumbs, `src/components/ui` primitives | ✅ **DONE** (§17) |
 | **10** | Reviews & recommendations: submit/display/moderation, related products, card ratings | ✅ **DONE** (§18) |
-| 11 | Admin catalog completeness: product images, price, variation CRUD, category CRUD, delete | ⬜ **(next)** |
-| 12 | Account completion: addresses (`SavedShipping` wiring), cancel/reorder/receipt, sub-nav | ⬜ |
+| 11 | Admin catalog completeness: product images, price, variation CRUD, category CRUD, delete | ✅ **DONE** (§19) |
+| 12 | Account completion: addresses (`SavedShipping` wiring), cancel/reorder/receipt, sub-nav | ⬜ **(next)** |
 | 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ⬜ |
 | 14 | Emails (Resend): order/status/welcome + forgot/reset password | ⬜ |
 | 15 | Wishlist + dedicated `/search` results page | ⬜ |
@@ -267,9 +267,9 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**Phase 11 — admin catalog completeness** (feature plan, §2). Product create/edit/delete, variation edit and stock adjustment already exist (`src/modules/admin/products.ts`, `variations.ts`) — what's missing: **product image management** (multi-image upload/order/delete: nothing touches `ProductImage` from admin today), **variation create** (only `updateVariation` exists), and **category CRUD** (only `getAdminCategories` — categories are read-only).
+**Phase 12 — account completion** (feature plan, §2): wire the `SavedShipping` address model into checkout/account (saved-address CRUD + one-click select), order **cancel / reorder / receipt** flows for customers, and the account sub-nav. Existing scaffolding: `src/app/account/*` pages, order actions in `src/modules/orders`.
 
-Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5) and **Phase 10** (§18.6). CI secrets were added in Phase 8 (§16.4) and the pipeline is green.
+Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5) and **Phase 11** (§19.5). CI secrets were added in Phase 8 (§16.4) and the pipeline is green.
 
 ---
 
@@ -777,3 +777,67 @@ The `Review` model (schema + migration 1) existed with **zero UI and zero writer
 - `ReviewRow` keeps local `status` state for instant feedback; the server result is authoritative and failures render inline (`role="alert"`) without a page reload.
 - Star rendering is text (`★`/`☆`) — no icon dependency, consistent with the "no new dependencies" rule; `RatingStars` owns the sr-only label so cards and the page summary can't drift apart.
 - `formatReviewerName` is exported from the barrel so unit tests cover the privacy rule directly (and admin never uses it — moderation shows the full account name).
+
+---
+
+## 19. Phase 11 — admin catalog completeness — detailed log (what & why)
+
+Product CRUD and variation *edit* existed; this phase made the catalog fully manageable: **image uploads** (nothing ever touched `ProductImage` from admin), **variation create**, **category CRUD**, plus the product-list delete button and cover thumbnails.
+
+### 19.1 Decisions (user-confirmed before execution)
+
+- **Cloudinary** for image hosting (`CLOUDINARY_*` keys in `.env`, `cloudinary` dep already installed, `next.config.ts` already whitelists `res.cloudinary.com`, seed data uses it).
+- **No schema migration** — the phase ships with migrations still at **8**.
+- Variation **create** lives on `/admin/products/[id]` (next to the variation list), not on `/admin/variations`.
+- Extras taken **all**: product-list cover thumbnail + delete, image reorder (move first / move last), **and** category editing both inline in the product form *and* on a dedicated `/admin/categories` page.
+- Server-action body cap raised: `experimental.serverActions.bodySizeLimit: "4mb"` (Next default is **1 MB**, too small for image uploads) with a **3.5 MB** per-file guard — multipart overhead keeps total under the cap.
+
+### 19.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | No way to upload/order/delete product images | New plain module `image-ops.ts` (validate product → image count ≤10 → mime ∈ {jpeg,png,webp,avif,gif} → size ≤3.5 MB **all before** any upload; `uploadBuffer` via Cloudinary `upload_stream`; `deleteImageCore` row-delete + **best-effort** remote `destroy` in try/catch so missing CI credentials never fail; `moveImageCore` transaction rewrites gapless `sortOrder 0..n-1`) + `"use server"` wrapper `images.ts` (`uploadProductImage(formData)` / `deleteProductImage` / `moveProductImage`, `requireAdmin` first, revalidates `/admin/products`, `/admin/products/[id]`, `/product/[slug]`, `/shop`) | `src/modules/admin/{image-ops,images}.ts` |
+| 2 | FK-RESTRICT violations on DELETE surface as `PrismaClientUnknownRequestError` (Postgres **23001**), not `P2003`/`P2014` — **`deleteProduct`'s friendly refusal never fired (it would 500 for real users)** | New `db-errors.ts`: `isForeignKeyRestriction` (KnownRequestError P2003/P2014 **or** error-cause-chain text `23001`/`foreign key constraint`/`RESTRICT setting`) + `isRecordNotFound` (P2025); `deleteProduct` and `deleteCategory` now use them | `src/modules/admin/db-errors.ts`, `products.ts`, `categories.ts` |
+| 3 | Categories were read-only | `categories.ts` (requireAdmin-first `createCategory`/`updateCategory`/`deleteCategory` + `getAdminCategoriesWithCounts`, slug-unique handling incl. self-exclude, P2002 → field error, in-use → "Products still use this category — move them to another category first.", revalidates `/admin/categories`, `/admin/products`, `/`) + page `/admin/categories` (CategoryForm create/edit + CategoryRow two-step delete) + nav item | `src/modules/admin/categories.ts`, `src/app/admin/categories/page.tsx`, `src/app/admin/layout.tsx`, `components/admin/{CategoryForm,CategoryRow}.tsx` |
+| 4 | No variation create (edit-only) | `createVariation` action: zod `createVariationSchema` (coerced `price` rupees ≥0.01, `stock` int ≥0), product-exists check, stores `Math.round(price * 100)` paisa, revalidates `/admin/variations`, product admin/storefront, `/shop` | `src/modules/admin/{variations,schema}.ts` |
+| 5 | Product detail page had no images UI and no add-variation entry | Rewritten page: **Images** section (`ImageManager`: upload form, thumbnail grid, Move first/Move last, two-step Delete, `role="alert"`, `router.refresh()`, placeholder `<div>` when the URL host isn't optimizable) + **Variations** section (list, empty state, inline `VariationForm` create mode) | `src/app/admin/products/[id]/page.tsx`, `components/admin/{ImageManager,VariationForm}.tsx` |
+| 6 | Category selection was a closed list | `ProductForm` gains a controlled `categoryId` + `＋ New category…` option → inline name/slug block → `createCategory` → auto-selects the new id; submit is blocked until the pending category is created | `components/admin/ProductForm.tsx` |
+| 7 | Product list showed no cover and no delete | List rows render the first image via `next/image` (**only** when `isOptimizableImageUrl` allows the host — `src/lib/image.ts`, guards against non-Cloudinary rows crashing the image optimizer) + `ProductDeleteButton` (two-step `Yes, delete “…”`, inline `role="alert"` refusal) | `src/app/admin/products/page.tsx`, `components/admin/ProductDeleteButton.tsx`, `src/lib/image.ts` |
+| 8 | `updateVariation` had no edit affordance in the detail list | `VariationRow` toggles an edit-mode `VariationForm` (name/price/isEnabled; **no stock field** — stock belongs to `adjustStock` on `/admin/variations`) | `components/admin/{VariationRow,VariationForm}.tsx` |
+
+### 19.3 Behaviour worth knowing before touching this code
+
+- **Two price contracts on purpose**: `createVariation` takes **rupees** (admin form displays rupees, server converts with `Math.round`) while `updateVariation` keeps its existing **paisa** contract (client converts on submit) — don't "unify" one way without updating both the forms and their tests.
+- Upload limits: **10 images/product**, **3.5 MB/file**, mime allowlist `{image/jpeg,png,webp,avif,gif}` — all validated **before** any Cloudinary call; `bodySizeLimit: "4mb"` in `next.config.ts` must stay above the file cap.
+- Remote `destroy` is best-effort: CI has **no** Cloudinary secrets; the row delete still succeeds (integration tests mock `cloudinary`, E2E's real upload check runs **only** when `CLOUDINARY_CLOUD_NAME` is set).
+- `next/image` only renders for whitelisted hosts — `isOptimizableImageUrl` (`src/lib/image.ts`) is the single guard; unknown hosts fall back to a placeholder div.
+- Category delete with products is **refused** (P2003-shaped, friendly copy); product delete with order/cart references likewise ("…existing orders or carts still reference it") — both now detected via `isForeignKeyRestriction` because Prisma's DELETE…RESTRICT error arrives as an *unknown* error, not a known request error.
+- E2E upload calls use React's flight **multipart** encoding: fields `_1_<name>` first, root field `0` = `'["$K1"]'` **last** (the streaming/busboy decoder parses field `0` on arrival — if the root precedes the parts, the reconstructed FormData is empty).
+
+### 19.4 Tests & gate
+
+- Unit **166 → 186** (new `tests/unit/admin-catalog.test.ts`, **20**): `isOptimizableImageUrl` table + source guards — upload gate ordering (product → count → mime → size all before `await uploadBuffer(`), mime allowlist, 3.5 MB / 4 mb pairing, lazy `cloudinary.config` inside the helper, best-effort destroy, three image actions each `requireAdmin` + exact revalidation targets, rupees→paisa `Math.round` strings, product detail page mounts both new sections, category CRUD gates/P2003-style messages/nav/page, ProductForm inline category, list thumbnail + delete button.
+- Integration **142 → 170** (new `tests/integration/admin-catalog.test.ts`, **28**): `cloudinary` **mocked** (`vi.hoisted` upload_stream/destroy/config) — upload happy path + sortOrder append + mime/size/count/unknown-product refusals (asserting zero upload calls) + upload-failure → friendly error; delete row + destroy public-id + destroy-failure tolerated; move first/last gapless orders; category create/dup-slug/self-slug-ok/steal-refused/in-use-refused/empty-delete/counts/requireAdmin gates; `createVariation` `1800.5 → 180050` paisa + validation + `updateVariation` paisa contract; **first automated `deleteProduct` coverage** (order-referenced refusal keeps the product, unreferenced cascades variations+images, unknown id).
+- Smoke **10 → 12 pages** (`GET /admin/categories`, `GET /admin/products/<id>` for a fixture product). E2E **108 → 143 checks** (new section 15: 7 action-id resolutions, categories page, category create → rendered list → offered by the product form, in-use refusal, empty delete → gone, detail page images/variation sections, createVariation → paisa → storefront visibility, `.txt` refusal with zero stored rows, **conditional real Cloudinary upload**, reorder first/last with gapless `sortOrder`, image delete, list cover thumbnail + delete button, `deleteProduct` refusal-then-success; plus a `callActionFormData` helper for flight multipart).
+- Gate: `npm run test` **356/356** (186 unit / 15 files + 170 integration / 25 files) · `tsc --noEmit` clean · `npm run lint` **0/0** · `prisma validate` + `migrate status` (**8**, none pending) · `npm run build` green (`/admin/categories` a real route) · **smoke 12/12 + E2E 143/143** on the dev DB · post-run leftover query **0** e2e/smoke products, images, variations, orders (the one `phase5-e2e` category is pre-existing Phase-5 dev data with 5 products).
+
+### 19.5 Manual browser checklist (needs a human; server on `:3100`)
+
+1) `/admin/products` shows each product's cover thumbnail and a **Delete** button → first click swaps to `Yes, delete “…”`, second click deletes (or shows the orders/carts refusal inline). 2) Open a product → **Images** section: upload a real JPG/PNG (progress "Uploading…" → thumbnail appears), **Move first / Move last** reorder instantly, two-step **Delete** removes the row. 3) Try uploading a `.txt` (or a >3.5 MB file) → inline `role="alert"` refusal, nothing stored. 4) **Add variation** inline (name + price in rupees + stock) → shows in the variation list, on `/admin/variations`, and as a selectable price on the storefront product page; **Edit** on a row changes name/price without a stock field. 5) `/admin/categories`: create a category → it appears in the product form's category select; delete a category that still has products → refusal copy; delete an empty one → gone. 6) `/admin/products/new` → pick `＋ New category…` → enter name/slug → saved and auto-selected → product saves cleanly. 7) As admin, confirm a `.jpg` upload actually lands on `res.cloudinary.com` and renders through `/_next/image` (non-Cloudinary URLs must render as a placeholder div, never an optimizer 500).
+
+### 19.6 Errors hit in Phase 11 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | Unit order-gate assertion failed (`db.product.findUnique` not before `uploadAt`) | `ops.indexOf("uploadBuffer(")` matched the function **definition**, which precedes the validations | match the call site `await uploadBuffer(`; assert usage forms (`ALLOWED_IMAGE_TYPES.includes`, `file.size > MAX_IMAGE_BYTES`) instead of the top-of-file const declarations |
+| 2 | Integration: `deleteProduct` threw `PrismaClientUnknownRequestError` (Postgres `23001` … `RESTRICT setting of foreign key constraint`) and `deleteCategory` returned its generic error | Prisma maps FK violations on INSERT/UPDATE to P2003/P2014, but **DELETE…RESTRICT arrives as an unknown error** — the pre-existing `deleteProduct` catch never matched (latent 500 for users) | new `db-errors.ts` helpers scanning the error/cause chain for `23001`/FK text; both delete actions now use them (this is why the tests exist) |
+| 3 | `tsc` TS2345/TS2352 on `db.order.create({…} as Prisma.OrderUncheckedCreateInput)` | the cast was applied to the whole `{data: …}` argument | dropped the cast — the nested `items: {create: …}` shape is a valid checked create |
+| 4 | E2E: upload actions returned `{"success":false,"error":"Product not found."}` although the multipart body was accepted | the flight **streaming (busboy) decoder parses field `0` on arrival** — the root `["$K1"]` was appended first, so the `$K` scan rebuilt an *empty* FormData before `_1_productId`/`_1_file` arrived; React's own encoder sets the root **last** | `callActionFormData` appends `_1_*` parts first, root `0` last (documented in the helper) |
+| 5 | E2E: "cover thumbnail missing" — looked for `e2e-b.jpg` | after reorder + the real upload, the fixture's cover was the *uploaded* image, not the seeded one | assert the fixture row exists and the page renders `/_next/image?url=` (optimizable host) |
+
+### 19.7 Decisions recorded
+
+- **Stock is not editable in the variation edit form** — `updateVariation` stays name/price/isEnabled; stock changes go through `adjustStock` (audit trail, `/admin/variations`).
+- `updateVariation`'s paisa contract is kept deliberately (Phase 5 callers) while `createVariation` speaks rupees; the conversion lives server-side in each action.
+- Limits frozen at **10 images / 3.5 MB / 4 mb action body** — any bump must move both `MAX_IMAGE_BYTES` and `bodySizeLimit` together (unit test keeps them paired).
+- Non-`res.cloudinary.com` URLs are treated as non-optimizable (placeholder div) rather than added to the `images.remotePatterns` allowlist.

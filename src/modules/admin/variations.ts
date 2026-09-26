@@ -4,7 +4,13 @@ import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/require-admin";
 import type { AdminActionResult } from "./products";
-import { variationSchema, type VariationInput, type StockAdjustmentInput } from "./schema";
+import {
+  variationSchema,
+  createVariationSchema,
+  type VariationInput,
+  type CreateVariationInput,
+  type StockAdjustmentInput,
+} from "./schema";
 import { adjustStockCore } from "./variation-ops";
 
 export async function getAdminVariations() {
@@ -13,6 +19,48 @@ export async function getAdminVariations() {
     include: { product: true },
     orderBy: [{ product: { name: "asc" } }, { name: "asc" }],
   });
+}
+
+// Phase 11: the missing create half of variation CRUD. Price arrives in
+// RUPEES from the form and is stored as integer paisa (Math.round — the same
+// float guard as the Phase 5 price filter). Stock changes afterwards only via
+// adjustStock (audit trail), never by editing this row directly.
+export async function createVariation(
+  input: CreateVariationInput
+): Promise<AdminActionResult> {
+  await requireAdmin();
+
+  const parsed = createVariationSchema.safeParse(input);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
+    return { success: false, error: "Please check the highlighted fields.", fieldErrors };
+  }
+
+  const { productId, name, price, stock, isEnabled } = parsed.data;
+  const product = await db.product.findUnique({ where: { id: productId }, select: { slug: true } });
+  if (!product) return { success: false, error: "Product not found." };
+
+  try {
+    await db.productVariation.create({
+      data: {
+        productId,
+        name,
+        price: Math.round(price * 100),
+        stock,
+        isEnabled,
+      },
+    });
+  } catch (error) {
+    console.error("createVariation failed:", error);
+    return { success: false, error: "Something went wrong creating the variation. Please try again." };
+  }
+
+  revalidatePath("/admin/variations");
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath(`/product/${product.slug}`);
+  revalidatePath("/shop");
+  return { success: true };
 }
 
 export async function updateVariation(id: string, input: VariationInput): Promise<AdminActionResult> {

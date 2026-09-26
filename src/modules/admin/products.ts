@@ -1,10 +1,10 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/require-admin";
 import { productSchema, type ProductInput } from "./schema";
+import { isForeignKeyRestriction, isRecordNotFound } from "./db-errors";
 
 export type AdminActionResult =
   | { success: true }
@@ -91,20 +91,19 @@ export async function deleteProduct(id: string): Promise<AdminActionResult> {
   // frozen productName/variationName fields are extra snapshot metadata, not
   // a substitute for the relation. Products referenced by orders or carts
   // therefore cannot be deleted; surface that as a friendly error instead of
-  // an unhandled P2003/P2014.
+  // an unhandled error. DELETE…RESTRICT arrives as an UNKNOWN Prisma error
+  // (Postgres 23001), so isForeignKeyRestriction checks both shapes.
   try {
     await db.product.delete({ where: { id } });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === "P2003" || error.code === "P2014") {
-        return {
-          success: false,
-          error: "This product can't be deleted because existing orders or carts still reference it.",
-        };
-      }
-      if (error.code === "P2025") {
-        return { success: false, error: "Product not found." };
-      }
+    if (isForeignKeyRestriction(error)) {
+      return {
+        success: false,
+        error: "This product can't be deleted because existing orders or carts still reference it.",
+      };
+    }
+    if (isRecordNotFound(error)) {
+      return { success: false, error: "Product not found." };
     }
     throw error;
   }

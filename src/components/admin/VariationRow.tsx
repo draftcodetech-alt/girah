@@ -3,6 +3,7 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { updateVariation, adjustStock } from "@/modules/admin";
 import { formatPrice } from "@/lib/format";
+import { VariationForm } from "./VariationForm";
 
 type Variation = {
   id: string;
@@ -16,6 +17,7 @@ type Variation = {
 export function VariationRow({ variation }: { variation: Variation }) {
   const [isPending, startTransition] = useTransition();
   const [showAdjust, setShowAdjust] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function toggleEnabled() {
@@ -61,6 +63,15 @@ export function VariationRow({ variation }: { variation: Variation }) {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => {
+              setShowEdit((s) => !s);
+              setShowAdjust(false);
+            }}
+            className="font-body text-small text-sage font-medium"
+          >
+            {showEdit ? "Close" : "Edit"}
+          </button>
+          <button
             onClick={() => setShowAdjust((s) => !s)}
             className="font-body text-small text-sage font-medium"
           >
@@ -75,6 +86,18 @@ export function VariationRow({ variation }: { variation: Variation }) {
           </button>
         </div>
       </div>
+
+      {showEdit && (
+        <VariationForm
+          variation={{
+            id: variation.id,
+            name: variation.name,
+            price: variation.price,
+            isEnabled: variation.isEnabled,
+          }}
+          onDone={() => setShowEdit(false)}
+        />
+      )}
 
       {showAdjust && (
         <form onSubmit={handleAdjust} className="mt-4 flex items-end gap-3 bg-sage-light p-4 rounded-[var(--radius-control)]">
