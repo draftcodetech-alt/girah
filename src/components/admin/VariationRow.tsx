@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { updateVariation, adjustStock } from "@/modules/admin/variations";
 import { formatPrice } from "@/lib/format";
 
@@ -19,16 +19,20 @@ export function VariationRow({ variation }: { variation: Variation }) {
   const [error, setError] = useState<string | null>(null);
 
   function toggleEnabled() {
+    setError(null);
     startTransition(async () => {
-      await updateVariation(variation.id, {
+      const result = await updateVariation(variation.id, {
         name: variation.name,
         price: variation.price,
         isEnabled: !variation.isEnabled,
       });
+      if (!result.success) setError(result.error);
     });
   }
 
-  function handleAdjust(formData: FormData) {
+  function handleAdjust(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     setError(null);
     startTransition(async () => {
       const result = await adjustStock(variation.id, {
@@ -73,7 +77,7 @@ export function VariationRow({ variation }: { variation: Variation }) {
       </div>
 
       {showAdjust && (
-        <form action={handleAdjust} className="mt-4 flex items-end gap-3 bg-sage-light p-4 rounded-[var(--radius-control)]">
+        <form onSubmit={handleAdjust} className="mt-4 flex items-end gap-3 bg-sage-light p-4 rounded-[var(--radius-control)]">
           <div>
             <label className="font-body text-small text-charcoal block mb-1">Adjustment</label>
             <input
@@ -102,7 +106,7 @@ export function VariationRow({ variation }: { variation: Variation }) {
           </button>
         </form>
       )}
-      {error && <p className="font-body text-small text-error mt-2">{error}</p>}
+      {error && <p role="alert" className="font-body text-small text-error mt-2">{error}</p>}
     </div>
   );
 }

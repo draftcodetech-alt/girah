@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { register } from "@/modules/accounts/actions";
@@ -11,7 +11,9 @@ export function RegisterForm() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  function handleSubmit(formData: FormData) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     setError(null);
     setFieldErrors({});
     startTransition(async () => {
@@ -43,31 +45,35 @@ export function RegisterForm() {
       </h1>
       <p className="font-body text-body text-muted text-center mt-4">Create your Girah account</p>
 
-      <form action={handleSubmit} className="mt-8 space-y-4">
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <div>
           <label className="font-body text-small text-charcoal block mb-1.5">Name</label>
           <input name="name" required className={inputClass("name")} />
-          {fieldErrors.name && <p className="text-small text-error mt-1">{fieldErrors.name}</p>}
+          {fieldErrors.name && <p role="alert" className="text-small text-error mt-1">{fieldErrors.name}</p>}
         </div>
         <div>
           <label className="font-body text-small text-charcoal block mb-1.5">Email</label>
           <input name="email" type="email" required className={inputClass("email")} />
-          {fieldErrors.email && <p className="text-small text-error mt-1">{fieldErrors.email}</p>}
+          {fieldErrors.email && <p role="alert" className="text-small text-error mt-1">{fieldErrors.email}</p>}
         </div>
         <div>
           <label className="font-body text-small text-charcoal block mb-1.5">Password</label>
           <input name="password" type="password" required className={inputClass("password")} />
-          {fieldErrors.password && <p className="text-small text-error mt-1">{fieldErrors.password}</p>}
+          {fieldErrors.password && <p role="alert" className="text-small text-error mt-1">{fieldErrors.password}</p>}
         </div>
         <div>
           <label className="font-body text-small text-charcoal block mb-1.5">Confirm Password</label>
           <input name="confirmPassword" type="password" required className={inputClass("confirmPassword")} />
           {fieldErrors.confirmPassword && (
-            <p className="text-small text-error mt-1">{fieldErrors.confirmPassword}</p>
+            <p role="alert" className="text-small text-error mt-1">{fieldErrors.confirmPassword}</p>
           )}
         </div>
 
-        {error && <p className="font-body text-small text-error">{error}</p>}
+        {error && (
+          <p role="alert" className="font-body text-small text-error">
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"

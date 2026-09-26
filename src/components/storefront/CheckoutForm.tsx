@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { placeOrder } from "@/modules/checkout/actions";
 import type { CartView } from "@/modules/cart";
@@ -13,7 +13,9 @@ export function CheckoutForm({ cart }: { cart: CartView }) {
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "SAFEPAY">("COD");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  function handleSubmit(formData: FormData) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     setError(null);
     setFieldErrors({});
 
@@ -52,7 +54,7 @@ export function CheckoutForm({ cart }: { cart: CartView }) {
     } bg-cream`;
 
   return (
-    <form action={handleSubmit} className="flex flex-col lg:flex-row gap-12">
+    <form onSubmit={handleSubmit} className="flex flex-col lg:flex-row gap-12">
       <div className="flex-1 space-y-6">
         <div>
           <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-4">
@@ -62,17 +64,17 @@ export function CheckoutForm({ cart }: { cart: CartView }) {
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Full Name *</label>
               <input name="fullName" required className={inputClass("fullName")} />
-              {fieldErrors.fullName && <p className="text-small text-error mt-1">{fieldErrors.fullName}</p>}
+              {fieldErrors.fullName && <p role="alert" className="text-small text-error mt-1">{fieldErrors.fullName}</p>}
             </div>
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Phone Number *</label>
               <input name="phone" required className={inputClass("phone")} />
-              {fieldErrors.phone && <p className="text-small text-error mt-1">{fieldErrors.phone}</p>}
+              {fieldErrors.phone && <p role="alert" className="text-small text-error mt-1">{fieldErrors.phone}</p>}
             </div>
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Email *</label>
               <input name="email" type="email" required className={inputClass("email")} />
-              {fieldErrors.email && <p className="text-small text-error mt-1">{fieldErrors.email}</p>}
+              {fieldErrors.email && <p role="alert" className="text-small text-error mt-1">{fieldErrors.email}</p>}
             </div>
           </div>
         </div>
@@ -85,12 +87,12 @@ export function CheckoutForm({ cart }: { cart: CartView }) {
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Address *</label>
               <input name="address" required className={inputClass("address")} />
-              {fieldErrors.address && <p className="text-small text-error mt-1">{fieldErrors.address}</p>}
+              {fieldErrors.address && <p role="alert" className="text-small text-error mt-1">{fieldErrors.address}</p>}
             </div>
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">City *</label>
               <input name="city" required className={inputClass("city")} />
-              {fieldErrors.city && <p className="text-small text-error mt-1">{fieldErrors.city}</p>}
+              {fieldErrors.city && <p role="alert" className="text-small text-error mt-1">{fieldErrors.city}</p>}
             </div>
             <div>
               <label className="font-body text-small text-charcoal block mb-1.5">Postal Code</label>
@@ -158,7 +160,7 @@ export function CheckoutForm({ cart }: { cart: CartView }) {
           Online Payment (Cards, JazzCash, EasyPaisa)
         </label>
 
-        {error && <p className="font-body text-small text-error mt-4">{error}</p>}
+        {error && <p role="alert" className="font-body text-small text-error mt-4">{error}</p>}
 
         <button
           type="submit"

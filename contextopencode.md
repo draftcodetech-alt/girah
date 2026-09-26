@@ -46,7 +46,7 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | 3 | Safepay flow: retry action + payment-state confirmation page, cancelUrl fix, webhook amount check/JSON guard/refunds | ⬜ |
 | 4 | Accounts & authz: email lowercase, P2002 handling, profile refresh, toggle `role:CUSTOMER` guard, requireAdmin error UX | ⬜ |
 | 5 | Cart & catalog: guest-cart merge, qty-0 fix, disabled-line UX, float price filter, Rs. Infinity, filter preservation, shared formatPrice | ⬜ |
-| 6 | Forms & admin feedback: React-19 form-reset fix (6 forms), action-result handling in admin rows | ⬜ |
+| 6 | Forms & admin feedback: React-19 form-reset fix (6 forms), action-result handling in admin rows | ✅ **DONE** |
 | 7 | Hygiene: lint → 0, delete temp files, 404/error/loading pages, proxy callbackUrl, Header scoping, TZ dates, README, Prisma cleanup | ⬜ |
 | 8 | Test automation full-out: CI workflow, more suites, optional Playwright | ⬜ (harness landed in Phase 1 by user request) |
 
@@ -254,7 +254,7 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**Phase 6 — forms/admin feedback:** user-visible error & pending states across the remaining forms (per agreed order §2). Phase 5 is complete (§13).
+**Phase 7 — hygiene:** lint → 0 (from 8 errors / 3 warnings), delete temp files (`test-payment-guard` route), 404/error/loading pages, `proxy.ts` callbackUrl, Header scoping (no Header on `/admin`), server-TZ dates, README, Prisma cleanup. Phases 1–6 complete (§4, §10–§14).
 
 ---
 
@@ -468,3 +468,53 @@ Verified against the installed sources (not memory):
 | 3 | `/tmp/opencode/phase5-e2e.mjs`, `phase4-e2e.mjs`, `dbg-*.mjs` **gone** at session start | `/tmp` was wiped between sessions — the E2E scripts had never been committed | recreated `phase5-e2e.mjs` (54 checks); **`phase4-e2e.mjs` was not recreated** — its coverage now rests on the 124 integration tests plus the auth/redirect checks inside the new suite. Consider committing these scripts under `scripts/` in Phase 8. |
 | 4 | E2E "garbage price params never render NaN" failed on a 200 | the assertion flagged the *echoed* `value="NaN"` hidden input (the user's own query string), not a broken render | narrowed it to `Rs. NaN` / `Rs. undefined` + "catalogue still listed" |
 | 5 | `ERR_MODULE_NOT_FOUND: dotenv` when running the script from `/tmp` | ESM resolves bare specifiers relative to the *script*, not the cwd | `createRequire(project/package.json)` for all app dependencies |
+
+---
+
+## 14. Phase 6 — forms & admin feedback — detailed log (what & why)
+
+### 14.1 Root cause: React 19 resets an `action={fn}` form *before* the action runs
+
+Verified against the installed React 19.2.8 source (`node_modules/react-dom/cjs/react-dom-client.development.js`), not memory:
+
+- Submit dispatch (~line 19080): when the form's `action` prop is a function, React does `event.preventDefault()` then `startHostTransition(formFiber, pendingState, action, formData)`.
+- `startHostTransition` (~line 8940) runs `startTransition(…, function () { requestFormReset$1(formFiber); return action(formData); })` → **the reset is queued first**, so it commits whether the action succeeds or fails (flag `1024` → `fiber.stateNode.reset()` at commit, ~line 15152).
+- Consequences found in the review (H finding): a failed login/register/checkout/product-save/stock-adjust **wiped everything the user had typed**, and `ProfileForm` reverted to the stale `defaultValue` even after a *successful* save.
+
+### 14.2 Fixes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | 6 client forms submitted via `action={handleSubmit}` → auto-reset on every submit | `onSubmit` + `event.preventDefault()` + `new FormData(event.currentTarget)` read **synchronously** (before `startTransition` — `currentTarget` is null afterwards); rest of each handler untouched | `LoginForm`, `RegisterForm`, `ProfileForm` (×2 forms), `CheckoutForm`, admin `ProductForm`, admin `VariationRow` (adjust form) |
+| 2 | `ProfileForm` cleared the password form with `document.getElementById("password-form")` | `useRef<HTMLFormElement>` + explicit `reset()` **only on success** (on failure the typed passwords now survive) | `ProfileForm.tsx` |
+| 3 | `AdminOrderRow.handleStatusChange` ignored the result → an illegal jump (e.g. `CONFIRMED → PENDING`) left the select showing a status the DB refused | optimistic `setStatus`, then **revert to the previous status + `setError(result.error)`** on refusal; `handleMarkPaid` now surfaces its failure too | `AdminOrderRow.tsx` |
+| 4 | `VariationRow.toggleEnabled` and `ToggleActiveButton` awaited their actions and dropped the result → silent no-ops | check `AdminActionResult`, render the error; `ToggleActiveButton` refreshes only on success | `VariationRow.tsx`, `ToggleActiveButton.tsx` |
+| 5 | Error/success lines were plain text (one `role="status"` in the whole app) | `role="alert"` on every error `<p>` and `role="status"` on success lines **in the touched files only** | 6 forms + `AdminOrderRow` + `ToggleActiveButton` |
+
+Design decision (user-approved): the admin status `<select>` still offers **all 6 statuses** — the server state machine stays the single source of truth, the refusal message (`` `Cannot move an order from ${from} to ${to}.` ``) is shown and the control reverts. Duplicating `ALLOWED_TRANSITIONS` in the client was rejected (it would go stale).
+
+### 14.3 Out of scope (deliberately)
+
+- Server-component `<form action={…}>` (cart steppers/remove, logout, Safepay retry): they take **no inputs**, so the auto-reset is a no-op — harmless. Their discarded failure results (e.g. a stock-race refusal on the cart stepper) are a separate gap, noted for Phase 7/8.
+- `src/app/test-payment-guard/page.tsx` (one of the 8 baseline lint errors) — deleted in Phase 7.
+
+### 14.4 Tests added (180 → **210**)
+
+`tests/unit/client-forms-guard.test.ts` (**30**, zero new dependencies — the repo has no jsdom/Playwright, so the DOM behaviour itself is checked by the manual checklist in §14.5):
+
+- 6 files × 3 assertions: no `<form … action={` · has `<form … onSubmit={` · `event.preventDefault()` + `new FormData(event.currentTarget)`.
+- 8 files: errors carry `role="alert"`; `ProfileForm` success carries `role="status"`.
+- 3 admin components: surface a refused `AdminActionResult` (`result.success` + `setError`).
+
+### 14.5 Gate & verification
+
+- `npm run test` → **210/210** (86 unit + 124 integration, 31 files); `tsc --noEmit` clean; `npm run lint` → **8 errors / 3 warnings** (= baseline, untouched); `prisma validate` ok; `prisma migrate status` up to date (7 migrations, none new — Phase 6 touches no server code); `npm run build` → green.
+- **E2E on prod `next start :3100` → 58/58** (`/tmp/opencode/phase5-e2e.mjs`): the previous 54 checks plus 4 new Phase 6 wire checks — `updateOrderStatus` action id resolves, a `CONFIRMED` order exists, `CONFIRMED → PENDING` is refused over HTTP with `success:false` + `Cannot move an order from …`, and the order row is untouched afterwards.
+- **Page smoke → 8/8** (`/tmp/opencode/phase6-smoke.mjs`): `/login`, `/register`, `/admin/orders`, `/admin/variations`, `/admin/products/new`, `/admin/customers`, `/account`, `/checkout` (with a temporary cart line, cleaned up) all render 200 with no application error.
+- **Manual browser checklist** (agreed verification for DOM behaviour — needs a human; server left running on `:3100`, log `/tmp/opencode/phase6-server.log`): 1) `/login` wrong password → alert + email/password still typed · 2) `/register` duplicate email → field alerts, values kept · 3) profile save → "✓ Profile updated" **and the name field shows the new value** · 4) profile failure → values kept · 5) wrong current password → alert, three password fields kept · 6) password success → cleared + "sign in again" · 7) checkout server-validation failure → address block kept · 8) admin product duplicate slug → fields kept · 9) orders `PENDING → SHIPPED` (illegal) → select reverts + refusal message · 10) `PENDING → CONFIRMED` applies · 11) variations "Disable" flips the label without a manual refresh · 12) customers "Disable Account" flips the button.
+
+### 14.6 Decisions recorded (user)
+
+1. Verification = **static guard test + manual browser checklist** (jsdom/`@testing-library` and Playwright both declined — Playwright reconsidered in Phase 8).
+2. A11y `role="alert"` / `role="status"` → **touched files only**, no app-wide sweep.
+3. Admin status select → **all options + error/revert**, server remains source of truth.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/modules/accounts/actions";
@@ -10,7 +10,9 @@ export function LoginForm() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function handleSubmit(formData: FormData) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     setError(null);
     startTransition(async () => {
       const result = await login({
@@ -33,7 +35,7 @@ export function LoginForm() {
       </h1>
       <p className="font-body text-body text-muted text-center mt-4">Sign in to your account</p>
 
-      <form action={handleSubmit} className="mt-8 space-y-4">
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <div>
           <label className="font-body text-small text-charcoal block mb-1.5">Email</label>
           <input
@@ -53,7 +55,11 @@ export function LoginForm() {
           />
         </div>
 
-        {error && <p className="font-body text-small text-error">{error}</p>}
+        {error && (
+          <p role="alert" className="font-body text-small text-error">
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"

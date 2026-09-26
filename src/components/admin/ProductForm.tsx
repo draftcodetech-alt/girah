@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { createProduct, updateProduct } from "@/modules/admin/products";
 
@@ -25,7 +25,9 @@ export function ProductForm({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  function handleSubmit(formData: FormData) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
     setError(null);
     setFieldErrors({});
 
@@ -57,16 +59,16 @@ export function ProductForm({
     }`;
 
   return (
-    <form action={handleSubmit} className="max-w-[640px] space-y-4">
+    <form onSubmit={handleSubmit} className="max-w-[640px] space-y-4">
       <div>
         <label className="font-body text-small text-charcoal block mb-1.5">Name</label>
         <input name="name" defaultValue={existingProduct?.name} required className={inputClass("name")} />
-        {fieldErrors.name && <p className="text-small text-error mt-1">{fieldErrors.name}</p>}
+        {fieldErrors.name && <p role="alert" className="text-small text-error mt-1">{fieldErrors.name}</p>}
       </div>
       <div>
         <label className="font-body text-small text-charcoal block mb-1.5">Slug</label>
         <input name="slug" defaultValue={existingProduct?.slug} required className={inputClass("slug")} />
-        {fieldErrors.slug && <p className="text-small text-error mt-1">{fieldErrors.slug}</p>}
+        {fieldErrors.slug && <p role="alert" className="text-small text-error mt-1">{fieldErrors.slug}</p>}
         <p className="font-body text-small text-muted mt-1">Lowercase, hyphens only — becomes the product URL.</p>
       </div>
       <div>
@@ -78,7 +80,7 @@ export function ProductForm({
           rows={4}
           className={`${inputClass("description")} h-auto py-3`}
         />
-        {fieldErrors.description && <p className="text-small text-error mt-1">{fieldErrors.description}</p>}
+        {fieldErrors.description && <p role="alert" className="text-small text-error mt-1">{fieldErrors.description}</p>}
       </div>
       <div>
         <label className="font-body text-small text-charcoal block mb-1.5">Category</label>
@@ -90,10 +92,10 @@ export function ProductForm({
             </option>
           ))}
         </select>
-        {fieldErrors.categoryId && <p className="text-small text-error mt-1">{fieldErrors.categoryId}</p>}
+        {fieldErrors.categoryId && <p role="alert" className="text-small text-error mt-1">{fieldErrors.categoryId}</p>}
       </div>
 
-      {error && <p className="font-body text-small text-error">{error}</p>}
+      {error && <p role="alert" className="font-body text-small text-error">{error}</p>}
 
       <button
         type="submit"
