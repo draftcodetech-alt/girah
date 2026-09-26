@@ -41,7 +41,6 @@ export async function createSafepayCheckoutUrl(params: SafepayCheckoutParams): P
 
   // Step B: create a short-lived auth token — DIRECT HTTP CALL, bypassing a
   // confirmed bug in @sfpy/node-core's client.passport.create() method.
-  // See technical-design.md Decisions Log #19.
   const passportResponse = await axios.post(
     `${SAFEPAY_HOST}/client/passport/v1/token`,
     {},

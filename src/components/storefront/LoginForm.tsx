@@ -4,8 +4,9 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { login } from "@/modules/accounts/actions";
+import { safeCallbackUrl } from "@/lib/callback-url";
 
-export function LoginForm() {
+export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +21,7 @@ export function LoginForm() {
         password: formData.get("password") as string,
       });
       if (result.success) {
-        router.push("/account");
+        router.push(safeCallbackUrl(callbackUrl));
         router.refresh();
       } else {
         setError(result.error);
@@ -72,7 +73,7 @@ export function LoginForm() {
 
       <div className="text-center mt-6 pt-6 border-t border-border">
         <p className="font-body text-small text-muted">
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link href="/register" className="text-sage font-medium">
             Create Account
           </Link>

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAdminCustomerById } from "@/modules/admin";
 import { ToggleActiveButton } from "@/components/admin/ToggleActiveButton";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
 
 export default async function AdminCustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,7 +19,7 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
       <p className="font-body text-body text-muted">{customer.email}</p>
       {customer.phone && <p className="font-body text-body text-muted">{customer.phone}</p>}
       <p className="font-body text-small text-muted mt-2">
-        Joined {customer.createdAt.toLocaleDateString()}
+        Joined {formatDate(customer.createdAt)}
       </p>
 
       {savedShipping && (

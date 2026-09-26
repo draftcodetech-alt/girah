@@ -8,7 +8,7 @@ export function ShopFilters() {
 
   return (
     <>
-      {/* Desktop sidebar — hidden below lg breakpoint (1024px, girah.md §6.9) */}
+      {/* Desktop sidebar — hidden below the lg breakpoint (1024px) */}
       <aside className="hidden lg:block w-[260px] shrink-0">
         <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-charcoal mb-6">
           Filters

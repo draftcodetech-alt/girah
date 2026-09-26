@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
-import { updateVariation, adjustStock } from "@/modules/admin/variations";
+import { updateVariation, adjustStock } from "@/modules/admin";
 import { formatPrice } from "@/lib/format";
 
 type Variation = {

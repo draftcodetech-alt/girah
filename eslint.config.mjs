@@ -14,7 +14,7 @@ const eslintConfig = defineConfig([
             {
               group: ["@/modules/*/*", "!@/modules/*/actions"],
               message:
-                "Only import from a module's index.ts (its public API) — never its internal files. See implementation-plan.md § Modulith boundary rules.",
+                "Only import from a module's index.ts (its public API) — never its internal files. See contextopencode.md § 8 Modulith boundary rules.",
             },
           ],
         },
@@ -22,7 +22,7 @@ const eslintConfig = defineConfig([
     },
   },
   // Tests may reach into module internals (white-box testing) — the
-  // modith boundary rule governs production code only.
+  // module boundary rule governs production code only.
   {
     files: ["tests/**"],
     rules: {

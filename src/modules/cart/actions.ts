@@ -23,7 +23,7 @@ export async function addToCart(
   try {
     const identity = await resolveCartIdentity();
 
-    // Server ALWAYS re-checks live stock — never trusts the client. girah.md §3.6/§3.7.
+    // Server ALWAYS re-checks live stock — never trusts the client.
     const variation = await db.productVariation.findUnique({ where: { id: variationId } });
     if (!variation || !variation.isEnabled || variation.stock <= 0) {
       return { success: false, error: "This item is no longer available." };

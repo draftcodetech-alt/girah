@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { auth, signIn } from "@/lib/auth";
+import { auth, signIn, signOut } from "@/lib/auth";
 import { readSessionFromCookieJar } from "@/lib/session";
 import { mergeGuestCartForCurrentUser } from "@/modules/cart";
 
@@ -49,7 +49,7 @@ export async function login(input: LoginInput): Promise<AccountActionResult> {
     return { success: true };
   } catch (error) {
     if (error instanceof AuthError) {
-      // Deliberately generic — never reveal whether the email exists. girah.md §13.1
+      // Deliberately generic — never reveal whether the email exists.
       return { success: false, error: "Invalid email or password." };
     }
     throw error;
@@ -99,7 +99,7 @@ export async function register(input: RegisterInput): Promise<AccountActionResul
   }
 
   try {
-    // Auto sign-in after registration, per girah.md §13.2 (success -> My Account directly).
+    // Auto sign-in after registration (success -> My Account directly).
     await signIn("credentials", { email: parsed.data.email, password: parsed.data.password, redirect: false });
   } catch {
     // The account was genuinely created either way — don't report a false
@@ -203,4 +203,20 @@ export async function changePassword(input: ChangePasswordInput): Promise<Accoun
   });
 
   return { success: true };
+}
+
+export async function logout() {
+  // Phase 4 M4: bump the version BEFORE clearing this browser's cookie —
+  // logout must kill every live session for the account, including a copied
+  // or stolen cookie (which would otherwise keep working — and renewing its
+  // own 30-day expiry — until idle timeout). Same one-counter-all-devices
+  // semantics as changePassword; remaining devices just sign in again.
+  const session = await auth();
+  if (session?.user) {
+    await db.user.update({
+      where: { id: session.user.id },
+      data: { sessionVersion: { increment: 1 } },
+    });
+  }
+  await signOut({ redirectTo: "/" });
 }

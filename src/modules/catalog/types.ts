@@ -4,7 +4,7 @@ export type ProductListItem = {
   slug: string;
   mainImageUrl: string | null;
   startingPrice: number; // lowest variation price, in paisa
-  isOutOfStock: boolean; // true only when EVERY variation is unavailable — girah.md §6.3/§7
+  isOutOfStock: boolean; // true only when EVERY variation is unavailable
 };
 
 export type ProductDetail = {

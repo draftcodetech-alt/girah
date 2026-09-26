@@ -6,7 +6,7 @@ import { getFreshAccount } from "@/lib/account-guard";
 import { isRateLimited, recordFailure, resetRateLimit } from "@/lib/rate-limit";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  session: { strategy: "jwt" }, // Credentials provider requires JWT — technical-design.md Decisions Log #15
+  session: { strategy: "jwt" }, // Credentials provider requires JWT
   // Without this, Auth.js rejects every request on self-hosted production
   // (NODE_ENV=production, no AUTH_URL) — and login() then reports success
   // without ever setting a session cookie (Phase 1 C3).

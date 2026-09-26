@@ -1,4 +1,3 @@
-import { Header } from "@/components/shared/Header";
 import type { Metadata } from "next";
 import { Playfair_Display, DM_Sans } from "next/font/google";
 import "./globals.css";
@@ -26,10 +25,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${playfair.variable} ${dmSans.variable} h-full antialiased`}
     >
-
-      <body className="min-h-full flex flex-col"> <Header />{children}</body>
-    
-    
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

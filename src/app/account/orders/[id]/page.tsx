@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getMyOrderById } from "@/modules/orders";
-import { formatPrice } from "@/lib/format";
+import { formatPrice, formatDate } from "@/lib/format";
 
 export default async function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,7 +13,7 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
         Order #{order.orderNumber}
       </h1>
       <p className="font-body text-body text-muted mt-2">
-        Placed {order.createdAt.toLocaleDateString()}
+        Placed {formatDate(order.createdAt)}
       </p>
 
       <div className="bg-sage-light rounded-[var(--radius-surface)] p-6 mt-8">

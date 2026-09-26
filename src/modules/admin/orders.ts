@@ -31,9 +31,8 @@ export async function updateOrderStatus(orderId: string, input: OrderStatusInput
 
 // COD-ONLY. This function deliberately has NO parameter or code path that
 // could ever set an ONLINE (Safepay) order's paymentStatus to PAID — that
-// can only happen via the verified webhook (technical-design.md §6).
-// implementation-plan.md Phase 8 explicitly calls this guard out as a
-// required fake-payment prevention, not an incidental restriction.
+// can only happen via the verified webhook. This guard is a required
+// fake-payment prevention, not an incidental restriction.
 export async function markCodPaymentReceived(orderId: string): Promise<AdminActionResult> {
   await requireAdmin();
 

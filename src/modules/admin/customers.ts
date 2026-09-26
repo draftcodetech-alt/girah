@@ -6,7 +6,7 @@ import { requireAdmin } from "@/lib/require-admin";
 import type { AdminActionResult } from "./products";
 
 // Explicit `select` everywhere in this file — passwordHash is NEVER included,
-// by construction, not by remembering to strip it after the fact. girah.md §16.2.
+// by construction, not by remembering to strip it after the fact.
 const SAFE_CUSTOMER_SELECT = {
   id: true,
   name: true,

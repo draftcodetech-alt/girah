@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { createProduct, updateProduct } from "@/modules/admin/products";
+import { createProduct, updateProduct } from "@/modules/admin";
 
 type Category = { id: string; name: string };
 type ExistingProduct = {

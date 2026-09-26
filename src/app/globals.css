@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Brand colors — girah.md §1/§6 ── */
+  /* ── Brand colors ── */
   --color-sage: #526B5A;
   --color-sage-soft: #8FA58F;
   --color-cream: #FAF8F1;
@@ -24,7 +24,7 @@
   --font-display: var(--font-playfair), serif;
   --font-body: var(--font-dm-sans), sans-serif;
 
-  /* ── Type scale — girah.md §6 ── */
+  /* ── Type scale ── */
   --text-display: 64px;
   --text-display--line-height: 1.05;
   --text-h1: 52px;
@@ -44,17 +44,17 @@
   --text-button: 14px;
   --text-button--line-height: 1;
 
-  /* ── Radius — girah.md §6.7 ── */
+  /* ── Radius ── */
   --radius-control: 6px;
   --radius-surface: 8px;
   --radius-panel: 12px;
 
-  /* ── Shadows — girah.md §6.8 ── */
+  /* ── Shadows ── */
   --shadow-subtle: 0 2px 8px rgba(41, 48, 43, 0.08);
   --shadow-elevated: 0 8px 24px rgba(41, 48, 43, 0.12);
 
-  /* Breakpoints: Tailwind v4 defaults (640/768/1024/1280) already match
-     girah.md §6.9 exactly — intentionally not overridden. */
+  /* Breakpoints: Tailwind v4 defaults (640/768/1024/1280) are used
+     as-is — intentionally not overridden. */
 }
 
 body {

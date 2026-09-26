@@ -4,7 +4,7 @@ import type { ProductListItem, ProductDetail, ProductFilters, SortOption } from 
 const ALLOWED_SORTS: SortOption[] = ["featured", "price-asc", "price-desc", "newest"];
 
 // Whitelists and clamps every incoming filter value — never trusts raw query-string
-// input directly into a database query. girah.md §3.5 / implementation-plan.md Phase 3.
+// input directly into a database query.
 function sanitizeFilters(raw: ProductFilters): ProductFilters {
   const sort: SortOption = ALLOWED_SORTS.includes(raw.sort as SortOption)
     ? (raw.sort as SortOption)
@@ -65,7 +65,7 @@ export async function getProducts(rawFilters: ProductFilters = {}): Promise<Prod
     const enabledVariations = p.variations.filter((v) => v.isEnabled);
     const prices = enabledVariations.map((v) => v.price);
     const startingPrice = prices.length > 0 ? Math.min(...prices) : 0;
-    // Out of stock ONLY when every variation is unavailable — girah.md §6.3/§7, not per-variation.
+    // Out of stock ONLY when every variation is unavailable — not per-variation.
     const isOutOfStock =
       p.variations.length > 0 && p.variations.every((v) => !v.isEnabled || v.stock <= 0);
 

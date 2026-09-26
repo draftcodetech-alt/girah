@@ -13,9 +13,21 @@ export function FilterPanel({ onApply }: { onApply?: () => void }) {
 
   function apply() {
     const params = new URLSearchParams(searchParams.toString());
-    minPrice ? params.set("minPrice", minPrice) : params.delete("minPrice");
-    maxPrice ? params.set("maxPrice", maxPrice) : params.delete("maxPrice");
-    inStockOnly ? params.set("inStockOnly", "true") : params.delete("inStockOnly");
+    if (minPrice) {
+      params.set("minPrice", minPrice);
+    } else {
+      params.delete("minPrice");
+    }
+    if (maxPrice) {
+      params.set("maxPrice", maxPrice);
+    } else {
+      params.delete("maxPrice");
+    }
+    if (inStockOnly) {
+      params.set("inStockOnly", "true");
+    } else {
+      params.delete("inStockOnly");
+    }
     router.push(`/shop?${params.toString()}`);
     onApply?.();
   }

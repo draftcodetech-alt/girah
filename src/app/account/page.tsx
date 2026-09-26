@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { logout } from "@/modules/accounts/logout-action";
+import { logout } from "@/modules/accounts/actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 
@@ -9,7 +9,7 @@ export default async function AccountPage() {
   // itself too — a matcher misconfiguration must not render "Welcome back,
   // undefined" or an account shell to an anonymous request.
   if (!session?.user) {
-    redirect("/login");
+    redirect("/login?callbackUrl=%2Faccount");
   }
 
   return (

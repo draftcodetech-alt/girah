@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateOrderStatus, markCodPaymentReceived } from "@/modules/admin/orders";
+import { updateOrderStatus, markCodPaymentReceived } from "@/modules/admin";
 import { formatPrice } from "@/lib/format";
 
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;

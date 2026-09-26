@@ -91,7 +91,7 @@ export async function deleteProduct(id: string): Promise<AdminActionResult> {
   // frozen productName/variationName fields are extra snapshot metadata, not
   // a substitute for the relation. Products referenced by orders or carts
   // therefore cannot be deleted; surface that as a friendly error instead of
-  // an unhandled P2003/P2014 — girah.md §3.8.
+  // an unhandled P2003/P2014.
   try {
     await db.product.delete({ where: { id } });
   } catch (error) {

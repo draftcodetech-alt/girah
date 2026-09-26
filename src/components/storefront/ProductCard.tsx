@@ -5,7 +5,7 @@ import { formatPrice } from "@/lib/format";
 
 type ProductCardProps = {
   product: ProductListItem;
-  number?: string; // e.g. "01" — homepage editorial numbering only, per girah.md §6.3/§7.3
+  number?: string; // e.g. "01" — homepage editorial numbering only
 };
 
 export function ProductCard({ product, number }: ProductCardProps) {

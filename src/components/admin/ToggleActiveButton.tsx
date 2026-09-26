@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { toggleCustomerActive } from "@/modules/admin/customers";
+import { toggleCustomerActive } from "@/modules/admin";
 
 export function ToggleActiveButton({ customerId, isActive }: { customerId: string; isActive: boolean }) {
   const router = useRouter();

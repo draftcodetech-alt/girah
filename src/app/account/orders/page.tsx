@@ -18,7 +18,7 @@ export default async function OrdersPage() {
     return (
       <div className="max-w-[1280px] mx-auto px-4 py-16 text-center">
         <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">Orders</h1>
-        <p className="font-body text-body text-muted mt-4">You haven't placed any orders yet.</p>
+        <p className="font-body text-body text-muted mt-4">You haven&apos;t placed any orders yet.</p>
         <Link
           href="/shop"
           className="inline-block mt-8 h-12 px-6 leading-[48px] rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold"

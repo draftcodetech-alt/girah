@@ -37,7 +37,7 @@ export async function updateVariation(id: string, input: VariationInput): Promis
 }
 
 // The ONLY way stock changes — every call creates an audit row alongside
-// the actual update, inside one transaction. girah.md §16.1.
+// the actual update, inside one transaction.
 export async function adjustStock(variationId: string, input: StockAdjustmentInput): Promise<AdminActionResult> {
   const session = await requireAdmin();
   const result = await adjustStockCore(variationId, input, session.user.id);

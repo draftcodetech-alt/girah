@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { db } from "@/lib/db";
-import { logout } from "@/modules/accounts/logout-action";
+import { logout } from "@/modules/accounts/actions";
 import { getFreshAccount } from "@/lib/account-guard";
 import { resetDb, createTestUser } from "../setup/helpers";
 

@@ -47,8 +47,8 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | 4 | Accounts & authz: email lowercase, P2002 handling, profile refresh, toggle `role:CUSTOMER` guard, requireAdmin error UX | ⬜ |
 | 5 | Cart & catalog: guest-cart merge, qty-0 fix, disabled-line UX, float price filter, Rs. Infinity, filter preservation, shared formatPrice | ⬜ |
 | 6 | Forms & admin feedback: React-19 form-reset fix (6 forms), action-result handling in admin rows | ✅ **DONE** |
-| 7 | Hygiene: lint → 0, delete temp files, 404/error/loading pages, proxy callbackUrl, Header scoping, TZ dates, README, Prisma cleanup | ⬜ |
-| 8 | Test automation full-out: CI workflow, more suites, optional Playwright | ⬜ (harness landed in Phase 1 by user request) |
+| 7 | Hygiene: lint → 0, delete temp files, 404/error/loading pages, proxy callbackUrl, Header scoping, TZ dates, README, Prisma cleanup | ✅ **DONE** (§15) |
+| 8 | Test automation full-out: CI workflow, more suites, optional Playwright | ⬜ **(next)** (harness landed in Phase 1 by user request) |
 
 **Gate required at end of every phase:** `npm run test` + `npx tsc --noEmit` + `npm run lint` (baseline) + `npx prisma validate` + `npm run build` → commit → push.
 
@@ -250,11 +250,11 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 - Authz: `requireAdmin()` first line of admin actions; live account state via `getFreshAccount()`; never trust JWT claims alone.
 - Money: integer paisa everywhere; `formatPrice` fix deferred to Phase 5.
 - Test DB: only `girah_test` / `DATABASE_URL_TEST` — never dev/prod (`tests/setup/env.ts` guarantees).
-- Doc comments citing `girah.md` / `implementation-plan.md` are historical — those files don't exist in repo (Phase 7 decision pending).
+- Doc comments citing `girah.md` / `implementation-plan.md` / `technical-design.md` were historical (those files were never in the repo). **Phase 7 decision: dropped the dead citations, kept the reasoning** — do not cite files that aren't in the repo; cite this document instead (§15.2).
 
 ## 9. Immediate next step
 
-**Phase 7 — hygiene:** lint → 0 (from 8 errors / 3 warnings), delete temp files (`test-payment-guard` route), 404/error/loading pages, `proxy.ts` callbackUrl, Header scoping (no Header on `/admin`), server-TZ dates, README, Prisma cleanup. Phases 1–6 complete (§4, §10–§14).
+**Phase 8 — test automation:** CI workflow (lint 0/0 + `tsc` + tests + prisma + build), more suites, optional Playwright, and committing the E2E scripts (currently living in `/tmp/opencode/`, wiped between sessions) under `scripts/`. Phases 1–7 complete (§4, §10–§15).
 
 ---
 
@@ -518,3 +518,73 @@ Design decision (user-approved): the admin status `<select>` still offers **all 
 1. Verification = **static guard test + manual browser checklist** (jsdom/`@testing-library` and Playwright both declined — Playwright reconsidered in Phase 8).
 2. A11y `role="alert"` / `role="status"` → **touched files only**, no app-wide sweep.
 3. Admin status select → **all options + error/revert**, server remains source of truth.
+
+---
+
+## 15. Phase 7 — hygiene — detailed log (what & why)
+
+Phases 1–6 complete (§4, §10–§14); this phase only removes debt and adds missing shell pages — **no behaviour changes beyond the approved Header/callbackUrl work**.
+
+### 15.1 Scope decisions (user-confirmed)
+
+1. **Header scoping**: storefront `Header` mounts in `(storefront)`, `(auth)` and `account` layouts — **admin gets none**.
+2. **Prisma**: drop the deprecated `previewFeatures = ["driverAdapters"]` **only**; the unused `Review` / `ProductImage` tables stay (no migration).
+3. **404 / error / loading**: full set of special files.
+4. **Dates**: one shared formatter pinned to **`Asia/Karachi`**.
+5. **Docs**: the 24 refs to the never-committed `girah.md` / `implementation-plan.md` / `technical-design.md` are **retargeted (dead citation dropped, reasoning kept)** + a real **README rewrite** (the file was stock create-next-app boilerplate).
+
+### 15.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | 8 lint errors / 3 warnings (baseline) | `test-payment-guard` route deleted; `logout` moved into the `accounts` module (was its own file under `src/app/…`) so `@/modules/*/*` can't be imported from a client component; 4 admin components import from the `@/modules/admin` barrel; `FilterPanel` ternary-as-statement → `if/else`; `&apos;` escapes; lint message now points at §8 | `eslint.config.mjs`, `src/app/`, `src/modules/accounts/actions.ts`, 4 `src/components/admin/*`, `FilterPanel.tsx`, `LoginForm.tsx`, `account/orders/page.tsx` |
+| 2 | Empty barrels/stubs left from earlier phases | `src/modules/reviews/index.ts` deleted; 6 empty dirs removed (`about/`, `contact/`, `faq/`, `account/shipping/`, `components/ui/`, `emails/`) — `find src -type d -empty` is clean | `src/` |
+| 3 | Login success always went to `/`; anon `/admin` and `/account` bounced to `/` (dropping the destination) | `safeCallbackUrl()` (same-origin only: must start `/`, no `//`, no `\`, no `..`, ≤512 chars, no control chars) + `proxy.ts` `loginUrl()` sets `callbackUrl=pathname+search`; anon `/admin` → login-with-callback, **logged-in non-admin `/admin` → `/`** (else a customer would loop back to `/admin` after login); `LoginForm` takes `callbackUrl` and `router.push(safeCallbackUrl(...))` | `src/lib/callback-url.ts` **(new)**, `src/proxy.ts`, `LoginForm.tsx`, `(auth)/login/page.tsx`, `account/page.tsx` |
+| 4 | `Header` (Cart badge + Sign In) rendered inside the **root** layout → `/admin` showed storefront chrome | root layout renders only `{children}`; `page.tsx` moved (`git mv`) into `(storefront)/`; three tiny layouts each render `<Header />{children}` | `src/app/layout.tsx`, `(storefront)/layout.tsx`, `(auth)/layout.tsx`, `account/layout.tsx` |
+| 5 | No loading/404/error pages anywhere (soft 404s were plain Next defaults; a thrown error 500'd with no UI) | `RouteSkeleton` (`role="status"`) + `NotFoundView`; `loading.tsx` at root, `(storefront)`, `account`, `admin` (`contained={false}` — the admin layout supplies the container); `not-found.tsx` at root + `(storefront)`; `error.tsx` (Next 16 props are `{error, retry}` — **not** `reset`); `global-error.tsx` (own `<html><body>`, inline palette since `globals.css` isn't loaded) | 8 special files + `src/components/shared/{RouteSkeleton,NotFoundView}.tsx` |
+| 6 | `toLocaleDateString()` → different calendar day on a UTC host than a PK visitor (19:30Z = 00:30 PK next day) | `formatDate()` (en-GB, `timeZone: "Asia/Karachi"`, `26 Sept 2026`); the 2 call sites use it | `src/lib/format.ts`, `account/orders/[id]/page.tsx`, `admin/customers/[id]/page.tsx` |
+| 7 | Deprecated Prisma preview flag | `previewFeatures` removed; `prisma validate`/`generate` clean (warning gone); **7 migrations unchanged** | `prisma/schema.prisma` |
+| 8 | 24 refs to docs that don't exist in the repo; README was create-next-app boilerplate | dead citations dropped (reasoning kept — §8); README rewritten: stack, env setup, migrate+seed, scripts, test accounts, layout, conventions, status | 14 source files + `README.md` |
+
+### 15.3 The soft-404 trade-off (read before changing loading pages in Phase 8)
+
+Verified empirically on the production build, and documented by Next itself (`node_modules/next/dist/docs/01-app/03-api-reference/04-functions/not-found.md`):
+
+> "The trade-off is the HTTP status code. Because the check runs inside the `<Suspense>` boundary, the response has already begun streaming as a `200`, and the status can't change once streaming has started. The `noindex` tag keeps a soft 404 out of search results."
+
+| Setup | `/product/<missing>` status |
+|-------|----------------------------|
+| root `loading.tsx` only | **200** |
+| `(storefront)/loading.tsx` only | **200** |
+| neither | 404 |
+| `/definitely-missing` (no page to stream) | **404** (always) |
+
+- Any `loading.tsx` at or above the page makes `notFound()` render **our** 404 view with HTTP 200. Tried `generateMetadata()` + `notFound()` on the product and confirmation pages to beat it — **still 200**, so both were reverted (keeping them would also have been a new feature: per-product `<title>`).
+- **Accepted**: the skeleton set stays; streamed soft-404s are noindexed (asserted in E2E: `<meta name="robots" content="noindex">` present). If a real 404 status ever matters, the options are: drop the affected `loading.tsx`, or do the existence check in `proxy` (DB call in middleware — not done here).
+- `noindex` is emitted by Next for `notFound()` **and** for the route-level 404 page, so nothing gets indexed twice.
+
+### 15.4 Tests added (210 → **243**)
+
+- `tests/unit/format-date.test.ts` (**4**): PK-midnight boundary (`2026-09-25T19:30Z` → `26 Sept 2026`; `18:59Z` vs `19:00Z`), format shape, month coverage. (en-GB renders September as **`Sept`**, everything else 3 letters — asserted as-is.)
+- `tests/unit/callback-url.test.ts` (**9**): open-redirect vectors `//evil.com`, `https://…`, `javascript:`, `/\evil`, `..`, control chars, empty/oversized/non-string → fallback `/account`; valid paths + custom fallback pass.
+- `tests/unit/app-shell.test.ts` (**20**): root layout has no `Header`, the 3 layouts render it, admin doesn't; all 8 special files exist; `error.tsx` uses `retry` (not `reset`); `global-error` has `<html>/<body>`; not-found views use `NotFoundView`; `test-payment-guard` + `logout-action.ts` gone; homepage in `(storefront)`; **no `toLocaleDateString` anywhere under `src/`**.
+
+### 15.5 Gate & verification
+
+- `npm run test` → **243/243** (119 unit / 11 files + 124 integration / 23 files); `tsc --noEmit` clean; **`npm run lint` → 0 errors / 0 warnings** (from 8/3 — target met); `prisma validate` + `migrate status` ok (7 migrations, none new); `npm run build` green.
+- **E2E on prod `next start :3100` → 68/68** (`/tmp/opencode/phase5-e2e.mjs`): the 58 Phase-5/6 checks (one retargeted: anon `/admin` now expects `/login?callbackUrl=%2Fadmin`) plus 10 new — anon `/admin/products` and `/account/orders` bounce with the right `callbackUrl`; `/definitely-missing` → real 404 + our view; `/product/<missing>` → our view + `noindex`; `/admin` (signed in) has **no** `href="/cart"` while `/`, `/login`, `/account/orders` do.
+- **Page smoke → 8/8** (`/tmp/opencode/phase6-smoke.mjs`).
+- **Manual browser checklist** (needs a human; server left running on `:3100`, log `/tmp/opencode/phase7-server.log`): 1) `/admin` as admin — no Cart/Sign In chrome, sidebar intact · 2) `/` and `/shop` still show the header + Cart · 3) signed out → `/admin/products` lands on `/login?callbackUrl=%2Fadmin%2Fproducts`, log in → back on that page · 4) signed out → `/account/orders` → login → returns to `/account/orders` · 5) unknown URL → our 404 page (Go Home / Continue Shopping) · 6) slow navigation shows the skeleton (no layout jump) · 7) `/admin/customers/<id>` shows `Joined 26 Sept 2026`-style dates · 8) `/product/<missing>` shows our 404 view · 9) force an error (throw in a page) → error page with working "Try Again".
+
+### 15.6 Errors hit in Phase 7 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | `tsc` failed on `.next/types/validator.ts` referencing deleted `src/app/page.js` / `test-payment-guard/page.js` | stale generated types after `git mv` + route deletion | `rm -rf .next` (rebuild regenerates) |
+| 2 | `formatDate` tests expected `26 Sep 2026`, got `26 Sept 2026` | en-GB CLDR abbreviates September as `Sept` (stable across ICU versions) | expectations + comment updated; boundary test moved to October (`26 Oct/27 Oct`) |
+| 3 | `app-shell` "no `toLocaleDateString`" test threw `ENOENT … 'rc/app/(auth)/layout.tsx'` | `ROOT` from `new URL("../..")` already ends in `/`, so `slice(ROOT.length + 1)` ate a char | `path.relative()` for the reported path |
+| 4 | `npx vitest --config vitest.unit.config.ts` → unresolved entry | unit config is `vitest.config.ts` (no `vitest.unit.config.ts`) | use `vitest.config.ts` |
+| 5 | E2E check `anon GET /admin → /` failed | Phase 7 deliberately changes it to login-with-callback | assertion retargeted to `/login?callbackUrl=%2Fadmin` |
+| 6 | `/product/<missing>` was 404 before Phase 7, 200 after | streaming trade-off (§15.3) — first suspected `generateMetadata` could fix it | documented + `noindex` asserted; `generateMetadata` experiments reverted |
+| 7 | `/tmp/opencode/*.mjs` scripts (E2E, smoke) are not in git | `/tmp` is wiped between sessions (same as §13.5 #3) | recreate each time; **Phase 8 should commit them under `scripts/`** |
+

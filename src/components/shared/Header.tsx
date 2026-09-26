@@ -1,5 +1,5 @@
-// MINIMAL SCAFFOLD — full Girah header (logo, nav, mobile menu per girah.md §14)
-// is a separate future task. This exists to mount CartBadge + auth-aware links.
+// MINIMAL SCAFFOLD — the full Girah header (logo, nav, mobile menu) is a
+// separate future task. This exists to mount CartBadge + auth-aware links.
 import Link from "next/link";
 import { auth } from "@/lib/auth";
 import { CartBadge } from "./CartBadge";
