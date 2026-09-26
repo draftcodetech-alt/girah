@@ -62,6 +62,11 @@ jobs:
       - name: Lint (must be 0 errors / 0 warnings)
         run: npm run lint
 
+      # LayoutProps/PageProps are globals Next emits into .next/types — without
+      # this a clean checkout fails tsc (locally it only passes because .next exists).
+      - name: Generate route types
+        run: npx next typegen
+
       - name: Typecheck
         run: npx tsc --noEmit
 

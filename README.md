@@ -63,8 +63,12 @@ database the server is using).
 ## Continuous integration
 
 `.github/workflows/ci.yml` runs on every push to `main` and on pull requests:
-prisma validate → lint (0/0) → `tsc` → unit tests → integration tests → build →
-boot the production server → smoke + E2E.
+prisma validate → lint (0/0) → `next typegen` → `tsc` → unit tests → integration
+tests → build → boot the production server → smoke + E2E.
+
+The `next typegen` step matters: `LayoutProps`/`PageProps` are globals Next
+writes into `.next/types`, so `tsc --noEmit` on a clean checkout fails without
+it (locally it passes only because a previous build left `.next` behind).
 
 It needs two repository secrets (**Settings → Secrets → Actions**):
 

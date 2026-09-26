@@ -639,6 +639,7 @@ The whole point of making the scripts self-contained: created a scratch Neon DB 
 |---|-------|-------|-----|
 | 1 | Throwaway `echo "target db: $(node -e "new URL(process.argv[1])")"` → `TypeError: Invalid URL`, and `migrate deploy` then ran without my explicit env | `process.argv[1]` was never passed to that inline node call; the empty `DATABASE_URL` made Prisma fall back to `.env` | Verified afterwards that the scratch URL/migrations were actually correct (the error was cosmetic — my debug echo, not the pipeline); dropped the throwaway line |
 | 2 | `prisma db execute` with a `SELECT` → "Either --url or --schema must be provided" | I passed `DATABASE_URL` via env instead of `--url` (execute doesn't read it) | Used `--url` / skipped the probe — migration status already proved the schema |
+| 3 | **First CI run failed at `tsc`: `LayoutProps` not found** in `src/app/layout.tsx` | `LayoutProps`/`PageProps` are globals Next emits into `.next/types` (tsconfig includes it) — a clean checkout has no `.next`, while every local gate ran on top of an existing build | CI now runs `npx next typegen` before `tsc` (verified from a clean state: `mv .next` → typegen → tsc green). README notes the same |
 
 ### 16.7 Decisions recorded
 
