@@ -57,6 +57,24 @@ describe("priceCartItemsFresh", () => {
     ).rejects.toBeInstanceOf(UnavailableVariationError);
   });
 
+  it("carries a human item label so checkout can NAME the unavailable item", async () => {
+    const { product, variation } = await createTestProduct();
+    await db.productVariation.update({
+      where: { id: variation.id },
+      data: { isEnabled: false },
+    });
+
+    const error = await db
+      .$transaction((tx) =>
+        priceCartItemsFresh(tx, [{ variationId: variation.id, quantity: 1 }])
+      )
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(UnavailableVariationError);
+    const labeled = error as UnavailableVariationError;
+    expect(labeled.itemLabel).toBe(`${product.name} — ${variation.name}`);
+  });
+
   it("prices valid quantities correctly (integer paisa)", async () => {
     const { variation } = await createTestProduct();
 

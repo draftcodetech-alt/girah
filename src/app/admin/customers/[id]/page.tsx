@@ -1,10 +1,7 @@
 import { notFound } from "next/navigation";
 import { getAdminCustomerById } from "@/modules/admin";
 import { ToggleActiveButton } from "@/components/admin/ToggleActiveButton";
-
-function formatPrice(paisa: number): string {
-  return `Rs. ${(paisa / 100).toLocaleString("en-PK")}`;
-}
+import { formatPrice } from "@/lib/format";
 
 export default async function AdminCustomerDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

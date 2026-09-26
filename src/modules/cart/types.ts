@@ -9,6 +9,9 @@ export type CartItemView = {
   quantity: number;
   subtotal: number;
   availableStock: number;
+  // Phase 5 disabled-line UX: false when an admin disabled the variation
+  // after it was added — the cart renders an "Unavailable" badge for it.
+  isEnabled: boolean;
 };
 
 export type CartView = {

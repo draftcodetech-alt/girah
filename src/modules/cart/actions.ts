@@ -1,29 +1,13 @@
 "use server";
-import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { resolveCartIdentity } from "./identity";
-import type { CartIdentity } from "./identity";
 import type { CartActionResult } from "./types";
-
-async function getOrCreateCart(identity: CartIdentity) {
-  const existing = await db.cart.findFirst({ where: identity });
-  if (existing) return existing;
-  return db.cart.create({ data: identity });
-}
-
-function ownsCart(identity: CartIdentity, cart: { userId: string | null; guestId: string | null }) {
-  if ("userId" in identity) return cart.userId === identity.userId;
-  return cart.guestId === identity.guestId;
-}
-
-// Hard ceiling for a single cart line — well above any realistic order,
-// small enough to keep crafted payloads from overflowing the Int column.
-const MAX_QUANTITY = 999;
-
-function isValidQuantity(q: unknown): q is number {
-  return typeof q === "number" && Number.isInteger(q) && q >= 0 && q <= MAX_QUANTITY;
-}
+import {
+  getOrCreateCart,
+  isValidQuantity,
+  updateCartItemQuantityCore,
+} from "./ops";
 
 export async function addToCart(
   variationId: string,
@@ -72,46 +56,26 @@ export async function updateCartItemQuantity(
   cartItemId: string,
   quantity: number
 ): Promise<CartActionResult> {
-  // 0 means "remove" (removeCartItem delegates here); anything non-integer,
-  // negative, or absurd is rejected before it can reach the DB. (C1)
+  // C1 ordering: validate BEFORE cookies()/DB — a crafted quantity is refused
+  // without ever touching request context. The core re-validates (defense in
+  // depth) and owns ownership/qty-0 logic; this wrapper only adds identity + revalidate.
   if (!isValidQuantity(quantity)) {
     return { success: false, error: "Invalid quantity." };
   }
 
   try {
     const identity = await resolveCartIdentity();
-
-    const item = await db.cartItem.findUnique({
-      where: { id: cartItemId },
-      include: { cart: true, variation: true },
-    });
-
-    // Phase 4 L9: a missing item and someone else's item used to return
-    // DIFFERENT responses (success vs error), turning these actions into an
-    // existence oracle for crafted cart-item ids. Both cases now return the
-    // exact same refusal — only items in the caller's own cart ever resolve.
-    if (!item || !ownsCart(identity, item.cart)) {
-      return { success: false, error: "Item not found in your cart." };
-    }
-
-    if (quantity < 1) {
-      await db.cartItem.delete({ where: { id: cartItemId } });
-    } else {
-      const cappedQuantity = Math.min(quantity, item.variation.stock);
-      await db.cartItem.update({ where: { id: cartItemId }, data: { quantity: cappedQuantity } });
-    }
-
-    revalidatePath("/", "layout");
-    return { success: true };
+    const result = await updateCartItemQuantityCore(cartItemId, quantity, identity);
+    if (result.success) revalidatePath("/", "layout");
+    return result;
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
-      revalidatePath("/", "layout");
-      return { success: true };
-    }
     console.error("updateCartItemQuantity failed — full error:", error);
     return { success: false, error: "Something went wrong updating your cart. Please try again." };
   }
 }
-export async function removeCartItem(cartItemId: string): Promise<CartActionResult> {
+
+export async function removeCartItem(
+  cartItemId: string
+): Promise<CartActionResult> {
   return updateCartItemQuantity(cartItemId, 0);
 }

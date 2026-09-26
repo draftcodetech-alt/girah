@@ -1,10 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrderById, getConfirmationView, startSafepayRetry } from "@/modules/orders";
-
-function formatPrice(paisa: number): string {
-  return `Rs. ${(paisa / 100).toLocaleString("en-PK")}`;
-}
+import { formatPrice } from "@/lib/format";
 
 function paymentLabel(paymentMethod: string, paymentStatus: string): string {
   const status =

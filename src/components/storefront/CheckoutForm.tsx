@@ -4,10 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { placeOrder } from "@/modules/checkout/actions";
 import type { CartView } from "@/modules/cart";
-
-function formatPrice(paisa: number): string {
-  return `Rs. ${(paisa / 100).toLocaleString("en-PK")}`;
-}
+import { formatPrice } from "@/lib/format";
 
 export function CheckoutForm({ cart }: { cart: CartView }) {
   const router = useRouter();

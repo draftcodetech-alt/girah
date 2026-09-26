@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateOrderStatus, markCodPaymentReceived } from "@/modules/admin/orders";
+import { formatPrice } from "@/lib/format";
 
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
 
@@ -39,7 +40,7 @@ export function AdminOrderRow({ order }: { order: Order }) {
       <div>
         <p className="font-body text-body font-medium text-charcoal">#{order.orderNumber}</p>
         <p className="font-body text-small text-muted mt-1">
-          {order.customerName} · Rs. {(order.total / 100).toLocaleString("en-PK")} · {order.paymentMethod}
+          {order.customerName} · {formatPrice(order.total)} · {order.paymentMethod}
         </p>
       </div>
       <div className="flex items-center gap-3">

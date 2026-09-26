@@ -30,7 +30,10 @@ export async function priceCartItemsFresh(
     }
     const variation = variations.find((v) => v.id === item.variationId);
     if (!variation || !variation.isEnabled) {
-      throw new UnavailableVariationError(item.variationId);
+      throw new UnavailableVariationError(
+        item.variationId,
+        variation ? `${variation.product.name} — ${variation.name}` : undefined
+      );
     }
     return {
       variationId: variation.id,
@@ -46,7 +49,13 @@ export async function priceCartItemsFresh(
 }
 
 export class UnavailableVariationError extends Error {
-  constructor(public variationId: string) {
+  // Phase 5 disabled-line UX: carry a human label (product — variation) when
+  // the row still exists so placeOrderCore can NAME the item in its message
+  // instead of failing with a generic "some items" notice.
+  constructor(
+    public variationId: string,
+    public itemLabel?: string
+  ) {
     super(`Variation ${variationId} is no longer available.`);
     this.name = "UnavailableVariationError";
   }

@@ -3,10 +3,7 @@
 import { useState, useTransition } from "react";
 import type { ProductDetail } from "@/modules/catalog";
 import { addToCart } from "@/modules/cart/actions";
-
-function formatPrice(paisa: number): string {
-  return `Rs. ${(paisa / 100).toLocaleString("en-PK")}`;
-}
+import { formatPrice } from "@/lib/format";
 
 export function PurchasePanel({ product }: { product: ProductDetail }) {
   const purchasableVariations = product.variations.filter((v) => v.isEnabled);
@@ -18,7 +15,11 @@ export function PurchasePanel({ product }: { product: ProductDetail }) {
   const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const selected = product.variations.find((v) => v.id === selectedId);
-  const lowestPrice = Math.min(...purchasableVariations.map((v) => v.price));
+  // Phase 5 "Rs. Infinity": Math.min() over an EMPTY purchasable set is
+  // +Infinity — with zero enabled variations the price line used to render
+  // literally "From Rs. Infinity". Null → render "Unavailable" instead.
+  const lowestPrice =
+    purchasableVariations.length > 0 ? Math.min(...purchasableVariations.map((v) => v.price)) : null;
 
   function selectVariation(id: string) {
     setSelectedId(id);
@@ -47,7 +48,11 @@ export function PurchasePanel({ product }: { product: ProductDetail }) {
         {product.name}
       </h1>
       <p className="font-body text-card-title text-sage mt-4">
-        {selected ? formatPrice(selected.price) : `From ${formatPrice(lowestPrice)}`}
+        {selected
+          ? formatPrice(selected.price)
+          : lowestPrice !== null
+          ? `From ${formatPrice(lowestPrice)}`
+          : "Unavailable"}
       </p>
 
       <div className="mt-8">

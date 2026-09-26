@@ -2,10 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { getMyOrders } from "@/modules/orders";
-
-function formatPrice(paisa: number): string {
-  return `Rs. ${(paisa / 100).toLocaleString("en-PK")}`;
-}
+import { formatPrice } from "@/lib/format";
 
 export default async function OrdersPage() {
   // Phase 4 L5: inline guard (proxy.ts is defense-in-depth, not the only

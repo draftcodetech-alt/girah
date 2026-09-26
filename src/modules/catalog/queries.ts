@@ -13,10 +13,17 @@ function sanitizeFilters(raw: ProductFilters): ProductFilters {
   const search =
     typeof raw.search === "string" ? raw.search.trim().slice(0, 100) : undefined;
 
-  const minPrice =
-    typeof raw.minPrice === "number" && raw.minPrice >= 0 ? raw.minPrice : undefined;
-  const maxPrice =
-    typeof raw.maxPrice === "number" && raw.maxPrice >= 0 ? raw.maxPrice : undefined;
+  // Phase 5 float-price fix: callers do `Number(param) * 100`, which for
+  // values like 8.3 yields 830.0000000000001 — a float paisa that silently
+  // mis-filters integer prices (830 >= 830.000…1 is false). Round to whole
+  // paisa here, the single choke point every price filter passes through.
+  const toPaisa = (value: unknown): number | undefined =>
+    typeof value === "number" && Number.isFinite(value) && value >= 0
+      ? Math.round(value)
+      : undefined;
+
+  const minPrice = toPaisa(raw.minPrice);
+  const maxPrice = toPaisa(raw.maxPrice);
 
   return {
     categorySlug: typeof raw.categorySlug === "string" ? raw.categorySlug : undefined,

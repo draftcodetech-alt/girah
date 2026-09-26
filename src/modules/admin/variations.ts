@@ -30,6 +30,9 @@ export async function updateVariation(id: string, input: VariationInput): Promis
   const product = await db.product.findUnique({ where: { id: variation.productId } });
   if (product) revalidatePath(`/product/${product.slug}`);
   revalidatePath("/shop");
+  // Phase 5: cart lines render per-variation availability live — a disable
+  // toggle must refresh open carts, not just the catalog.
+  revalidatePath("/cart");
   return { success: true };
 }
 

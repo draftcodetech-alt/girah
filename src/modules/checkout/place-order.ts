@@ -102,6 +102,14 @@ export async function placeOrderCore(
         error: "This checkout was already completed. Please review your orders before trying again.",
       };
     }
+    // Phase 5 disabled-line UX: when we know WHICH item went unavailable,
+    // name it — "some items" with no pointer is an unactionable dead end.
+    if (error instanceof UnavailableVariationError && error.itemLabel) {
+      return {
+        success: false,
+        error: `"${error.itemLabel}" is no longer available. Please remove it from your cart and try again.`,
+      };
+    }
     if (
       error instanceof InsufficientStockError ||
       error instanceof UnavailableVariationError ||

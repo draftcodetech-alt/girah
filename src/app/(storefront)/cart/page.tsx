@@ -2,10 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getCart } from "@/modules/cart";
 import { updateCartItemQuantity, removeCartItem } from "@/modules/cart/actions";
-
-function formatPrice(paisa: number): string {
-  return `Rs. ${(paisa / 100).toLocaleString("en-PK")}`;
-}
+import { formatPrice } from "@/lib/format";
 
 export default async function CartPage() {
   const cart = await getCart();
@@ -57,7 +54,15 @@ export default async function CartPage() {
                   )}
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-body text-card-title text-charcoal">{item.productName}</h3>
+                  <h3 className="font-body text-card-title text-charcoal">
+                    {item.productName}
+                    {/* Phase 5 disabled-line UX — visible before checkout, not as a surprise failure there */}
+                    {!item.isEnabled && (
+                      <span className="ml-2 inline-block align-middle font-body text-label font-semibold tracking-[0.05em] uppercase text-error bg-error/10 px-2 py-0.5 rounded-[var(--radius-control)]">
+                        Unavailable
+                      </span>
+                    )}
+                  </h3>
                   <p className="font-body text-small text-muted mt-1">{item.variationName}</p>
                   <p className="font-body text-body text-sage mt-2">{formatPrice(item.unitPrice)}</p>
 
@@ -66,7 +71,7 @@ export default async function CartPage() {
                       <form action={decrement}>
                         <button
                           aria-label="Decrease quantity"
-                          disabled={item.quantity <= 1}
+                          disabled={item.quantity <= 1 || !item.isEnabled || item.availableStock <= 0}
                           className="flex-1 h-12 w-12 disabled:text-placeholder text-charcoal"
                         >
                           −
@@ -76,7 +81,11 @@ export default async function CartPage() {
                       <form action={increment}>
                         <button
                           aria-label="Increase quantity"
-                          disabled={item.quantity >= item.availableStock}
+                          disabled={
+                            item.quantity >= item.availableStock ||
+                            !item.isEnabled ||
+                            item.availableStock <= 0
+                          }
                           className="flex-1 h-12 w-12 disabled:text-placeholder text-charcoal"
                         >
                           +

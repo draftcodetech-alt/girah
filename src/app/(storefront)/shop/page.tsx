@@ -39,7 +39,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       </p>
 
       <div className="mt-6">
-        <CategoryTabs categories={categories} activeSlug={params.category} sort={params.sort} />
+        <CategoryTabs categories={categories} activeSlug={params.category} searchParams={params} />
       </div>
 
       <div className="flex gap-12 mt-8 items-start">
@@ -49,6 +49,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           <form method="GET" action="/shop">
             {params.category && <input type="hidden" name="category" value={params.category} />}
             {params.sort && <input type="hidden" name="sort" value={params.sort} />}
+            {/* Phase 5: searching must not wipe the price/stock filters either */}
+            {params.minPrice && <input type="hidden" name="minPrice" value={params.minPrice} />}
+            {params.maxPrice && <input type="hidden" name="maxPrice" value={params.maxPrice} />}
+            {params.inStockOnly && <input type="hidden" name="inStockOnly" value={params.inStockOnly} />}
             <input
               type="search"
               name="search"

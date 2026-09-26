@@ -1,15 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ProductListItem } from "@/modules/catalog";
+import { formatPrice } from "@/lib/format";
 
 type ProductCardProps = {
   product: ProductListItem;
   number?: string; // e.g. "01" — homepage editorial numbering only, per girah.md §6.3/§7.3
 };
-
-function formatPrice(paisa: number): string {
-  return `Rs. ${(paisa / 100).toLocaleString("en-PK")}`;
-}
 
 export function ProductCard({ product, number }: ProductCardProps) {
   return (
@@ -47,7 +44,9 @@ export function ProductCard({ product, number }: ProductCardProps) {
 
       <h3 className="font-body text-card-title text-charcoal mt-4">{product.name}</h3>
       <p className="font-body text-small text-sage mt-1.5">
-        From {formatPrice(product.startingPrice)}
+        {/* startingPrice is 0 only when the product has no purchasable
+            (enabled) variation — never render the nonsense "From Rs. 0". */}
+        {product.startingPrice > 0 ? `From ${formatPrice(product.startingPrice)}` : "Unavailable"}
       </p>
       <span className="font-body text-small font-medium text-sage mt-3.5 inline-flex items-center gap-1 transition-transform duration-200 group-hover:translate-x-0.5">
         View →

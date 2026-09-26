@@ -1,9 +1,11 @@
 import { db } from "@/lib/db";
 import { resolveCartIdentityReadOnly } from "./identity";
+import type { CartIdentity } from "./identity";
 import type { CartView } from "./types";
 
-export async function getCart(): Promise<CartView> {
-  const identity = await resolveCartIdentityReadOnly();
+// Plain core (Phase 5): takes an explicit identity so tests can run without
+// a Next request scope — getCart() below is the thin request wrapper.
+export async function getCartFor(identity: CartIdentity | null): Promise<CartView> {
   if (!identity) return { items: [], subtotal: 0 };
 
   const cart = await db.cart.findFirst({
@@ -34,9 +36,15 @@ export async function getCart(): Promise<CartView> {
     quantity: item.quantity,
     subtotal: item.variation.price * item.quantity,
     availableStock: item.variation.stock,
+    isEnabled: item.variation.isEnabled,
   }));
 
   return { items, subtotal: items.reduce((sum, i) => sum + i.subtotal, 0) };
+}
+
+export async function getCart(): Promise<CartView> {
+  const identity = await resolveCartIdentityReadOnly();
+  return getCartFor(identity);
 }
 
 export async function getCartItemCount(): Promise<number> {

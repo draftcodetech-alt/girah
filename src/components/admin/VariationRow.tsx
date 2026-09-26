@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateVariation, adjustStock } from "@/modules/admin/variations";
+import { formatPrice } from "@/lib/format";
 
 type Variation = {
   id: string;
@@ -50,7 +51,7 @@ export function VariationRow({ variation }: { variation: Variation }) {
             {variation.product.name} — {variation.name}
           </p>
           <p className="font-body text-small text-muted mt-1">
-            Rs. {(variation.price / 100).toLocaleString("en-PK")} · Stock: {variation.stock}
+            {formatPrice(variation.price)} · Stock: {variation.stock}
             {!variation.isEnabled && <span className="text-error"> · Disabled</span>}
           </p>
         </div>

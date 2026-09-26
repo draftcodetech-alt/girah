@@ -3,14 +3,21 @@ import Link from "next/link";
 type CategoryTabsProps = {
   categories: { name: string; slug: string }[];
   activeSlug?: string;
-  sort?: string;
+  // Phase 5 filter preservation: the FULL current query values — every tab
+  // href clones them and swaps only `category`, so switching tabs no longer
+  // silently drops price/stock/search/sort filters (previously only `sort`
+  // survived).
+  searchParams?: Partial<Record<string, string>>;
 };
 
-export function CategoryTabs({ categories, activeSlug, sort }: CategoryTabsProps) {
+export function CategoryTabs({ categories, activeSlug, searchParams }: CategoryTabsProps) {
   const buildHref = (slug?: string) => {
     const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(searchParams ?? {})) {
+      if (key === "category") continue;
+      if (value) params.set(key, value);
+    }
     if (slug) params.set("category", slug);
-    if (sort) params.set("sort", sort);
     const qs = params.toString();
     return `/shop${qs ? `?${qs}` : ""}`;
   };
