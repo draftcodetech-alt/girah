@@ -115,6 +115,9 @@ const customer = await apiLogin("dev-customer@girah.test", "DevCustomer123!");
 await hit("public / renders (homepage)", "/");
 await hit("public /login renders", "/login");
 await hit("public /register renders", "/register");
+// Phase 14: forgot/reset pages.
+await hit("public /forgot-password renders", "/forgot-password");
+await hit("public /reset-password renders (missing token → invalid message)", "/reset-password");
 await hit("admin /admin renders (dashboard)", "/admin", admin);
 await hit("admin /admin/orders renders", "/admin/orders", admin);
 await hit("admin /admin/stock renders", "/admin/stock", admin);

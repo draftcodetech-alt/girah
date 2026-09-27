@@ -61,8 +61,8 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | 11 | Admin catalog completeness: product images, price, variation CRUD, category CRUD, delete | ✅ **DONE** (§19) |
 | **12** | Account completion: addresses (`SavedShipping` wiring), cancel/reorder/receipt, sub-nav | ✅ **DONE** (§20) |
 | 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ✅ **DONE** (§21) |
-| 14 | Emails (Resend): order/status/welcome + forgot/reset password | ⬜ **(next)** |
-| 15 | Wishlist + dedicated `/search` results page | ⬜ |
+| 14 | Emails (Resend): order/status/welcome + forgot/reset password | ✅ **DONE** (§22) |
+| 15 | Wishlist + dedicated `/search` results page | ⬜ **(next)** |
 | 16 | Design system & polish: primitives migration, skeletons, a11y pass | ⬜ |
 
 ---
@@ -267,9 +267,9 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**Phase 14 — emails (Resend)** (feature plan, §2): order/status/welcome + forgot/reset password, with a dev-log fallback until the Resend key exists (§2 user decision). Preceding phases 9–13 all done; Phase 13 delivered the admin dashboard (KPIs + hand-rolled 14-day SVG revenue chart), admin order detail + standalone refund, `/admin/stock` audit feed and order list filters (§21).
+**Phase 15 — wishlist + dedicated `/search` page** (feature plan, §2; decisions ③/④ of §22.1): `WishlistItem` model (migration 9 → 10), `src/modules/wishlist/` (auth-first `toggleWishlist`/`getWishlistProducts`), `/wishlist` page + `WishlistButton` hearts on `ProductCard` and product detail, proxy `/wishlist/:path*`, and `/search` results page with the header form retargeted from `/shop` (E2E line 596 + storefront-shell guard must be updated together). Phases 9–14 all done; Phase 14 delivered the Resend transport with dev-log fallback, five key-transition templates, four post-commit hooks and the full forgot/reset flow (§22).
 
-Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5), **Phase 11** (§19.5), **Phase 12** (§20.5) and **Phase 13** (§21.5). CI secrets were added in Phase 8 (§16.4) and the pipeline is green (last verified at Phase 12, run `36240340033`; Phase 13 push triggers the next run).
+Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5), **Phase 11** (§19.5), **Phase 12** (§20.5), **Phase 13** (§21.5) and **Phase 14** (§22.5) — one pass after Phase 16. CI secrets were added in Phase 8 (§16.4); Phase 13's push was green (run `36290862983`); Phase 14's push triggers the next run.
 
 ---
 
@@ -986,3 +986,77 @@ Scope: real `/admin` dashboard (metrics + hand-rolled SVG chart — no chart lib
 - `"use server"` purity enforced structurally: constants + the pure series builder live in plain files (`dashboard-ops.ts`, `types.ts`) — the same split `image-ops.ts`/`status-ops.ts` already established.
 - Refund deliberately has **no audit table** in this phase (money state is `paymentStatus`; an order-scoped refund timeline is out of scope until emails/Phase 14 make it worth a migration).
 - Dashboard metrics are computed with **SQL aggregates** (`aggregate`/`count`/`groupBy`) and only the 14-day series is bucketed in JS (day boundaries must be Karachi) — never "fetch all orders, sum in the page".
+
+---
+
+## 22. Phase 14 — emails (Resend) + forgot/reset password — detailed log (what & why)
+
+Scope: transactional email transport with a **dev-log fallback** (no Resend key yet), five key-transition templates (order received, payment result, status updates, welcome, password reset), the four post-commit hook sites, and a complete **forgot/reset password** flow. Migration 8 → **9** (`PasswordResetToken`), one new dependency (`resend`, lazy-loaded).
+
+### 22.1 Decisions (user-confirmed before execution)
+
+1. **Dev-log fallback only.** No real Resend key now. With `RESEND_API_KEY` missing or set to `ci-placeholder`, every send prints `[email] dev-log → to=… subject="…"` to the server log. Adding a key later activates real sends with **zero code change** — same module, same call sites.
+2. **Key transitions only:** order received (COD + Safepay), payment result (CONFIRMED / FAILED / REFUNDED, webhook-driven), status mail for **SHIPPED / DELIVERED / CANCELLED**, welcome, forgot/reset. CONFIRMED/PROCESSING stay quiet to avoid inbox noise; `markCodPaymentReceived` and the admin `refundOrderPayment` deliberately send **nothing** (webhook-only payment mail per scope).
+3. **Search (Phase 15) — products only; header form → `/search`** (recorded here because it was decided with this phase).
+4. **Two gated sub-phases:** 14 → full gate → docs §22 → commit/push/CI, then 15 → gate → §23 → commit/push/CI.
+
+### 22.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | `src/lib/email.ts` was a 0-byte placeholder; nothing could send mail | Transport: `isEmailDevLogMode()` (no key OR `ci-placeholder` → dev-log), `sendEmail()` (throws on transport failure), **`sendEmailSafe()`** (never throws — every hook uses it, the Safepay-URL swallow-and-log rule applied to email), `EMAIL_FROM` env with `Girah <onboarding@resend.dev>` fallback. Client construction is **lazy** (`await import("resend")`, cached, named-export `Resend`) — importing the module never needs a key, so every suite and build can load it (the `image-ops.ts` ensureCloudinary pattern) | `src/lib/email.ts` |
+| 2 | No templates existed | Pure builders returning `{to, subject, html, text}`: `orderReceivedEmail`, `paymentResultEmail(order, CONFIRMED\|FAILED\|REFUNDED)`, `orderStatusEmail(order, SHIPPED\|DELIVERED\|CANCELLED)`, `welcomeEmail`, `passwordResetEmail`. Inline-styled HTML shell (sage/cream tokens), `formatPrice`/`formatDate` only, per-outcome copy (refund wording depends on `paymentStatus`, cancel-without-refund says "any due refund is on its way") | `src/lib/email-templates.ts` |
+| 3 | Nothing triggered mail | Four `sendEmailSafe` hooks, all **post-commit best-effort**: (a) `placeOrder` → order-received after `revalidatePath` + save-address, before the Safepay URL block; (b) webhook `handleSuccess`/`handleFailure`/`handleRefund` → payment result **only when `claimed.count === 1`** (a duplicate delivery that lost the CAS must not send a second "confirmed"); (c) `updateOrderStatusCore` → status mail before the final `return {success:true}` when next ∈ {SHIPPED, DELIVERED, CANCELLED} (the single choke point — admin select *and* customer cancel land here); (d) `register` → welcome after the guest-cart merge | `src/modules/{checkout/actions,payments/webhook-core,orders/status-ops,accounts/actions}.ts` |
+| 4 | No storage for reset tokens | Migration `phase14_password_reset`: `PasswordResetToken {id, userId FK cascade, tokenHash @unique, expiresAt, createdAt, @@index([userId])}` + `User.passwordResetTokens`. Only the **SHA-256 hash** of the raw token is stored — a DB leak must not hand out working links. Added to the `resetDb` TRUNCATE list | `prisma/schema.prisma`, `prisma/migrations/20260927035350_phase14_password_reset`, `tests/setup/helpers.ts` |
+| 5 | No forgot/reset flow existed | `forgotPasswordSchema` + `resetPasswordSchema` (password ≥8 + confirm refine, mirroring `registerSchema`); actions `requestPasswordReset` / `resetPassword` in the accounts module (§22.3) | `src/modules/accounts/{schema,actions}.ts` |
+| 6 | No UI | `(auth)/forgot-password` + `(auth)/reset-password` pages (awaited `searchParams`, login-page pattern) with `ForgotPasswordForm`/`ResetPasswordForm` (LoginForm style: `onSubmit` + `preventDefault` + `FormData`, `role="alert"`/`role="status"`, pending states); "Forgot password?" link added to the login password field; both forms added to `CLIENT_FORMS` | `src/app/(auth)/{forgot-password,reset-password}/page.tsx`, `src/components/storefront/{Forgot,Reset}PasswordForm.tsx`, `LoginForm.tsx`, `tests/unit/client-forms-guard.test.ts` |
+| 7 | Suites could hit a real transport if a dev `.env` carried a key; no coverage of any of the above | `tests/setup/env.ts` forces `RESEND_API_KEY=ci-placeholder` for every worker (no suite can ever send real mail); unit `email-ops` (23), integration `password-reset` (13) + `email-hooks` (12, `vi.mock("@/lib/email")`); smoke +2 pages; E2E **section 18** (17 checks) | `tests/`, `scripts/{smoke,e2e}.mjs` |
+
+### 22.3 Behaviour worth knowing before touching this code
+
+- **Anti-enumeration is structural, not cosmetic.** `requestPasswordReset` returns the same generic success for known and unknown addresses, and the rate-limit **key (`pwreset:<email>`) is burned before the user lookup** — a missing account still consumes a failure. Integration asserts the two responses are byte-identical. Do not "helpfully" add an `email not found` error.
+- **The link lives one hour and only one link is live:** a new request `deleteMany`s the user's previous tokens in the same transaction. The raw token exists **only** in the mail body (E2E hand-crafts rows with `sha256(raw)` because the server log is not readable cross-process).
+- **Reset = password + `sessionVersion {increment: 1}` + consume every token** in one `$transaction` — the `changePassword` rule: any live session (stolen cookie) dies with the old password. Single-use: reusing a consumed token returns the generic "invalid or has expired".
+- **Never throws, never blocks:** every send goes through `sendEmailSafe`. A transport failure logs `[email] send failed` and cannot fail an order, webhook, registration or status change. Email hooks are also ordered *after* commit (checkout) or *after* the CAS win (webhook) — mail never describes a state that didn't happen.
+- **Webhook mail is CAS-gated:** `if (claimed.count === 1) await emailPaymentResult(...)` — exactly three such guards (source-guarded). The late-payment-after-cancel edge stays silent (the state machine already logged CRITICAL).
+- **Dev-log mode is checked per call**, not at import; `ensureResend()` throws if called without a key (defensive — callers check the mode first). The Resend module is loaded via dynamic import only, so no suite ever constructs a client at module load.
+- **Tests are hard-pinned to dev-log:** `tests/setup/env.ts` overwrites `RESEND_API_KEY` in every worker — a real key in `.env` can never leak into a suite. The `email-hooks` suite mocks `@/lib/email` entirely and asserts *who* gets mail, never rendering (unit templates own rendering).
+- **Rate limit semantics:** first 5 requests per address succeed, the 6th is refused ("Too many reset requests…") within the 15-minute window (`isRateLimited` blocks once `count >= 5`). Buckets are per-process, same as login throttling (§8).
+
+### 22.4 Tests & gate
+
+- Unit **252 → 283** (18 files): new `tests/unit/email-ops.test.ts` (**23**) — dev-log mode matrix (absent / `ci-placeholder` / real key), dev-log output, `sendEmailSafe` swallows transport failure (mocked `resend` rejecting), template content (subjects, `Rs. 1,000.00`, `20 Sept 2026`, pay-on-delivery vs Safepay copy, per-status subjects, refund-vs-no-refund cancel copy, welcome/reset links, every builder ships subject+html+text), source guards (lazy `await import("resend")` and **no static import**, all four hooks call `sendEmailSafe`, order-received after `revalidatePath`, exactly **3** `claimed.count === 1` gates, `EMAILED_STATUSES` = exactly SHIPPED/DELIVERED/CANCELLED, `recordFailure` **before** `findFirst`, single generic success **after** the send, `sessionVersion` bump + token `deleteMany`, 1-hour TTL, login links to `/forgot-password`). Plus `client-forms-guard` **+8** (the two new forms × 4 guards).
+- Integration **221 → 246** (32 files): new `tests/integration/password-reset.test.ts` (**13**) — hashed 1-hour token row, identical known/unknown responses (+ unknown stores nothing), case-insensitive match, newest-link-wins, malformed email field error, 5-then-refused rate limit, successful reset (password rotated both ways, `sessionVersion +1`, tokens consumed), unknown/expired/reused token refusals with unchanged session, confirm-mismatch, short password, blank token. New `tests/integration/email-hooks.test.ts` (**12**, transport mocked) — webhook confirmed exactly-once (+ duplicate delivery silent), failed-once, refunded-once, unknown order silent; status flow quiet through CONFIRMED/PROCESSING then SHIPPED/DELIVERED mailed, unpaid cancel promises no refund, paid-Safepay cancel issues refund first then mails "refunded", duplicate same-status click silent; register → welcome to the right address; known-address reset link vs unknown sends nothing; second request replaces the link **and** the live hash.
+- Gate: `npm run test` **529/529** (283 unit / 18 files + 246 integration / 32 files) · `tsc --noEmit` clean · `eslint .` **0/0** · `prisma validate` + `migrate status` (**9**, +`phase14_password_reset`) · `npm run build` green (+`/forgot-password`, +`/reset-password` routes) · **smoke 19/19 + E2E 229/229** (section 18 = 17 new checks: both pages render, missing-token invalid message, request → one sha256 row, unknown address byte-identical + zero rows, hand-crafted token renders the form, reset succeeds → old password dead/new one live/`sessionVersion +1`/tokens consumed, reuse and unknown token refused, new password signs in with session cookie, old password rejected with none) on the new build (server pid 21611, `ss`-verified) · post-run leftover query **0** (tokens, e2e users, stray orders).
+
+### 22.5 Manual browser checklist (needs a human; server on `:3100`)
+
+1. `/login` → "Forgot password?" next to the Password label → `/forgot-password` renders the request form.
+2. Submit a **known** email → the generic "If that address has an account…" status message, and the server console prints `[email] dev-log → to=… subject="Reset your Girah password"`.
+3. Submit an **unknown** email → byte-identical message, **no** log line, no token row (`npx prisma studio` → `PasswordResetToken` empty).
+4. Fire a 6th request for one address inside 15 minutes → "Too many reset requests — please wait a few minutes and try again."; wait it out or change address.
+5. Open the link from the dev-log line → new-password form; mismatched confirm → `role="alert"` field error; success → redirected to `/login`; the **old** password now fails and the new one signs in (any session that existed before the reset is dead).
+6. Reuse the same link → "This reset link is invalid or has expired."; `/reset-password` with no `?token=` → same invalid message.
+7. Place a COD order → `[email] dev-log` "Order received"; pay a Safepay order → "Payment confirmed"; admin marks SHIPPED → "Your order has shipped"; register a new account → "Welcome to Girah". Duplicate webhook deliveries (re-POST) must not double-mail.
+8. Cancel a **paid** Safepay order → cancel mail says the payment **was refunded**; cancel an unpaid one → "any due refund is on its way", no refund claim.
+
+### 22.6 Errors hit in Phase 14 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | Python edit script `AssertionError` appending the reset actions — no write happened | anchored on `'  await signOut(…)\n}\n'` but the file ends **without** a trailing newline after the last `}` | re-anchored on the exact last two lines (`await signOut…` + `}`) and appended; verified with `tsc` after |
+| 2 | `tsc` TS2352: `typeof import("resend")` not assignable to `{ default: … }` — "Property 'default' is missing" | resend v6 exports a **named** `Resend`, there is no default export | `mod as { Resend: new (apiKey: string) => ResendLike }` |
+| 3 | Unit: `expected … to contain '20 Sep 2026'` | `formatDate` uses `en-GB`, where September's short month is **"Sept"** (§8's documented format is "26 Sept 2026") — my assertion used the US "Sep" | assertion corrected to `20 Sept 2026` (formatter untouched) |
+| 4 | Unit: `expect(mail.to).toBe("a@b.c")` failed in the "every builder" loop | order-mail fixtures use `buyer@girah.test`; only welcome/reset use `a@b.c` | asserted `to` is non-empty (per-builder recipients are asserted where they matter) |
+| 5 | `vitest run tests/integration/…` → "No test files found … include: tests/unit/**" | integration files need `vitest.integration.config.ts`; the default config only includes `tests/unit` | run via `npx vitest run --config vitest.integration.config.ts <files>` (or `npm run test:integration`) |
+| 6 | ESLint **1 warning** (gate is 0/0): unused `bcrypt` in `email-hooks.test.ts` | copied the import from `password-reset.test.ts`, where it is used | removed |
+| 7 | Draft `email-hooks` tests would fail: PENDING→SHIPPED rejected, paid-Safepay cancel refused | `ALLOWED_TRANSITIONS` needs the full chain; the refund branch refuses without `safepayTracker` **before** any state/email | chained CONFIRMED→PROCESSING→SHIPPED; seeded `safepayTracker` on the paid order |
+| 8 | `register` in `email-hooks` would call real `signIn` outside a request | the suite had no `@/lib/auth` double (account-actions does) | added the `vi.mock("@/lib/auth", …)` block with `signIn`/`auth` stubs + empty `handlers` (so `readSessionFromCookieJar` fails closed to `null`) |
+
+### 22.7 Decisions recorded
+
+- Dev-log-only (decision ①): no `resend` API call exists anywhere in test/CI paths — `tests/setup/env.ts` pins `ci-placeholder` for every worker, and CI already injects the placeholder (ci.yml).
+- Scope of mail (decision ②) is enforced by source guards: exactly 3 webhook sites (CAS-gated), 1 checkout site, `EMAILED_STATUSES` = SHIPPED/DELIVERED/CANCELLED, 1 welcome, 1 reset. `markCodPaymentReceived` / `refundOrderPayment` stay silent on purpose.
+- `"use server"` purity held: schemas live in `schema.ts`, templates/transport are plain modules (unit-importable), actions in `actions.ts` — `sha256`/TTL constants are **non-exported** helpers inside the action file (lint-clean).
+- New dependency `resend@^6.30.0` is **lazy** — no import-time construction, so the decision-① fallback and suite safety are structural, not convention.
+- Manual checklists stay deferred to the end (user directive): §22.5 joins the owed list with §14.5–§21.5 — one pass after Phase 16.

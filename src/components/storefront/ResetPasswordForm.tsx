@@ -3,10 +3,9 @@
 import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { login } from "@/modules/accounts/actions";
-import { safeCallbackUrl } from "@/lib/callback-url";
+import { resetPassword } from "@/modules/accounts/actions";
 
-export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
+export function ResetPasswordForm({ token }: { token?: string }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -16,12 +15,13 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
     const formData = new FormData(event.currentTarget);
     setError(null);
     startTransition(async () => {
-      const result = await login({
-        email: formData.get("email") as string,
-        password: formData.get("password") as string,
+      const result = await resetPassword({
+        token: token ?? "",
+        password: (formData.get("password") as string) ?? "",
+        confirmPassword: (formData.get("confirmPassword") as string) ?? "",
       });
       if (result.success) {
-        router.push(safeCallbackUrl(callbackUrl));
+        router.push("/login");
         router.refresh();
       } else {
         setError(result.error);
@@ -29,34 +29,55 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
     });
   }
 
+  if (!token) {
+    return (
+      <div className="max-w-[420px] mx-auto px-4 py-16 text-center">
+        <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">
+          Reset Password
+        </h1>
+        <p role="alert" className="font-body text-body text-error mt-6">
+          This reset link is invalid or has expired.
+        </p>
+        <p className="font-body text-small text-muted mt-6">
+          <Link href="/forgot-password" className="text-sage font-medium">
+            Request a new link
+          </Link>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-[420px] mx-auto px-4 py-16">
       <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal text-center">
-        Welcome Back
+        Reset Password
       </h1>
-      <p className="font-body text-body text-muted text-center mt-4">Sign in to your account</p>
+      <p className="font-body text-body text-muted text-center mt-4">
+        Choose a new password for your account
+      </p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Email</label>
-          <input
-            name="email"
-            type="email"
-            required
-            className="w-full h-12 rounded-[var(--radius-control)] border border-border bg-cream px-4 font-body text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
-          />
-        </div>
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="font-body text-small text-charcoal">Password</label>
-            <Link href="/forgot-password" className="font-body text-small text-sage font-medium">
-              Forgot password?
-            </Link>
-          </div>
+          <label className="font-body text-small text-charcoal block mb-1.5">
+            New Password
+          </label>
           <input
             name="password"
             type="password"
             required
+            minLength={8}
+            className="w-full h-12 rounded-[var(--radius-control)] border border-border bg-cream px-4 font-body text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
+          />
+        </div>
+        <div>
+          <label className="font-body text-small text-charcoal block mb-1.5">
+            Confirm Password
+          </label>
+          <input
+            name="confirmPassword"
+            type="password"
+            required
+            minLength={8}
             className="w-full h-12 rounded-[var(--radius-control)] border border-border bg-cream px-4 font-body text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
           />
         </div>
@@ -72,20 +93,15 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
           disabled={isPending}
           className="w-full h-12 rounded-[var(--radius-control)] font-body text-button font-semibold bg-sage text-cream disabled:opacity-60"
         >
-          {isPending ? "Signing in…" : "Sign In"}
+          {isPending ? "Updating…" : "Update Password"}
         </button>
       </form>
 
       <div className="text-center mt-6 pt-6 border-t border-border">
         <p className="font-body text-small text-muted">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-sage font-medium">
-            Create Account
-          </Link>
-        </p>
-        <p className="font-body text-small text-muted mt-4">
-          <Link href="/shop" className="text-sage font-medium">
-            Continue as Guest
+          Remembered it?{" "}
+          <Link href="/login" className="text-sage font-medium">
+            Back to Sign In
           </Link>
         </p>
       </div>

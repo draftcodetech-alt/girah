@@ -4,6 +4,8 @@ import { describe, it, expect } from "vitest";
 const CLIENT_FORMS = [
   "src/components/storefront/LoginForm.tsx",
   "src/components/storefront/RegisterForm.tsx",
+  "src/components/storefront/ForgotPasswordForm.tsx",
+  "src/components/storefront/ResetPasswordForm.tsx",
   "src/components/storefront/ProfileForm.tsx",
   "src/components/storefront/CheckoutForm.tsx",
   "src/components/admin/ProductForm.tsx",

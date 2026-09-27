@@ -1,8 +1,14 @@
 import { db } from "@/lib/db";
 import type { OrderStatus } from "@prisma/client";
 import { refundSafepayPayment } from "@/modules/payments";
+import { sendEmailSafe } from "@/lib/email";
+import { orderStatusEmail, type CustomerStatusUpdate } from "@/lib/email-templates";
 import type { OrderActionResult } from "./types";
 import { orderStatusSchema } from "./schema";
+
+// Phase 14: which transitions the customer hears about (§2 "key
+// transitions" — CONFIRMED/PROCESSING stay quiet to avoid inbox noise).
+const EMAILED_STATUSES = new Set<OrderStatus>(["SHIPPED", "DELIVERED", "CANCELLED"]);
 
 // Allowed order-status transitions (Phase 2). Linear forward path with
 // cancellation allowed up to (and including) SHIPPED; DELIVERED and
@@ -172,6 +178,29 @@ export async function updateOrderStatusCore(
     }
     console.error("updateOrderStatusCore failed:", error);
     return { success: false, error: "Failed to update the order. Please try again." };
+  }
+
+  // Phase 14: status email at the single choke point — every path (admin
+  // select, customer cancel) lands here, after the txn committed. Best-effort
+  // (never throws), so the state machine can never be failed by email.
+  if (EMAILED_STATUSES.has(next)) {
+    const wasRefunded = next === "CANCELLED" && wasPaid;
+    await sendEmailSafe(
+      orderStatusEmail(
+        {
+          to: order.customerEmail,
+          customerName: order.customerName,
+          orderNumber: order.orderNumber,
+          total: order.total,
+          paymentMethod: order.paymentMethod,
+          orderStatus: next,
+          paymentStatus: wasRefunded ? "REFUNDED" : order.paymentStatus,
+          createdAt: order.createdAt,
+          link: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/account/orders/${order.id}`,
+        },
+        next as CustomerStatusUpdate
+      )
+    );
   }
 
   return { success: true };

@@ -6,6 +6,8 @@ import { resolveCartIdentity } from "@/modules/cart";
 import { upsertSavedShippingForUser } from "@/modules/addresses";
 import { checkoutSchema, type CheckoutInput } from "./schema";
 import { placeOrderCore, type PlaceOrderResult } from "./place-order";
+import { sendEmailSafe } from "@/lib/email";
+import { orderReceivedEmail } from "@/lib/email-templates";
 
 export type { PlaceOrderResult };
 
@@ -35,6 +37,21 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
       console.error("Failed to save shipping address:", saveError);
     }
   }
+
+  // Phase 14: order-received email — best-effort after commit, same
+  // swallow-and-log rule as the saved-address and Safepay blocks: a mail
+  // problem can never fail an order that already exists. Sent BEFORE the
+  // Safepay URL step so it also goes out when URL generation fails.
+  await sendEmailSafe(
+    orderReceivedEmail({
+      to: data.email,
+      customerName: data.fullName,
+      orderNumber: result.orderNumber,
+      total: result.total,
+      paymentMethod: data.paymentMethod,
+      link: `${process.env.NEXT_PUBLIC_APP_URL ?? ""}/order/${result.orderId}/confirmation`,
+    })
+  );
 
   if (data.paymentMethod === "SAFEPAY") {
     try {

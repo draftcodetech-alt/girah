@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import type { Order } from "@prisma/client";
 import { verifySafepaySignature } from "./verify-webhook";
 import { refundSafepayPayment } from "./safepay";
+import { sendEmailSafe } from "@/lib/email";
+import { paymentResultEmail, type OrderMailData, type PaymentOutcome } from "@/lib/email-templates";
 
 export type SafepayWebhookResult = {
   status: number;
@@ -48,6 +50,28 @@ function asString(value: unknown): string | null {
  * on (unknown type, missing order, guards) — non-2xx makes Safepay retry the
  * same delivery forever. Only signature failures return 401.
  */
+
+// Phase 14: the shared shape for payment-result emails — built from the
+// webhook's order row (full Prisma Order).
+function mailFor(order: Order): OrderMailData {
+  return {
+    to: order.customerEmail,
+    customerName: order.customerName,
+    orderNumber: order.orderNumber,
+    total: order.total,
+    paymentMethod: order.paymentMethod,
+    orderStatus: order.orderStatus,
+    paymentStatus: order.paymentStatus,
+    createdAt: order.createdAt,
+  };
+}
+
+// Only an ACTUAL transition emails the customer — a duplicate delivery that
+// lost the CAS (claimed.count === 0) must not send a second "confirmed".
+async function emailPaymentResult(order: Order, outcome: PaymentOutcome): Promise<void> {
+  await sendEmailSafe(paymentResultEmail(mailFor(order), outcome));
+}
+
 export async function processSafepayWebhook(
   rawBody: string,
   signatureHeader: string | null,
@@ -181,6 +205,7 @@ async function handleSuccess(
   console.log(
     `Order ${order.orderNumber}: paymentStatus -> PAID${claimed.count === 0 ? " (duplicate/late delivery — no-op)" : ""}`
   );
+  if (claimed.count === 1) await emailPaymentResult(order, "CONFIRMED");
   return { status: 200, body: { received: true } };
 }
 
@@ -195,6 +220,7 @@ async function handleFailure(order: Order): Promise<SafepayWebhookResult> {
   console.log(
     `Order ${order.orderNumber}: paymentStatus -> FAILED${claimed.count === 0 ? " (order already past PENDING — no-op)" : ""}`
   );
+  if (claimed.count === 1) await emailPaymentResult(order, "FAILED");
   return { status: 200, body: { received: true } };
 }
 
@@ -208,5 +234,6 @@ async function handleRefund(order: Order): Promise<SafepayWebhookResult> {
   console.log(
     `Order ${order.orderNumber}: paymentStatus -> REFUNDED${claimed.count === 0 ? " (not PAID — duplicate or premature refund event, no-op)" : ""}`
   );
+  if (claimed.count === 1) await emailPaymentResult(order, "REFUNDED");
   return { status: 200, body: { received: true } };
 }

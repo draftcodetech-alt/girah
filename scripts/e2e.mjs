@@ -19,6 +19,7 @@ const require = createRequire(join(ROOT, "package.json"));
 require("dotenv").config({ path: join(ROOT, ".env") });
 const { PrismaClient } = require("@prisma/client");
 const bcrypt = require("bcryptjs");
+const crypto = require("node:crypto");
 
 const db = new PrismaClient();
 
@@ -1730,6 +1731,118 @@ const p13Orders = [];
     stockNone.html.includes("No stock changes match"),
     `${stockNone.status}`
   );
+}
+
+// ── 18. Phase 14: forgot / reset password — pages, token lifecycle, login ──
+{
+  const p14Email = `e2e-p14-${TS}@example.com`;
+  const p14User = await db.user.create({
+    data: {
+      email: p14Email,
+      name: "E2E Reset",
+      role: "CUSTOMER",
+      passwordHash: await bcrypt.hash("OldPass123!", 10),
+      isActive: true,
+    },
+  });
+
+  const forgotPage = await get("/forgot-password");
+  check(
+    "forgot-password renders the request form",
+    forgotPage.status === 200 && forgotPage.html.includes("Forgot Password") && forgotPage.html.includes('name="email"'),
+    `${forgotPage.status}`
+  );
+  const resetBare = await get("/reset-password");
+  check(
+    "reset-password without a token shows the invalid message",
+    resetBare.status === 200 && resetBare.html.includes("invalid or has expired"),
+    `${resetBare.status}`
+  );
+
+  // Request → one hashed row; the raw token never exists client-side.
+  const requestRes = await callAction("/forgot-password", ids.requestPasswordReset, [{ email: p14Email }]);
+  check("requestPasswordReset → generic success", requestRes.json?.success === true, JSON.stringify(requestRes.json));
+  const tokenRows = await db.passwordResetToken.findMany({ where: { userId: p14User.id } });
+  check(
+    "request stores exactly one sha256-hashed token",
+    tokenRows.length === 1 && /^[0-9a-f]{64}$/.test(tokenRows[0].tokenHash),
+    JSON.stringify(tokenRows.map((r) => r.tokenHash))
+  );
+
+  // Anti-enumeration: an unknown address answers byte-identically.
+  const ghostEmail = `e2e-p14-ghost-${TS}@example.com`;
+  const ghostRes = await callAction("/forgot-password", ids.requestPasswordReset, [{ email: ghostEmail }]);
+  check(
+    "unknown address gets the identical response",
+    JSON.stringify(ghostRes.json) === JSON.stringify(requestRes.json),
+    `${JSON.stringify(ghostRes.json)} vs ${JSON.stringify(requestRes.json)}`
+  );
+  const ghostRows = await db.passwordResetToken.count({ where: { user: { email: ghostEmail } } });
+  check("unknown address stores no token", ghostRows === 0, String(ghostRows));
+
+  // The raw token lives only in the dev-log email, so hand-craft the row
+  // exactly the way the action would (hash of a known value).
+  const rawToken = crypto.randomBytes(32).toString("hex");
+  await db.passwordResetToken.deleteMany({ where: { userId: p14User.id } });
+  await db.passwordResetToken.create({
+    data: {
+      userId: p14User.id,
+      tokenHash: crypto.createHash("sha256").update(rawToken).digest("hex"),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    },
+  });
+
+  const resetWithToken = await get(`/reset-password?token=${rawToken}`);
+  check(
+    "reset-password with a token renders the new-password form",
+    resetWithToken.status === 200 &&
+      resetWithToken.html.includes('name="password"') &&
+      resetWithToken.html.includes('name="confirmPassword"'),
+    `${resetWithToken.status}`
+  );
+
+  const resetRes = await callAction("/reset-password", ids.resetPassword, [
+    { token: rawToken, password: "NewPass456!", confirmPassword: "NewPass456!" },
+  ]);
+  check("resetPassword → success", resetRes.json?.success === true, JSON.stringify(resetRes.json));
+
+  const after = await db.user.findUnique({ where: { id: p14User.id } });
+  check(
+    "the new password verifies and the old one no longer does",
+    (await bcrypt.compare("NewPass456!", after.passwordHash)) &&
+      !(await bcrypt.compare("OldPass123!", after.passwordHash)),
+    "passwordHash not rotated"
+  );
+  check("reset bumped sessionVersion", after.sessionVersion === p14User.sessionVersion + 1, `${after.sessionVersion}`);
+  const leftover = await db.passwordResetToken.count({ where: { userId: p14User.id } });
+  check("reset consumed every token", leftover === 0, String(leftover));
+
+  const reuse = await callAction("/reset-password", ids.resetPassword, [
+    { token: rawToken, password: "Third789!", confirmPassword: "Third789!" },
+  ]);
+  check(
+    "a consumed token cannot be reused",
+    reuse.json?.success === false && /invalid or has expired/.test(reuse.json?.error ?? ""),
+    JSON.stringify(reuse.json)
+  );
+
+  const bogus = await callAction("/reset-password", ids.resetPassword, [
+    { token: crypto.randomBytes(32).toString("hex"), password: "Third789!", confirmPassword: "Third789!" },
+  ]);
+  check("an unknown token is refused", bogus.json?.success === false, JSON.stringify(bogus.json));
+
+  const newLoginJar = newJar();
+  const newLogin = await callAction("/login", ids.login, [{ email: p14Email, password: "NewPass456!" }], newLoginJar);
+  check("the new password signs in", newLogin.json?.success === true, JSON.stringify(newLogin.json));
+  check("the new password session cookie lands", newLoginJar.has("authjs.session-token"), [...newLoginJar.keys()].join(","));
+
+  const oldLoginJar = newJar();
+  const oldLogin = await callAction("/login", ids.login, [{ email: p14Email, password: "OldPass123!" }], oldLoginJar);
+  check("the old password is rejected", oldLogin.json?.success === false, JSON.stringify(oldLogin.json));
+  check("the rejected login establishes no session", !oldLoginJar.has("authjs.session-token"), [...oldLoginJar.keys()].join(","));
+
+  // Cleanup (user deletion cascades any remaining tokens).
+  await db.user.delete({ where: { id: p14User.id } }).catch(() => {});
 }
 
 // ── cleanup ─────────────────────────────────────────────────────────────────

@@ -10,4 +10,8 @@ if (!process.env.AUTH_SECRET && !process.env.NEXTAUTH_SECRET) {
   process.env.AUTH_SECRET = "test-secret-not-for-production";
 }
 
+// Phase 14: tests must never hit a real mail transport. The dev-log
+// fallback (no key / ci-placeholder) is the ONLY mode a suite may run in.
+process.env.RESEND_API_KEY = "ci-placeholder";
+
 export {};

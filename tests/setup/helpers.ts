@@ -11,6 +11,7 @@ export async function resetDb(): Promise<void> {
       "OrderItem", "Order",
       "StockAdjustment",
       "Review",
+      "PasswordResetToken",
       "SavedShipping",
       "ProductImage", "ProductVariation", "Product", "Category",
       "User"

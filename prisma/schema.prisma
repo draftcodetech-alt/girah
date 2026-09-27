@@ -82,12 +82,28 @@ model User {
   // The jwt callback compares it against the token and invalidates on mismatch.
   sessionVersion   Int               @default(0)
   savedShipping    SavedShipping?
+  passwordResetTokens PasswordResetToken[]
   cart             Cart?
   orders           Order[]
   reviews          Review[]
   stockAdjustments StockAdjustment[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+}
+
+// Phase 14: password reset tokens. Only the SHA-256 hash of the raw token
+// is stored — a database leak must not hand out working reset links. One
+// live token per user (request deletes predecessors), single-use (consumed
+// on success), 1-hour expiry enforced at use time.
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model SavedShipping {

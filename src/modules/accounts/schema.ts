@@ -37,3 +37,21 @@ export const changePasswordSchema = z
     path: ["confirmNewPassword"],
   });
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+
+// Phase 14: forgot/reset password.
+export const forgotPasswordSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
+});
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    token: z.string().trim().min(1, "This reset link is invalid or has expired."),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

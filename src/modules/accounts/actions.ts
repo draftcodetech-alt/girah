@@ -1,13 +1,17 @@
 "use server";
-import { loginSchema, registerSchema, updateProfileSchema, changePasswordSchema, type LoginInput, type RegisterInput, type UpdateProfileInput, type ChangePasswordInput } from "./schema";
+import { loginSchema, registerSchema, updateProfileSchema, changePasswordSchema, forgotPasswordSchema, resetPasswordSchema, type LoginInput, type RegisterInput, type UpdateProfileInput, type ChangePasswordInput, type ForgotPasswordInput, type ResetPasswordInput } from "./schema";
 
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 import { AuthError } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { auth, signIn, signOut } from "@/lib/auth";
 import { readSessionFromCookieJar } from "@/lib/session";
 import { mergeGuestCartForCurrentUser } from "@/modules/cart";
+import { sendEmailSafe } from "@/lib/email";
+import { welcomeEmail, passwordResetEmail } from "@/lib/email-templates";
+import { isRateLimited, recordFailure } from "@/lib/rate-limit";
 
 export type AccountActionResult =
   | { success: true }
@@ -120,6 +124,9 @@ export async function register(input: RegisterInput): Promise<AccountActionResul
     }
   }
 
+  // Phase 14: welcome email — best-effort, after the account exists.
+  await sendEmailSafe(welcomeEmail({ to: parsed.data.email, name: parsed.data.name }));
+
   return { success: true };
 }
 
@@ -219,4 +226,96 @@ export async function logout() {
     });
   }
   await signOut({ redirectTo: "/" });
+}
+
+// ── Phase 14: forgot / reset password ───────────────────────────────────────
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+const RESET_RATE = { max: 5, windowMs: 15 * 60 * 1000 };
+
+function sha256(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+/**
+ * Always answers the same generic success — the response (and its rate-limit
+ * key being identical for existing and missing accounts) must never reveal
+ * whether an account exists. Real sends delete the user's previous tokens
+ * first, so only ONE live link exists at a time.
+ */
+export async function requestPasswordReset(input: ForgotPasswordInput): Promise<AccountActionResult> {
+  const parsed = forgotPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
+    return { success: false, error: "Please check the highlighted fields.", fieldErrors };
+  }
+  const email = parsed.data.email;
+
+  // Keyed by email so one address can't be bombed with mail; counted for
+  // EVERY attempt (existing or not) — otherwise the limit itself would be an
+  // existence oracle.
+  const rateKey = `pwreset:${email}`;
+  if (isRateLimited(rateKey, RESET_RATE)) {
+    return { success: false, error: "Too many reset requests — please wait a few minutes and try again." };
+  }
+  recordFailure(rateKey, RESET_RATE);
+
+  const user = await db.user.findFirst({
+    where: { email: { equals: email, mode: "insensitive" } },
+  });
+  if (user) {
+    const token = crypto.randomBytes(32).toString("hex");
+    await db.$transaction([
+      db.passwordResetToken.deleteMany({ where: { userId: user.id } }),
+      db.passwordResetToken.create({
+        data: {
+          userId: user.id,
+          tokenHash: sha256(token),
+          expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+        },
+      }),
+    ]);
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
+    await sendEmailSafe(
+      passwordResetEmail({
+        to: user.email,
+        name: user.name,
+        link: `${base}/reset-password?token=${token}`,
+      })
+    );
+  }
+  return { success: true };
+}
+
+/**
+ * Single-use link: the hashed token is looked up once, the whole token set
+ * is consumed on success, and sessionVersion bumps so any live session
+ * (e.g. a stolen cookie) dies with the old password — the changePassword rule.
+ */
+export async function resetPassword(input: ResetPasswordInput): Promise<AccountActionResult> {
+  const parsed = resetPasswordSchema.safeParse(input);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
+    return { success: false, error: "Please check the highlighted fields.", fieldErrors };
+  }
+
+  const record = await db.passwordResetToken.findUnique({
+    where: { tokenHash: sha256(parsed.data.token) },
+    include: { user: true },
+  });
+  const invalid = !record || !record.user || record.expiresAt.getTime() <= Date.now();
+  if (invalid) {
+    return { success: false, error: "This reset link is invalid or has expired." };
+  }
+
+  const passwordHash = await bcrypt.hash(parsed.data.password, 10);
+  await db.$transaction([
+    db.user.update({
+      where: { id: record.userId },
+      data: { passwordHash, sessionVersion: { increment: 1 } },
+    }),
+    db.passwordResetToken.deleteMany({ where: { userId: record.userId } }),
+  ]);
+  return { success: true };
 }
