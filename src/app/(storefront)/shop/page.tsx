@@ -1,5 +1,6 @@
 import { getProducts, getCategories } from "@/modules/catalog";
 import type { SortOption } from "@/modules/catalog";
+import { getWishlistProductIds } from "@/modules/wishlist";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { CategoryTabs } from "@/components/storefront/CategoryTabs";
 import { SortSelect } from "@/components/storefront/SortSelect";
@@ -29,6 +30,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     maxPrice: params.maxPrice ? Number(params.maxPrice) * 100 : undefined,
     inStockOnly: params.inStockOnly === "true",
   });
+  const wished = new Set(await getWishlistProductIds());
 
   return (
     <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
@@ -82,7 +84,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
               {products.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <ProductCard key={product.id} product={product} wishlisted={wished.has(product.id)} />
               ))}
             </div>
           )}

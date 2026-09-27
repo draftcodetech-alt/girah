@@ -116,6 +116,7 @@ await hit("public / renders (homepage)", "/");
 await hit("public /login renders", "/login");
 await hit("public /register renders", "/register");
 // Phase 14: forgot/reset pages.
+await hit("public /search renders", "/search");
 await hit("public /forgot-password renders", "/forgot-password");
 await hit("public /reset-password renders (missing token → invalid message)", "/reset-password");
 await hit("admin /admin renders (dashboard)", "/admin", admin);
@@ -134,6 +135,8 @@ await hit("admin /admin/customers renders", "/admin/customers", admin);
 await hit("admin /admin/reviews renders", "/admin/reviews", admin);
 await hit("customer /account renders", "/account", customer);
 await hit("customer /account/addresses renders", "/account/addresses", customer);
+// Phase 15: wishlist is proxy-gated, so it only renders for a signed-in user.
+await hit("customer /wishlist renders", "/wishlist", customer);
 
 let cart = await db.cart.findUnique({ where: { userId: customerRow.id }, include: { items: true } });
 const seededLine = cart?.items?.[0] ?? null;

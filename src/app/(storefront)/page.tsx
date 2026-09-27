@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getCategories, getProducts } from "@/modules/catalog";
+import { getWishlistProductIds } from "@/modules/wishlist";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { ButtonLink } from "@/components/ui/ButtonLink";
 
@@ -19,10 +20,12 @@ const TRUST_POINTS = [
 ];
 
 export default async function Home() {
-  const [categories, products] = await Promise.all([
+  const [categories, products, wishedIds] = await Promise.all([
     getCategories(),
     getProducts({ sort: "featured" }),
+    getWishlistProductIds(),
   ]);
+  const wished = new Set(wishedIds);
   // Featured grid is capped; "featured" has no admin flag yet (catalog order).
   const featured = products.slice(0, 6);
 
@@ -97,6 +100,7 @@ export default async function Home() {
                   key={product.id}
                   product={product}
                   number={String(index + 1).padStart(2, "0")}
+                  wishlisted={wished.has(product.id)}
                 />
               ))}
             </div>

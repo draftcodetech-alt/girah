@@ -50,9 +50,11 @@ describe("Phase 9: Header", () => {
     expect(source).not.toMatch(/MINIMAL SCAFFOLD/);
   });
 
-  it("ships a GET search form to /shop", () => {
-    expect(source).toMatch(/<form method="GET" action="\/shop"/);
+  it("ships a GET search form to /search (Phase 15 dedicated results page)", () => {
+    expect(source).toMatch(/<form method="GET" action="\/search"/);
     expect(source).toMatch(/name="search"/);
+    // The inline shop search keeps its own form on /shop (decision ③).
+    expect(source).not.toMatch(/<form method="GET" action="\/shop"/);
   });
 
   it("keeps the cart badge and mounts the mobile menu", () => {
@@ -65,7 +67,7 @@ describe("Phase 9: Header", () => {
     expect(menu).toMatch(/^"use client"/);
     expect(menu).toMatch(/aria-expanded/);
     expect(menu).toMatch(/aria-controls="mobile-menu"/);
-    expect(menu).toMatch(/<form method="GET" action="\/shop"/);
+    expect(menu).toMatch(/<form method="GET" action="\/search"/);
   });
 });
 

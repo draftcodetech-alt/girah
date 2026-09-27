@@ -46,7 +46,7 @@ export function MobileMenu({ links }: { links: MenuLink[] }) {
           id="mobile-menu"
           className="absolute right-0 top-12 z-30 w-64 rounded-[var(--radius-panel)] border border-border bg-cream p-4 shadow-[var(--shadow-elevated)] flex flex-col gap-3"
         >
-          <form method="GET" action="/shop" className="pb-3 border-b border-border">
+          <form method="GET" action="/search" className="pb-3 border-b border-border">
             <label htmlFor="mobile-menu-search" className="sr-only">
               Search products
             </label>

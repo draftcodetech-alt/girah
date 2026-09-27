@@ -5,6 +5,8 @@ export default auth((req) => {
   const { pathname, search } = req.nextUrl;
   const isAdminRoute = pathname.startsWith("/admin");
   const isAccountRoute = pathname.startsWith("/account");
+  // Phase 15: the wishlist is personal data — same bounce as /account.
+  const isWishlistRoute = pathname.startsWith("/wishlist");
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role;
 
@@ -23,7 +25,7 @@ export default auth((req) => {
     if (role !== "ADMIN") return NextResponse.redirect(new URL("/", req.nextUrl.origin));
   }
 
-  if (isAccountRoute && !isLoggedIn) {
+  if ((isAccountRoute || isWishlistRoute) && !isLoggedIn) {
     return loginUrl();
   }
 
@@ -31,5 +33,5 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/admin/:path*", "/account/:path*"],
+  matcher: ["/admin/:path*", "/account/:path*", "/wishlist/:path*"],
 };

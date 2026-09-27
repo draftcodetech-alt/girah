@@ -54,7 +54,10 @@ describe("Phase 10: storefront wiring", () => {
     const queries = readSource("src/modules/reviews/queries.ts");
     expect(queries).toContain('status: "APPROVED"');
     const catalog = readSource("src/modules/catalog/queries.ts");
-    expect(catalog).toContain('reviews: { where: { status: "APPROVED" }');
+    // Phase 15: the include block lives in CARD_PRODUCT_INCLUDE (shared with
+    // the wishlist mapper) — same APPROVED-only intent, single owner.
+    expect(catalog).toContain('status: "APPROVED"');
+    expect(catalog).toContain("CARD_PRODUCT_INCLUDE");
   });
 
   it("submitReview re-checks the purchase gate and upserts one row", () => {

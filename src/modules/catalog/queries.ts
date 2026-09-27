@@ -1,5 +1,46 @@
 import { db } from "@/lib/db";
+import type { Prisma } from "@prisma/client";
 import type { ProductListItem, ProductDetail, ProductFilters, SortOption } from "./types";
+
+// The relations every card needs — shared by getProducts and the wishlist
+// query so both produce byte-identical ProductListItem shapes.
+export const CARD_PRODUCT_INCLUDE = {
+  images: { orderBy: { sortOrder: "asc" as const }, take: 1 },
+  variations: true,
+  // Phase 10 card ratings: APPROVED only — pending/rejected must never
+  // leak into shop/homepage averages.
+  reviews: { where: { status: "APPROVED" as const }, select: { rating: true } },
+} satisfies Prisma.ProductInclude;
+
+type CardProduct = Prisma.ProductGetPayload<{ include: typeof CARD_PRODUCT_INCLUDE }>;
+
+/** Maps a card-shaped product row to the storefront list item. */
+export function toProductListItem(p: CardProduct): ProductListItem {
+  const enabledVariations = p.variations.filter((v) => v.isEnabled);
+  const prices = enabledVariations.map((v) => v.price);
+  const startingPrice = prices.length > 0 ? Math.min(...prices) : 0;
+  // Out of stock ONLY when every variation is unavailable — not per-variation.
+  const isOutOfStock =
+    p.variations.length > 0 && p.variations.every((v) => !v.isEnabled || v.stock <= 0);
+
+  const approvedRatings = p.reviews.map((review) => review.rating);
+  const ratingCount = approvedRatings.length;
+  const ratingAverage =
+    ratingCount > 0
+      ? Math.round((approvedRatings.reduce((sum, rating) => sum + rating, 0) / ratingCount) * 10) / 10
+      : null;
+
+  return {
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    mainImageUrl: p.images[0]?.url ?? null,
+    startingPrice,
+    isOutOfStock,
+    ratingAverage,
+    ratingCount,
+  };
+}
 
 const ALLOWED_SORTS: SortOption[] = ["featured", "price-asc", "price-desc", "newest"];
 
@@ -51,45 +92,14 @@ export async function getProducts(rawFilters: ProductFilters = {}): Promise<Prod
           }
         : {}),
     },
-    include: {
-      images: { orderBy: { sortOrder: "asc" }, take: 1 },
-      variations: true,
-      // Phase 10 card ratings: APPROVED only — pending/rejected must never
-      // leak into shop/homepage averages.
-      reviews: { where: { status: "APPROVED" }, select: { rating: true } },
-    },
+    include: CARD_PRODUCT_INCLUDE,
     orderBy:
       filters.sort === "newest"
         ? { createdAt: "desc" }
         : { createdAt: "asc" }, // "featured" has no admin-controlled flag yet — falls back to catalog order
   });
 
-  let items: ProductListItem[] = products.map((p) => {
-    const enabledVariations = p.variations.filter((v) => v.isEnabled);
-    const prices = enabledVariations.map((v) => v.price);
-    const startingPrice = prices.length > 0 ? Math.min(...prices) : 0;
-    // Out of stock ONLY when every variation is unavailable — not per-variation.
-    const isOutOfStock =
-      p.variations.length > 0 && p.variations.every((v) => !v.isEnabled || v.stock <= 0);
-
-    const approvedRatings = p.reviews.map((review) => review.rating);
-    const ratingCount = approvedRatings.length;
-    const ratingAverage =
-      ratingCount > 0
-        ? Math.round((approvedRatings.reduce((sum, rating) => sum + rating, 0) / ratingCount) * 10) / 10
-        : null;
-
-    return {
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      mainImageUrl: p.images[0]?.url ?? null,
-      startingPrice,
-      isOutOfStock,
-      ratingAverage,
-      ratingCount,
-    };
-  });
+  let items: ProductListItem[] = products.map(toProductListItem);
 
   if (filters.minPrice !== undefined) {
     items = items.filter((i) => i.startingPrice >= filters.minPrice!);

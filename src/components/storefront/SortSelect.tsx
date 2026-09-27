@@ -9,7 +9,7 @@ const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
 ];
 
-export function SortSelect() {
+export function SortSelect({ basePath = "/shop" }: { basePath?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const currentSort = searchParams.get("sort") ?? "featured";
@@ -20,7 +20,7 @@ export function SortSelect() {
       onChange={(e) => {
         const params = new URLSearchParams(searchParams.toString());
         params.set("sort", e.target.value);
-        router.push(`/shop?${params.toString()}`);
+        router.push(`${basePath}?${params.toString()}`);
       }}
       className="font-body text-body h-12 rounded-[var(--radius-control)] border border-border bg-cream px-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
     >

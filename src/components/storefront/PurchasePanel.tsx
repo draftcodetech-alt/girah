@@ -4,8 +4,9 @@ import { useState, useTransition } from "react";
 import type { ProductDetail } from "@/modules/catalog";
 import { addToCart } from "@/modules/cart/actions";
 import { formatPrice } from "@/lib/format";
+import { WishlistButton } from "./WishlistButton";
 
-export function PurchasePanel({ product }: { product: ProductDetail }) {
+export function PurchasePanel({ product, wishlisted }: { product: ProductDetail; wishlisted?: boolean }) {
   const purchasableVariations = product.variations.filter((v) => v.isEnabled);
   const allOutOfStock = product.variations.every((v) => !v.isEnabled || v.stock <= 0);
 
@@ -44,9 +45,12 @@ export function PurchasePanel({ product }: { product: ProductDetail }) {
 
   return (
     <div className="lg:sticky lg:top-24">
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal max-w-[360px]">
-        {product.name}
-      </h1>
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal max-w-[360px]">
+          {product.name}
+        </h1>
+        <WishlistButton productId={product.id} wishlisted={wishlisted} size="lg" />
+      </div>
       <p className="font-body text-card-title text-sage mt-4">
         {selected
           ? formatPrice(selected.price)

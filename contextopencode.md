@@ -62,8 +62,8 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | **12** | Account completion: addresses (`SavedShipping` wiring), cancel/reorder/receipt, sub-nav | ✅ **DONE** (§20) |
 | 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ✅ **DONE** (§21) |
 | 14 | Emails (Resend): order/status/welcome + forgot/reset password | ✅ **DONE** (§22) |
-| 15 | Wishlist + dedicated `/search` results page | ⬜ **(next)** |
-| 16 | Design system & polish: primitives migration, skeletons, a11y pass | ⬜ |
+| 15 | Wishlist + dedicated `/search` results page | ✅ **DONE** (§23) |
+| 16 | Design system & polish: primitives migration, skeletons, a11y pass | ⬜ **(next)** |
 
 ---
 
@@ -267,9 +267,9 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**Phase 15 — wishlist + dedicated `/search` page** (feature plan, §2; decisions ③/④ of §22.1): `WishlistItem` model (migration 9 → 10), `src/modules/wishlist/` (auth-first `toggleWishlist`/`getWishlistProducts`), `/wishlist` page + `WishlistButton` hearts on `ProductCard` and product detail, proxy `/wishlist/:path*`, and `/search` results page with the header form retargeted from `/shop` (E2E line 596 + storefront-shell guard must be updated together). Phases 9–14 all done; Phase 14 delivered the Resend transport with dev-log fallback, five key-transition templates, four post-commit hooks and the full forgot/reset flow (§22).
+**Phase 16 — design system & polish** (feature plan, §2, the final feature phase): primitives migration, skeletons, accessibility pass. Phases 9–15 all done; Phase 15 delivered the wishlist (model, module, `/wishlist`, hearts on cards + product panel, proxy gating) and the dedicated `/search` results page with header/mobile forms retargeted (§23).
 
-Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5), **Phase 11** (§19.5), **Phase 12** (§20.5), **Phase 13** (§21.5) and **Phase 14** (§22.5) — one pass after Phase 16. CI secrets were added in Phase 8 (§16.4); Phase 13's push was green (run `36290862983`); Phase 14's push triggers the next run.
+Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5), **Phase 11** (§19.5), **Phase 12** (§20.5), **Phase 13** (§21.5), **Phase 14** (§22.5) and **Phase 15** (§23.5) — one pass after Phase 16. CI secrets were added in Phase 8 (§16.4); Phase 14's push was green (run `36294515544`); Phase 15's push triggers the next run.
 
 ---
 
@@ -1060,3 +1060,78 @@ Scope: transactional email transport with a **dev-log fallback** (no Resend key 
 - `"use server"` purity held: schemas live in `schema.ts`, templates/transport are plain modules (unit-importable), actions in `actions.ts` — `sha256`/TTL constants are **non-exported** helpers inside the action file (lint-clean).
 - New dependency `resend@^6.30.0` is **lazy** — no import-time construction, so the decision-① fallback and suite safety are structural, not convention.
 - Manual checklists stay deferred to the end (user directive): §22.5 joins the owed list with §14.5–§21.5 — one pass after Phase 16.
+
+---
+
+## 23. Phase 15 — wishlist + dedicated /search page — detailed log (what & why)
+
+Scope: per-account wishlist (model + module + `/wishlist` page + heart controls on every product card and the product panel) and a dedicated `/search` results page, with the header/mobile search forms retargeted from `/shop`. Migration 9 → **10** (`WishlistItem`). No new dependencies.
+
+### 23.1 Decisions (from the Phase 14+15 plan, §22.1)
+
+1. **Products only; header form → `/search`** (decision ③): the header and mobile-menu GET forms post to the new results page; `/shop` **keeps** its inline search + full filter set (CategoryTabs/ShopFilters untouched).
+2. **Guests see hearts but are refused by the action** — "You must be signed in." — while the `/wishlist` **page** is proxy-gated to `/login?callbackUrl=/wishlist` (same treatment as `/account`).
+3. **No guest wishlists, no share/price-drop alerts, no wishlist count badge** (recorded non-goals).
+
+### 23.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | No storage for saved products | Migration `phase15_wishlist`: `WishlistItem {id, userId FK cascade, product FK cascade, createdAt, @@unique([userId, productId]), @@index([userId])}` + back-relations on `User`/`Product`; added to the `resetDb` TRUNCATE list | `prisma/schema.prisma`, `prisma/migrations/20260927045147_phase15_wishlist`, `tests/setup/helpers.ts` |
+| 2 | Card shape was mapped inline inside `getProducts` only | Extracted **`toProductListItem`** + **`CARD_PRODUCT_INCLUDE`** (APPROVED-only ratings, first image, enabled-variation pricing) in the catalog queries; `getProducts` now `products.map(toProductListItem)`; both exported through the barrel so other modules can produce byte-identical cards | `src/modules/catalog/{queries,index}.ts` |
+| 3 | No wishlist module | New `src/modules/wishlist/`: **`actions.ts`** (`"use server"`, one export) — `toggleWishlist(productId)`: `auth()` first → guest refusal → empty-id guard → toggle on the `userId_productId` unique pair (`deleteMany` for removal; create races P2002 → `{added:true}`, P2003 → "Product not found."). **`queries.ts`** (plain, auth-first) — `getWishlistProducts()` (card shape via the shared mapper, newest save first) and `getWishlistProductIds()`; both return `[]` for guests and always scope by `session.user.id`. Barrel re-exports actions + types + queries | `src/modules/wishlist/{actions,queries,index}.ts` |
+| 4 | No heart UI | **`WishlistButton`** (client, ToggleActiveButton pattern): optimistic pending state, `aria-pressed`, `aria-label` "Add/Remove from wishlist", `role="alert"` error bubble (guests get "You must be signed in."), `router.refresh()` on success. **`ProductCard`** restructured: the card is wrapped in `relative` div, heart absolutely top-right **outside the `<Link>`** (a `<button>` inside an anchor is invalid and would navigate instead of toggling); new optional `wishlisted` prop. **`PurchasePanel`** takes `wishlisted` and renders a `size="lg"` heart beside the title | `src/components/storefront/{WishlistButton,ProductCard,PurchasePanel}.tsx` |
+| 5 | `/wishlist` did not exist | New page under `(storefront)`: page-level `redirect("/login?callbackUrl=/wishlist")` (defense in depth over the proxy), saved-count `role="status"` line, empty state ("No saved items yet" + Browse link), grid of `ProductCard … wishlisted`; proxy matcher += `/wishlist/:path*` with the same guest bounce as `/account` | `src/app/(storefront)/wishlist/page.tsx`, `src/proxy.ts` |
+| 6 | Search only existed as an inline `/shop` filter | New `/search` page: awaited `searchParams` → `getProducts({search, sort, minPrice, maxPrice, inStockOnly})` (everything through `sanitizeFilters` — no raw query reaches Prisma), `Results for "x"` h1, single-expression `countLabel` (avoids React's SSR text-node `<!-- -->` splits), refine form, `SortSelect basePath="/search"`, no-matches empty state, grid with per-card heart state | `src/app/(storefront)/search/page.tsx` |
+| 7 | Header/mobile posted to `/shop`; SortSelect hardcoded `/shop`; nav had no wishlist entry | Both forms → `action="/search"` (comment explains the split with the inline shop search); `SortSelect` gained `basePath` (default `/shop` — shop behaviour byte-identical); Header nav + `menuLinks` gain a **Wishlist** entry only when signed in (no dead links for guests); every `ProductCard` page (home, shop, search, wishlist, product detail incl. related) fetches `getWishlistProductIds()` once and passes `wishlisted={wished.has(id)}` | `src/components/shared/{Header,MobileMenu}.tsx`, `src/components/storefront/SortSelect.tsx`, 5 page files |
+| 8 | Nothing guarded the new surface | Unit `wishlist-search` (**18**: module boundaries, auth-before-db order, P2002/P2003, proxy matcher, heart-outside-Link, header/menu/sort retarget, page guards, single shared mapper); integration `wishlist` (**11**: guest refusal, add/remove idempotence, missing product, unique-pair race, card shape + ordering, cross-account isolation, guest `[]`, cascade on product **and** user delete); shell/reviews guards re-aimed; smoke +2; E2E **section 19** (19 checks) + 3 new `requiredActions` | `tests/`, `scripts/{smoke,e2e}.mjs` |
+
+### 23.3 Behaviour worth knowing before touching this code
+
+- **The heart never lives inside the card `<Link>`.** `ProductCard` wraps everything in a `relative` div; the button overlays top-right. Re-nesting it inside the anchor would both be invalid HTML and turn every toggle into a navigation.
+- **Toggle = unique-pair dance, not an upsert.** Read → delete (`deleteMany`, race-safe) or create → P2002 swallowed as `{added:true}` (our own double-click already created it), P2003 → "Product not found." The `(userId, productId)` uniqueness is the whole idempotence story — do not replace it with a plain create.
+- **Every read is auth-first AND session-scoped.** Queries hard-fail closed for guests (`[]`) and always filter `userId: session.user.id` — no parameterised userId anywhere, so no query can be pointed at another account.
+- **Card shape has ONE owner.** `toProductListItem`/`CARD_PRODUCT_INCLUDE` in the catalog module (APPROVED-only ratings, enabled-variation min price, "out of stock only when every variation is unavailable"). The wishlist maps through it — never re-implement the mapping (the unit suite counts `approvedRatings.reduce` occurrences to prove it).
+- **Search never touches Prisma directly** — `getProducts` → `sanitizeFilters` (whitelist sort, trimmed ≤100-char search, rounded paisa). `/shop` keeps its inline form on `/shop` with hidden filter preservation; only the header/mobile forms moved.
+- **SSR text escaping:** React escapes `"` to `&quot;` in text nodes (and splits adjacent expressions with `<!-- -->`). The count line is deliberately ONE template expression, and the E2E matchers assert `&quot;` (same trap as §21.6 #5).
+- **Proxy and page both gate `/wishlist`** — an anonymous fetch is bounced by the matcher (`/wishlist/:path*`) before the page renders; the page-level `redirect` covers contexts that skip middleware.
+- **Guests still render hearts on public pages** (`getWishlistProductIds()` → `[]` → outline heart); clicking runs the action, which refuses them — the page never pretends a guest has a wishlist.
+
+### 23.4 Tests & gate
+
+- Unit **283 → 301** (19 files): new `tests/unit/wishlist-search.test.ts` (**18**) — `"use server"` export rules (async-only, `export type`), `auth()` strictly before any `db.wishlistItem`, guest message, unique-pair + P2002/P2003, auth-first queries + session scoping + shared mapper, barrel surface, proxy matcher/gating, heart-outside-Link ordering, rating guard preserved, panel's large heart, header/menu `action="/search"` (and no `/shop` form), `SortSelect` basePath default + template push, `/search` page (heading/count/getProducts/no raw db), `/shop` keeps inline form + filters, `/wishlist` redirect/empty-state/marks cards, all five card pages pass heart state, mapper single-implementation counts, barrel exports. Plus re-aimed guards: `storefront-shell` header+mobile → `/search` (2), `reviews` APPROVED guard → `CARD_PRODUCT_INCLUDE`.
+- Integration **246 → 257** (33 files): new `tests/integration/wishlist.test.ts` (**11**) — guest refusal + zero rows, add→remove cycle (one row, never duplicates), missing product, empty id, unique-pair duplicate rejects, card shape + newest-first ordering, cross-account isolation for both queries, guest `[]` ×2, cascade deletes (product gone → rows gone; account gone → rows gone, product survives).
+- Gate: `npm run test` **558/558** (301 unit / 19 files + 257 integration / 33 files) · `tsc --noEmit` clean · `eslint .` **0/0** · `prisma validate` + `migrate status` (**10**, +`phase15_wishlist`) · `npm run build` green (+`/search`, +`/wishlist` routes) · **smoke 21/21 + E2E 251/251** (section 19 = 19 new checks: heading with `&quot;`, product in grid, single-product count, heart wiring, no-matches state, bare page, sort param, shop inline form intact, guest refusal, signed-in add + DB row, anon `/wishlist` bounce with encoded callback, signed-in render + `aria-pressed="true"` + saved-count, other account sees nothing, remove + row gone, empty state — plus 3 new `requiredActions`: `requestPasswordReset`, `resetPassword`, `toggleWishlist`) on the new build (server pid 14479, `ss`-verified) · post-run leftover query **0** (wishlist rows, tokens, e2e users, stray orders).
+- Regression watch held: `catalog-filters`, `client-forms-guard`, `reviews`, `storefront-shell`, `account-actions`, `webhook`, `email-hooks`, `password-reset` all green.
+
+### 23.5 Manual browser checklist (needs a human; server on `:3100`)
+
+1. Header search (and the hamburger menu's search) → `/search?search=…` shows `Results for "…"`, the count line, sortable grid; nonsense query → "No matches" with the query echoed.
+2. `/shop` still filters inline (search box, category tabs, price/stock filters, sort) — its form still posts to `/shop`.
+3. Signed out: hearts render outline everywhere; clicking one → `role="alert"` "You must be signed in."; `/wishlist` → `/login?callbackUrl=/wishlist`, and after login lands back on the wishlist.
+4. Signed in: heart a product from the shop grid and from the product page (large heart by the title) → heart fills (`aria-pressed="true"`), `/wishlist` lists it with "1 saved item"; un-heart it → row disappears, empty state returns.
+5. Two accounts: items saved in account A never appear in account B's `/wishlist`.
+6. Header nav shows **Wishlist** only when signed in (guests see Shop/Sign In/Cart only).
+7. Delete a product (admin) that someone had wishlisted → the row disappears with it; wishlist the deleted product id → "Product not found."
+
+### 23.6 Errors hit in Phase 15 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | Edit script `AssertionError` while restructuring `ProductCard` — nothing written | my earlier read of the file stopped at line 60; the card also ends with a "View →" span the anchor didn't include | rewrote the whole file (wrapper div + heart) instead of a fragile tail splice |
+| 2 | `tsc`: `Cannot find name 'getWishlistProductIds'` + a cascade of implicit-any errors in the product page | the import replacement targeted a single-line import that is actually multi-line | inserted the import against a stable anchor (`ProductGallery` import) |
+| 3 | `reviews` guard failed: `expected … to contain 'reviews: { where: { status: "APPROVED" }'` | the include block moved into `CARD_PRODUCT_INCLUDE` and gained `as const` for `satisfies Prisma.ProductInclude` | re-aimed the guard at the single owner (`status: "APPROVED"` + `CARD_PRODUCT_INCLUDE` present) — intent (APPROVED-only) unchanged |
+| 4 | My own mapper guard failed: `approvedRatings.reduce` still in `queries.ts` | the assertion assumed the old inline block, but the extracted mapper legitimately contains it | assert **exactly one** occurrence of `approvedRatings.reduce` and of `products.map(` — single implementation, not absence |
+| 5 | E2E: heading + count checks failed despite status 200 | React SSR escapes `"` → `&quot;` in text nodes (same family as §21.6 #5) | matchers assert `Results for &quot;…&quot;` / `1 product matching &quot;…&quot;` |
+| 6 | First draft of the no-matches E2E check contained `includes(…) === false &&` (inverted) | sloppy compound condition written in one pass | simplified to `No matches` + raw query substring |
+| 7 | Two unit-guard typos caught pre-run (`wishlistButton productId` lower-case; a convoluted export regex) | copy/paste + over-correct regex | `WishlistButton productId={product.id}`; guards are now simple `not: export const` / `not: export function` |
+| 8 | Phase 14's server (pid 21611) was gone and port 3100 had no listener at F2 | the background process did not survive the interrupted CI-watch session | started a fresh `nohup npx next start -p 3100` (pid 14479) and re-verified with `ss` before smoke/E2E |
+
+### 23.7 Decisions recorded
+
+- Decision ③ executed literally: header + mobile → `/search`, shop inline stays `/shop` (both asserted in unit guards AND E2E — neither may drift).
+- Wishlist is **users-only, no badge, no sharing** (§23.1 non-goals); the nav link appears only for signed-in users so guests never hit a dead end.
+- Heart placement outside the `<Link>` is a **structural** constraint, not styling — the unit suite asserts `</Link>` precedes `<WishlistButton>` so a future refactor can't silently re-nest it.
+- The catalog mapper extraction (touching `getProducts`) was accepted as necessary: two implementations of the card shape would drift (ratings/pricing rules), and `catalog-filters`/`reviews` stayed green through the change.
+- Manual checklists §22.5 + §23.5 join the deferred list (user directive): one pass after **Phase 16**.
+- No new dependencies in either phase — `resend` (Phase 14) was the only addition, and it is lazy-loaded.

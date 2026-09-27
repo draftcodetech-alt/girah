@@ -9,6 +9,7 @@ export async function Header() {
 
   const menuLinks = [
     { label: "Shop", href: "/shop" },
+    ...(session?.user ? [{ label: "Wishlist", href: "/wishlist" }] : []),
     session?.user ? { label: "Account", href: "/account" } : { label: "Sign In", href: "/login" },
     { label: "Cart", href: "/cart" },
   ];
@@ -30,10 +31,19 @@ export async function Header() {
           >
             Shop
           </Link>
+          {session?.user && (
+            <Link
+              href="/wishlist"
+              className="font-body text-body text-charcoal hover:text-sage transition-colors"
+            >
+              Wishlist
+            </Link>
+          )}
         </nav>
 
-        {/* Header search — GET to /shop, same contract as the inline shop search. */}
-        <form method="GET" action="/shop" className="hidden md:flex flex-1 justify-center px-4">
+        {/* Header search — Phase 15: GET to the dedicated /search results
+            page (the inline /shop search keeps filtering the shop list). */}
+        <form method="GET" action="/search" className="hidden md:flex flex-1 justify-center px-4">
           <label htmlFor="header-search" className="sr-only">
             Search products
           </label>

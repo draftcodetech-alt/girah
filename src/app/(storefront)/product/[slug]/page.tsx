@@ -5,6 +5,7 @@ import {
   getProductReviewsAndRating,
   getReviewSubmissionState,
 } from "@/modules/reviews";
+import { getWishlistProductIds } from "@/modules/wishlist";
 import { ProductGallery } from "@/components/storefront/ProductGallery";
 import { PurchasePanel } from "@/components/storefront/PurchasePanel";
 import { ProductCard } from "@/components/storefront/ProductCard";
@@ -27,11 +28,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
   }
 
   const session = await auth();
-  const [summary, submission, categoryProducts] = await Promise.all([
+  const [summary, submission, categoryProducts, wishedIds] = await Promise.all([
     getProductReviewsAndRating(product.id, session?.user?.id),
     getReviewSubmissionState(product.id),
     getProducts({ categorySlug: product.category.slug }),
+    getWishlistProductIds(),
   ]);
+  const wished = new Set(wishedIds);
   const related = categoryProducts.filter((item) => item.slug !== product.slug).slice(0, 4);
 
   return (
@@ -49,7 +52,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           <ProductGallery images={product.images} alt={product.name} />
         </div>
         <div className="lg:w-[40%]">
-          <PurchasePanel product={product} />
+          <PurchasePanel product={product} wishlisted={wished.has(product.id)} />
         </div>
       </div>
 
@@ -153,7 +156,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </h2>
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {related.map((item) => (
-              <ProductCard key={item.id} product={item} />
+              <ProductCard key={item.id} product={item} wishlisted={wished.has(item.id)} />
             ))}
           </div>
         </section>

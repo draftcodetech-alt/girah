@@ -274,6 +274,10 @@ const requiredActions = [
   "updateCartItemQuantity",
   "removeCartItem",
   "placeOrder",
+  // Phase 14/15 actions — fail fast if the manifest stops exposing them.
+  "requestPasswordReset",
+  "resetPassword",
+  "toggleWishlist",
 ];
 for (const name of requiredActions) {
   check(`action id resolved: ${name}`, Boolean(ids[name]), `missing from server-reference-manifest.json`);
@@ -594,8 +598,8 @@ check("updateOrderStatus action id resolved", Boolean(ids.updateOrderStatus), "m
   check("homepage hero links to /shop", home.html.includes('href="/shop"'));
   check("homepage renders the footer", home.html.includes("<footer"));
   check(
-    "header ships a search form posting to /shop",
-    home.html.includes('action="/shop"') && home.html.includes('name="search"')
+    "header ships a search form posting to /search",
+    home.html.includes('action="/search"') && home.html.includes('name="search"')
   );
   check("auth layout renders the footer", loginPage.html.includes("<footer"));
   check("account layout renders the footer", accountOrders.html.includes("<footer"));
@@ -1843,6 +1847,97 @@ const p13Orders = [];
 
   // Cleanup (user deletion cascades any remaining tokens).
   await db.user.delete({ where: { id: p14User.id } }).catch(() => {});
+}
+
+// ── 19. Phase 15: /search results page + wishlist ──────────────────────────
+{
+  // Dedicated results page: heading, count, grid — through sanitizeFilters.
+  const searchQ = `search=${encodeURIComponent(FIXTURE_NAME)}`;
+  const resultsPage = await get(`/search?${searchQ}`);
+  // React SSR escapes quotes in text nodes → `Results for &quot;…&quot;`.
+  check(
+    "search results render the heading with the query",
+    resultsPage.status === 200 && resultsPage.html.includes(`Results for &quot;${FIXTURE_NAME}&quot;`),
+    `${resultsPage.status}`
+  );
+  check("search results include the matching product", resultsPage.html.includes(FIXTURE_NAME), "fixture missing from grid");
+  check(
+    "search shows a single-product count line",
+    resultsPage.html.includes(`1 product matching &quot;${FIXTURE_NAME}&quot;`),
+    (resultsPage.html.match(/\d+ products? matching/) ?? ["no count line"])[0]
+  );
+  check(
+    "search results keep the heart state wiring",
+    resultsPage.html.includes("Add to wishlist") || resultsPage.html.includes("Remove from wishlist"),
+    "no wishlist button rendered"
+  );
+
+  const nonsense = await get(`/search?search=${encodeURIComponent("zz-no-such-product-xyz")}`);
+  check(
+    "an empty result set shows the no-matches state",
+    nonsense.status === 200 &&
+      nonsense.html.includes("No matches") &&
+      nonsense.html.includes("zz-no-such-product-xyz"),
+    `${nonsense.status}`
+  );
+
+  const bareSearch = await get("/search");
+  check("bare /search renders the default heading and form", bareSearch.status === 200 && bareSearch.html.includes(">Search</h1>") && bareSearch.html.includes('action="/search"'), `${bareSearch.status}`);
+
+  const sorted = await get(`/search?${searchQ}&sort=price-asc`);
+  check("search honours the sort param", sorted.status === 200 && sorted.html.includes(FIXTURE_NAME), `${sorted.status}`);
+
+  const shopPage2 = await get("/shop");
+  check("the /shop page keeps its inline shop search form", shopPage2.html.includes('action="/shop"'), "inline shop search moved");
+
+  // Wishlist: guests are refused by the action…
+  const guestToggle = await callAction("/shop", ids.toggleWishlist, [fixtureProduct.id]);
+  check(
+    "guest heart attempt → signed-in refusal",
+    guestToggle.json?.success === false && guestToggle.json?.error === "You must be signed in.",
+    JSON.stringify(guestToggle.json)
+  );
+
+  // …while a signed-in user toggles a real row.
+  const addRes = await callAction("/shop", ids.toggleWishlist, [fixtureProduct.id], loginJar);
+  check("signed-in heart → added", addRes.json?.success === true && addRes.json?.added === true, JSON.stringify(addRes.json));
+  const wishRow = await db.wishlistItem.findFirst({ where: { userId: customer.id, productId: fixtureProduct.id } });
+  check("wishlist row lands in the database", wishRow !== null, String(wishRow?.id ?? "null"));
+
+  const anonWish = await get("/wishlist");
+  check(
+    "anonymous /wishlist bounces to login with a callback",
+    anonWish.status >= 300 && anonWish.status < 400 && (anonWish.location ?? "").startsWith("/login") && (anonWish.location ?? "").includes("callbackUrl=%2Fwishlist"),
+    `${anonWish.status} ${anonWish.location}`
+  );
+
+  const wishPage = await get("/wishlist", loginJar);
+  check("signed-in /wishlist renders the saved product", wishPage.status === 200 && wishPage.html.includes(FIXTURE_NAME), `${wishPage.status}`);
+  check(
+    "the saved card shows a filled (pressed) heart",
+    wishPage.html.includes('aria-pressed="true"'),
+    "aria-pressed=true missing"
+  );
+  check("wishlist shows its saved-count line", wishPage.html.includes("1 saved item"), (wishPage.html.match(/\d+ saved items?/) ?? ["no count"])[0]);
+
+  const otherWish = await get("/wishlist", adminLogin.jar);
+  check(
+    "another account never sees the saved product",
+    otherWish.status === 200 && !otherWish.html.includes(FIXTURE_NAME) && otherWish.html.includes("No saved items yet"),
+    `${otherWish.status}`
+  );
+
+  const removeRes = await callAction("/shop", ids.toggleWishlist, [fixtureProduct.id], loginJar);
+  check("second heart click removes the row", removeRes.json?.success === true && removeRes.json?.added === false, JSON.stringify(removeRes.json));
+  const goneRow = await db.wishlistItem.findFirst({ where: { userId: customer.id, productId: fixtureProduct.id } });
+  check("wishlist row is gone", goneRow === null, String(goneRow?.id ?? "still present"));
+
+  const emptyWish = await get("/wishlist", loginJar);
+  check(
+    "the emptied wishlist shows its empty state",
+    emptyWish.status === 200 && emptyWish.html.includes("No saved items yet") && !emptyWish.html.includes(FIXTURE_NAME),
+    `${emptyWish.status}`
+  );
 }
 
 // ── cleanup ─────────────────────────────────────────────────────────────────
