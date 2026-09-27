@@ -60,8 +60,8 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | **10** | Reviews & recommendations: submit/display/moderation, related products, card ratings | ✅ **DONE** (§18) |
 | 11 | Admin catalog completeness: product images, price, variation CRUD, category CRUD, delete | ✅ **DONE** (§19) |
 | **12** | Account completion: addresses (`SavedShipping` wiring), cancel/reorder/receipt, sub-nav | ✅ **DONE** (§20) |
-| 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ⬜ **(next)** |
-| 14 | Emails (Resend): order/status/welcome + forgot/reset password | ⬜ |
+| 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ✅ **DONE** (§21) |
+| 14 | Emails (Resend): order/status/welcome + forgot/reset password | ⬜ **(next)** |
 | 15 | Wishlist + dedicated `/search` results page | ⬜ |
 | 16 | Design system & polish: primitives migration, skeletons, a11y pass | ⬜ |
 
@@ -267,9 +267,9 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**Phase 13 — admin ops & dashboard** (feature plan, §2): metrics/dashboard (hand-rolled CSS/SVG charts — no chart library), admin order detail + refund flow, stock history view, admin filters. Existing scaffolding: `src/modules/admin/*`, `/admin/orders` list, `adjustStock` + `StockAdjustment` audit rows (Phase 2), order state machine incl. refund CAS (Phase 3).
+**Phase 14 — emails (Resend)** (feature plan, §2): order/status/welcome + forgot/reset password, with a dev-log fallback until the Resend key exists (§2 user decision). Preceding phases 9–13 all done; Phase 13 delivered the admin dashboard (KPIs + hand-rolled 14-day SVG revenue chart), admin order detail + standalone refund, `/admin/stock` audit feed and order list filters (§21).
 
-Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5), **Phase 11** (§19.5) and **Phase 12** (§20.5). CI secrets were added in Phase 8 (§16.4) and the pipeline is green (last verified at Phase 11, run `36235044087`; Phase 12 push triggers the next run).
+Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5), **Phase 11** (§19.5), **Phase 12** (§20.5) and **Phase 13** (§21.5). CI secrets were added in Phase 8 (§16.4) and the pipeline is green (last verified at Phase 12, run `36240340033`; Phase 13 push triggers the next run).
 
 ---
 
@@ -912,3 +912,77 @@ Scope: wire `SavedShipping` into checkout + a new `/account/addresses` page, cus
 - Shared shipping rules live once (`shippingFields` in `src/modules/addresses/schema.ts`) and are composed into `checkoutSchema` — drift between the address form and checkout is impossible by construction.
 - All new account components live in `src/components/storefront/` (ProfileForm precedent); actions/queries stay in the module the ESLint boundary allows (`@/modules/*/actions` or the barrel).
 - E2E's anonymous-action checks intentionally assert the **proxy bounce**, not the action's session error — two layers, tested at the layer that runs.
+
+---
+
+## 21. Phase 13 — admin ops & dashboard — detailed log (what & why)
+
+Scope: real `/admin` dashboard (metrics + hand-rolled SVG chart — no chart library), admin order detail page + standalone **refund**, `/admin/stock` audit feed, order list filters. No migration (8 stays 8), no new dependencies.
+
+### 21.1 Decisions (user-confirmed before execution)
+
+1. **Refund = money back, order kept.** A standalone `refundOrderPayment` for **PAID** orders: Safepay → real `refundSafepayPayment` call **before** any state change, then CAS `PAID → REFUNDED`; COD → state flip only (staff return cash offline). `orderStatus` is untouched, **no restock and no `StockAdjustment` row** — a return-then-restock goes through `CANCELLED` instead. The control lives on the **detail page only** (the list row never offers it).
+2. **Stock history = dedicated `/admin/stock` page** (not a dashboard section): the cross-product `StockAdjustment` feed with admin/customer attribution, newest first, searchable, capped at 200.
+3. **Dashboard = KPIs + 14-day hand-rolled SVG chart + lists** — five KPI cards, a server-rendered `role="img"` bar chart (zero client JS), orders-by-status bars, low-stock list, recent-orders list.
+
+### 21.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | Refund existed only buried in the cancel branch of `updateOrderStatusCore`; no way to refund a delivered order | New `refundOrderPayment(orderId)`: `requireAdmin` → not-found / already-refunded / not-PAID refusals with named statuses → Safepay branch (tracker required, API call **before** state, `SafepayRefundError` → "Safepay rejected the refund — the order was NOT changed…") → CAS `updateMany {id, paymentStatus:"PAID"} → REFUNDED` → revalidates list **and** detail. Plus `getAdminOrders(filters)` (exact known status — unknown strings ignored, insensitive search across orderNumber/customerName/customerEmail, trimmed) and `getAdminOrderById` now joins the customer `user` for the profile link; `updateOrderStatus`/`markCodPaymentReceived` also revalidate the detail path | `src/modules/admin/orders.ts` |
+| 2 | Order controls lived inline in `AdminOrderRow`; no detail page at all | Shared **`OrderActions`** client component (optimistic status select with rollback, COD-only `Mark Paid`, two-step `Refund` gated by `allowRefund && paymentStatus === "PAID"`, `role="alert"`); `AdminOrderRow` delegates to it and links the order number to the detail page; new `/admin/orders/[id]` renders customer (link to `/admin/customers/[id]`), delivery block, line items + totals, payment block, `notFound()` for unknown ids | `src/components/admin/{OrderActions,AdminOrderRow}.tsx`, `src/app/admin/orders/[id]/page.tsx` |
+| 3 | `/admin/orders` had no filters | Status tabs (All + 6, `aria-current="page"` Link pattern from `/admin/reviews`) + GET search form (pattern from `/admin/customers`); each preserves the other's query param via `tabHref()` / hidden `status` input; blank search = no filter | `src/app/admin/orders/page.tsx` |
+| 4 | `getStockAdjustmentHistory` was exported but rendered nowhere | `getStockAdjustmentFeed({search})` (`"use server"`): `requireAdmin` first, include `variation.product` + `admin {name,email}`, newest-first `take: 200`, OR-search on variation/product names; new `/admin/stock` page renders product → variation, `prev → new (±delta)`, reason, actor (`admin.email` or **"Customer (order cancel)"** when `adminId === null`), `formatDate` + PKT clock time; `Stock` nav item added | `src/modules/admin/stock.ts`, `src/app/admin/stock/page.tsx`, `src/app/admin/layout.tsx` |
+| 5 | `/admin` was a 3-line stub; `dashboard.ts` held a dead `testAdminAction()` POC | **`dashboard-ops.ts` (plain file)**: tuning consts (`LOW_STOCK_THRESHOLD = 3`, `KPI_WINDOW_DAYS = 30`, `CHART_DAYS = 14`), `dayKey()` via `Intl "en-CA"` pinned to **Asia/Karachi**, pure `buildDailyRevenueSeries(orders, now)` (zero-filled 14 labels, PAID-only, drops out-of-window days). **`dashboard.ts` (`"use server"`, one export)**: `getDashboardMetrics()` = one `Promise.all` of bounded queries — `aggregate` revenue30 (PAID only), `count` orders30/customers30/pendingReviews/lowStock, chart orders fetched with a **+1 day buffer** then bucketed in JS, **first `groupBy` in the repo** on `orderStatus` (zero-filled to all 6), lowStockList/`recentOrders` `take: 8`. **`/admin/page.tsx`**: KPI cards (revenue/orders/customers/pending reviews/low stock, the last two linking into their filtered pages), `viewBox` SVG bars with per-bar `<title>` + `aria-label` + empty state, by-status bars, low-stock + recent lists. POC deleted | `src/modules/admin/{dashboard-ops,dashboard}.ts`, `src/app/admin/page.tsx` |
+| 6 | `"use server"` modules may only export async functions; both filters + shapes needed a home; barrel had to grow | New plain `src/modules/admin/types.ts` (`AdminOrderFilters`, `DailyRevenuePoint`, `DashboardMetrics`, `StockFeedRow`); barrel re-exports the new actions/types/consts | `src/modules/admin/{types,index}.ts` |
+| 7 | `client-forms-guard` required `role="alert"` + `result.success`/`setError(` **in `AdminOrderRow`** | Feedback moved with the controls → the guard's lists now point at `OrderActions.tsx` | `tests/unit/client-forms-guard.test.ts` |
+
+### 21.3 Behaviour worth knowing before touching this code
+
+- **Refund is money-only.** It never touches `orderStatus`, stock or `StockAdjustment` — the cancel branch (`status-ops.ts`) is the *only* path that refunds **and** restocks. CANCELLED + PAID orders can still be refunded here (remediation), then stay CANCELLED.
+- **Safepay refund ordering is the invariant:** API call → success → CAS. A refusal (no tracker, API error, lost CAS) leaves `paymentStatus` exactly as it was — same money-before-state rule as Phase 3's cancel branch.
+- **`"use server"` export rule:** only async functions (+ types). Constants and the pure series builder live in `dashboard-ops.ts` — a plain file — so unit tests and server components can import them without creating server actions.
+- **Revenue = PAID only.** `revenue30` and the chart both exclude PENDING/FAILED/REFUNDED (a refunded day must not read as revenue). Day buckets are **Asia/Karachi** — a UTC deployment would otherwise split "today" for a PK visitor; the chart fetches `CHART_DAYS + 1` days so early-morning PK orders are never lost to the window edge.
+- **One `OrderActions`, two surfaces:** `allowRefund` defaults `false` (list row) and is passed only by the detail page — the approved plan keeps refund off the list. Status select + Mark Paid appear in both; failures always render `role="alert"` with optimistic rollback.
+- **Filters ignore unknown status values** (reviews pattern) and trim search; a blank/whitespace search is "no filter", not "match nothing".
+- **Stock feed attribution:** `adminId === null` = customer cancel (Phase 12 convention); `take: 200` keeps the page one bounded read (newest first).
+- **Dashboard is a server component end-to-end** — the chart is hand-rolled SVG, so `/admin` ships zero client JS of its own. KPI windows are constants in `dashboard-ops.ts`; change them there, not in the page.
+- **Proxy:** anon `/admin/*` → `/login?callbackUrl=…`, signed-in non-admin → `/` (E2E asserts both on the detail URL *and* on refund POSTs — the proxy answers before the action runs).
+
+### 21.4 Tests & gate
+
+- Unit **220 → 252** (17 files): new `tests/unit/admin-ops.test.ts` (**32**) — `buildDailyRevenueSeries` (zero-fill 14 days, PAID-only, same-day accumulation, **Karachi bucketing** with a late-UTC order landing on the PK date, out-of-window drop, purity), tuning constants + timezone pin, refund source guards (Safepay API **before** `updateMany`, no stock/audit writes, CAS + refusal text, gate ordering, detail revalidation ×3), filters/detail guards, dashboard module guards (`"use server"` exports exactly `getDashboardMetrics`, `testAdminAction` gone from **all** of `src/`, PAID-only revenue, `groupBy`, `take: 8` caps), dashboard page guards (server component, `role="img"`, links), order/stock UI guards (detail-only refund, two-step confirm, tabs preserve search, Stock nav, feed attribution/search/bounds). Plus the `client-forms-guard` re-point (§21.2 row 7).
+- Integration **196 → 221** (30 files): new `tests/integration/admin-ops.test.ts` (**25**) — `refundOrderPayment` (missing, PENDING, already-refunded, **COD PAID success** asserting `orderStatus` kept + zero audit rows + stock untouched, **SAFEPAY success** asserting `(tracker, total)` + revalidation, no-tracker refusal, API-throw refusal with state untouched, lost-CAS), `getAdminOrders` (status, unknown status ignored, insensitive search across all three fields, status∩search, trim, items include), `getAdminOrderById` (join + null), `updateOrderStatus` revalidates detail, `getDashboardMetrics` (revenue30 PAID-only vs window, series exclusion, six-status zero-fill, low-stock threshold + disabled exclusion, pending reviews + windowed customers, recent capped/sorted), `getStockAdjustmentFeed` (attribution incl. `adminId: null`, product/variation search, empty, 200 cap).
+- Gate: `npm run test` **473/473** (252 unit / 17 files + 221 integration / 30 files) · `tsc --noEmit` clean · `eslint .` **0/0** · `prisma validate` + `migrate status` (**8**, unchanged — no migration) · `npm run build` green (+`/admin/stock`, +`/admin/orders/[id]` routes) · **smoke 17/17 + E2E 212/212** (section 17, 29 new checks: dashboard render/KPI/chart/nav, tab+search filters incl. mutual preservation and unknown-status, detail render + gating buttons + anon/customer proxy + 404 view, refund anon/customer bounce, PENDING/no-tracker/real-Safepay refusals, COD success → REFUNDED + order kept + zero audit rows + double-refund refusal + rendered state, list never offers Refund, stock page/feed/search/empty) on the new build (server pid 15116, `ss`-verified) · post-run leftover query **0** (orders + stock rows).
+
+### 21.5 Manual browser checklist (needs a human; server on `:3100`)
+
+1. `/admin` → five KPI cards; the SVG chart shows 14 dated bars with hover `<title>` tooltips (or the empty state); "Pending reviews"/"Low stock" cards link into their filtered pages; Recent orders rows open the detail page.
+2. `/admin/orders?status=SHIPPED` → only shipped rows, tab shows `aria-current`; type a search → the tab keeps its status and vice versa; a nonsense `?status=` still lists everything.
+3. Row click / order number → `/admin/orders/<id>`: customer block links to `/admin/customers/<id>`, items + subtotal/shipping/total, delivery block, payment block with tracker.
+4. **Refund (detail page, PAID order)** → button `Refund` → two-step `Yes, refund Rs. X` → payment badge flips to REFUNDED, **order status unchanged**, no stock change on `/admin/stock`.
+5. Refund attempts on PENDING/REFUNDED orders, and a Safepay order without a tracker → `role="alert"` refusals with the named statuses; list rows **never** show a Refund button.
+6. `/admin/stock` → every adjustment newest-first with product link, `prev → new (±delta)`, reason, `admin@…` or "Customer (order cancel)"; search narrows; nonsense search shows the empty state; **Stock** nav item is present.
+7. Open a detail URL logged out → `/login?callbackUrl=…`; as a customer → redirected home; unknown id → "Page not found".
+
+### 21.6 Errors hit in Phase 13 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | `tsc`: `AdminOrderFilters` declared twice + barrel re-exported it from `./orders` after the move; `countsByStatus.get(status)` typed `OrderStatus` vs `string` | two sources of truth while splitting types out of a `"use server"` file; `groupBy` returns the Prisma enum | single owner in `types.ts` (barrel re-exports the **type** from there); `new Map<string, number>(…)` with `as string` keys |
+| 2 | `client-forms-guard` failed: `AdminOrderRow` no longer contains `role="alert"` / `result.success` / `setError(` | those checks followed the controls into `OrderActions` | re-pointed the guard's two lists at `OrderActions.tsx` (behaviour moved, assertion intent unchanged) |
+| 3 | Unit guard failed: `refund.indexOf("await requireAdmin()")` expected `0` | the slice starts at the function **signature line**, so `requireAdmin` sits at offset ~90 | assert ordering instead (`< indexOf("db.order.findUnique")`) — ordering, not position, is the invariant |
+| 4 | E2E "unknown order id renders our 404 view" got **307** | fetched anonymously → the **proxy** answered `/login` before the page could 404 | fetch with the admin jar (the anon bounce is already asserted separately) |
+| 5 | E2E "detail page reflects the refunded payment" — `Payment: REFUNDED` not found | React splits adjacent text nodes into `Payment: <!-- -->REFUNDED` in SSR HTML | matcher tolerates the comment: `/Payment:\s*(?:<!-- -->)?REFUNDED/` |
+| 6 | `tsc`: `StockFeedRow` has no `variationId` (TS2551) in the feed test | the type mirrored only the presentation fields | added `variationId: string` — the query returns it and the test asserts it |
+| 7 | (pre-run) planned feed-search E2E searched the **reason** text | feed search matches product/variation **names**, not reasons | switched the check to the fixture product name before the suite ran |
+| 8 | Tool wrapper rejected `pkill -f` (`ChildProcess.kill` error) while restarting the server | the shell tool blocks pattern-kill | `kill <pid>` + `ss -ltnp \| grep 3100` (the Phase 12 lesson: `ss`, not `lsof`, is authoritative) |
+
+### 21.7 Decisions recorded
+
+- User answered the three scope questions with the recommended options: **refund = money back, order kept**; **dedicated `/admin/stock` page**; **KPIs + hand-rolled 14-day SVG chart + lists**.
+- No migration (8 stays 8) and no new dependencies — the chart is inline SVG with design tokens (`fill-sage`, `text-muted`), matching the §2 "hand-rolled CSS/SVG charts" decision.
+- Refund stays **detail-page-only** (approved non-goal): `OrderActions` takes `allowRefund` (default `false`); the list keeps status + Mark Paid. E2E asserts the control never leaks into the list.
+- `"use server"` purity enforced structurally: constants + the pure series builder live in plain files (`dashboard-ops.ts`, `types.ts`) — the same split `image-ops.ts`/`status-ops.ts` already established.
+- Refund deliberately has **no audit table** in this phase (money state is `paymentStatus`; an order-scoped refund timeline is out of scope until emails/Phase 14 make it worth a migration).
+- Dashboard metrics are computed with **SQL aggregates** (`aggregate`/`count`/`groupBy`) and only the 14-day series is bucketed in JS (day boundaries must be Karachi) — never "fetch all orders, sum in the page".

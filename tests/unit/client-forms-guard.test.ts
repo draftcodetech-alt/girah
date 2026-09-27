@@ -12,7 +12,8 @@ const CLIENT_FORMS = [
 
 const FEEDBACK_UI = [
   ...CLIENT_FORMS,
-  "src/components/admin/AdminOrderRow.tsx",
+  // Phase 13: AdminOrderRow delegated its controls to the shared OrderActions.
+  "src/components/admin/OrderActions.tsx",
   "src/components/admin/ToggleActiveButton.tsx",
 ];
 
@@ -46,7 +47,7 @@ describe("failure feedback stays reachable to assistive tech", () => {
   });
 
   it.each([
-    "src/components/admin/AdminOrderRow.tsx",
+    "src/components/admin/OrderActions.tsx",
     "src/components/admin/VariationRow.tsx",
     "src/components/admin/ToggleActiveButton.tsx",
   ])("%s surfaces a refused server action result", (relativePath) => {

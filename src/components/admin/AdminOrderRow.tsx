@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { updateOrderStatus, markCodPaymentReceived } from "@/modules/admin";
+import Link from "next/link";
+import { OrderActions } from "./OrderActions";
 import { formatPrice } from "@/lib/format";
-
-const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
 
 type Order = {
   id: string;
@@ -16,80 +14,29 @@ type Order = {
   paymentMethod: string;
 };
 
+/**
+ * List row: identity + link into the Phase 13 detail page; ALL controls
+ * (status select, Mark Paid, Refund) live in the shared OrderActions so
+ * the list and the detail page can never drift apart.
+ */
 export function AdminOrderRow({ order }: { order: Order }) {
-  const [isPending, startTransition] = useTransition();
-  const [status, setStatus] = useState(order.orderStatus);
-  const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus);
-  const [error, setError] = useState<string | null>(null);
-
-  function handleStatusChange(newStatus: string) {
-    const previousStatus = status;
-    setStatus(newStatus);
-    setError(null);
-    startTransition(async () => {
-      const result = await updateOrderStatus(order.id, {
-        orderStatus: newStatus as typeof STATUSES[number],
-      });
-      if (result.success) {
-        setStatus(newStatus);
-      } else {
-        setStatus(previousStatus);
-        setError(result.error);
-      }
-    });
-  }
-
-  function handleMarkPaid() {
-    setError(null);
-    startTransition(async () => {
-      const result = await markCodPaymentReceived(order.id);
-      if (result.success) {
-        setPaymentStatus("PAID");
-      } else {
-        setError(result.error);
-      }
-    });
-  }
-
   return (
     <div className="py-4 border-b border-border">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-body text-body font-medium text-charcoal">#{order.orderNumber}</p>
+          <Link
+            href={`/admin/orders/${order.id}`}
+            className="font-body text-body font-medium text-charcoal hover:text-sage underline-offset-2 hover:underline"
+          >
+            #{order.orderNumber}
+          </Link>
           <p className="font-body text-small text-muted mt-1">
-            {order.customerName} · {formatPrice(order.total)} · {order.paymentMethod}
+            {order.customerName} · {formatPrice(order.total)} · {order.paymentMethod} ·{" "}
+            {order.orderStatus}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="font-body text-small text-muted">
-            Payment: {paymentStatus}
-            {order.paymentMethod === "COD" &&
-              paymentStatus === "PENDING" &&
-              status !== "CANCELLED" && (
-              <button
-                onClick={handleMarkPaid}
-                disabled={isPending}
-                className="ml-2 text-sage font-medium underline"
-              >
-                Mark Paid
-              </button>
-            )}
-          </span>
-          <select
-            value={status}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            disabled={isPending}
-            className="h-10 rounded-[var(--radius-control)] border border-border px-3 font-body text-small bg-cream"
-          >
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
+        <OrderActions order={order} compact />
       </div>
-      {error && <p role="alert" className="font-body text-small text-error mt-2">{error}</p>}
     </div>
   );
 }

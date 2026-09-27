@@ -1481,6 +1481,257 @@ const p12Orders = [];
   );
 }
 
+// ── 17. Phase 13: admin ops & dashboard — filters, detail, refund, stock ────
+const p13Orders = [];
+{
+  check(
+    "action id resolved: refundOrderPayment",
+    Boolean(ids.refundOrderPayment),
+    "missing from server-reference-manifest.json"
+  );
+
+  // Fixtures: filter pair (unique order numbers) + one order per refund path.
+  const base = {
+    customerName: "E2E Phase 13",
+    customerEmail: "e2e-p13@example.com",
+    customerPhone: "03001234567",
+    shippingAddress: "1 Test Street",
+    shippingCity: "Karachi",
+    subtotal: 100000,
+    total: 100000,
+  };
+  const shippedRow = await db.order.create({
+    data: { ...base, orderNumber: `GIR-P13S-${TS}`, orderStatus: "SHIPPED", paymentMethod: "COD", paymentStatus: "PENDING" },
+  });
+  const pendingRow = await db.order.create({
+    data: { ...base, orderNumber: `GIR-P13P-${TS}`, orderStatus: "PENDING", paymentMethod: "COD", paymentStatus: "PENDING" },
+  });
+  const codPaid = await db.order.create({
+    data: { ...base, orderNumber: `GIR-P13C-${TS}`, orderStatus: "CONFIRMED", paymentMethod: "COD", paymentStatus: "PAID" },
+  });
+  const safepayNoTracker = await db.order.create({
+    data: { ...base, orderNumber: `GIR-P13N-${TS}`, paymentMethod: "SAFEPAY", paymentStatus: "PAID" },
+  });
+  const safepayFakeTracker = await db.order.create({
+    data: {
+      ...base,
+      orderNumber: `GIR-P13F-${TS}`,
+      paymentMethod: "SAFEPAY",
+      paymentStatus: "PAID",
+      safepayTracker: `e2e-fake-tracker-${TS}`,
+    },
+  });
+  p13Orders.push(shippedRow.id, pendingRow.id, codPaid.id, safepayNoTracker.id, safepayFakeTracker.id);
+
+  // --- dashboard (server-rendered KPIs + SVG chart, zero client JS) ---------
+  const dash = await get("/admin", adminLogin.jar);
+  check("admin dashboard renders", dash.status === 200, `${dash.status}`);
+  check(
+    "dashboard shows KPI cards and list sections",
+    dash.html.includes("Orders · 30d") &&
+      dash.html.includes("Low stock") &&
+      dash.html.includes("Orders by status") &&
+      dash.html.includes("Recent orders"),
+    "missing dashboard sections"
+  );
+  check(
+    "dashboard renders an accessible revenue chart (or its empty state)",
+    (dash.html.includes('role="img"') && dash.html.includes("Daily paid revenue")) ||
+      dash.html.includes("No paid orders in the last 14 days."),
+    "no chart and no empty state"
+  );
+  check("admin nav links the Stock page", dash.html.includes('href="/admin/stock"'), "nav item missing");
+
+  // --- orders filters (tabs + search, each preserving the other) -----------
+  const tabbed = await get("/admin/orders?status=SHIPPED", adminLogin.jar);
+  check(
+    "status tab keeps only matching orders and marks itself active",
+    tabbed.status === 200 &&
+      tabbed.html.includes(shippedRow.orderNumber) &&
+      !tabbed.html.includes(pendingRow.orderNumber) &&
+      tabbed.html.includes('aria-current="page"'),
+    `${tabbed.status}`
+  );
+  const searched = await get(`/admin/orders?search=${shippedRow.orderNumber}`, adminLogin.jar);
+  check(
+    "search narrows to one order number",
+    searched.status === 200 &&
+      searched.html.includes(shippedRow.orderNumber) &&
+      !searched.html.includes(pendingRow.orderNumber),
+    `${searched.status}`
+  );
+  const combined = await get(
+    `/admin/orders?status=SHIPPED&search=${shippedRow.orderNumber}`,
+    adminLogin.jar
+  );
+  check(
+    "search form preserves the active status tab",
+    combined.html.includes('<input type="hidden" name="status" value="SHIPPED"') &&
+      combined.html.includes(shippedRow.orderNumber),
+    "status hidden input missing"
+  );
+  const bogusTab = await get("/admin/orders?status=NOT_A_STATUS", adminLogin.jar);
+  check(
+    "unknown status is ignored, not an error",
+    bogusTab.status === 200 &&
+      bogusTab.html.includes(shippedRow.orderNumber) &&
+      bogusTab.html.includes(pendingRow.orderNumber),
+    `${bogusTab.status}`
+  );
+
+  // --- order detail page ---------------------------------------------------
+  const detail = await get(`/admin/orders/${shippedRow.id}`, adminLogin.jar);
+  check(
+    "admin order detail renders items, delivery and payment blocks",
+    detail.status === 200 &&
+      detail.html.includes(shippedRow.orderNumber) &&
+      detail.html.includes("Delivery") &&
+      detail.html.includes("Payment") &&
+      detail.html.includes("Items"),
+    `${detail.status}`
+  );
+  check(
+    "a non-PAID detail page offers no Refund button",
+    !detail.html.includes("Refund</button>"),
+    "refund button rendered for a PENDING payment"
+  );
+  const paidDetail = await get(`/admin/orders/${codPaid.id}`, adminLogin.jar);
+  check("a PAID detail page offers Refund", paidDetail.html.includes("Refund</button>"), "refund button missing");
+  const ordersList = await get("/admin/orders", adminLogin.jar);
+  check(
+    "orders list never offers the refund control (detail-page-only)",
+    !ordersList.html.includes("Refund</button>"),
+    "refund button leaked into the list"
+  );
+
+  const anonDetail = await get(`/admin/orders/${shippedRow.id}`);
+  check(
+    "anon order detail bounces to login with callbackUrl",
+    [302, 307].includes(anonDetail.status) &&
+      (anonDetail.location ?? "").includes(`/login?callbackUrl=%2Fadmin%2Forders%2F${shippedRow.id}`),
+    `${anonDetail.status} ${anonDetail.location}`
+  );
+  const customerDetail = await get(`/admin/orders/${shippedRow.id}`, loginJar);
+  const customerLoc = (customerDetail.location ?? "").replace(BASE, "");
+  check(
+    "signed-in customer order detail redirects home, not to login",
+    [302, 307].includes(customerDetail.status) && customerLoc === "/",
+    `${customerDetail.status} ${customerDetail.location}`
+  );
+  // Signed in so the proxy doesn't answer first (anon → /login, as checked above).
+  const missingDetail = await get(`/admin/orders/no-such-order-${TS}`, adminLogin.jar);
+  check(
+    "unknown order id renders our 404 view",
+    missingDetail.html.includes("Page not found"),
+    `status ${missingDetail.status}`
+  );
+
+  // --- refund guards over the wire -----------------------------------------
+  const anonRefund = await callAction("/admin/orders", ids.refundOrderPayment, [codPaid.id], null);
+  check(
+    "anonymous refund POST is bounced to /login by the proxy",
+    anonRefund.status >= 300 && anonRefund.status < 400 && (anonRefund.location ?? "").includes("/login"),
+    `${anonRefund.status} ${anonRefund.location}`
+  );
+  const customerRefund = await callAction("/admin/orders", ids.refundOrderPayment, [codPaid.id], loginJar);
+  const refundLoc = (customerRefund.location ?? "").replace(BASE, "");
+  check(
+    "customer refund POST redirects home (never reaches the action)",
+    customerRefund.status >= 300 && customerRefund.status < 400 && refundLoc === "/",
+    `${customerRefund.status} ${customerRefund.location}`
+  );
+  const pendingRefund = await callAction("/admin/orders", ids.refundOrderPayment, [pendingRow.id], adminLogin.jar);
+  check(
+    "refunding a PENDING payment is refused with the status named",
+    pendingRefund.json?.success === false && /Only a PAID payment can be refunded/.test(pendingRefund.json?.error ?? ""),
+    JSON.stringify(pendingRefund.json)
+  );
+  const noTrackerRefund = await callAction(
+    "/admin/orders",
+    ids.refundOrderPayment,
+    [safepayNoTracker.id],
+    adminLogin.jar
+  );
+  const noTrackerRow = await db.order.findUnique({ where: { id: safepayNoTracker.id } });
+  check(
+    "SAFEPAY PAID without a tracker is refused, order untouched",
+    noTrackerRefund.json?.success === false &&
+      /no Safepay payment reference/.test(noTrackerRefund.json?.error ?? "") &&
+      noTrackerRow?.paymentStatus === "PAID",
+    JSON.stringify(noTrackerRefund.json)
+  );
+  const fakeTrackerRefund = await callAction(
+    "/admin/orders",
+    ids.refundOrderPayment,
+    [safepayFakeTracker.id],
+    adminLogin.jar
+  );
+  const fakeTrackerRow = await db.order.findUnique({ where: { id: safepayFakeTracker.id } });
+  check(
+    "SAFEPAY refund attempt against the real API refuses before any state change",
+    fakeTrackerRefund.json?.success === false &&
+      /Safepay rejected the refund/.test(fakeTrackerRefund.json?.error ?? "") &&
+      fakeTrackerRow?.paymentStatus === "PAID",
+    JSON.stringify(fakeTrackerRefund.json)
+  );
+
+  // --- refund success: money back, order kept -------------------------------
+  const auditBefore = await db.stockAdjustment.count();
+  const codRefund = await callAction("/admin/orders", ids.refundOrderPayment, [codPaid.id], adminLogin.jar);
+  const codAfter = await db.order.findUnique({ where: { id: codPaid.id } });
+  const auditAfter = await db.stockAdjustment.count();
+  check("COD PAID refund succeeds over the wire", codRefund.json?.success === true, JSON.stringify(codRefund.json));
+  check(
+    "refund flips paymentStatus but KEEPS the order (status + no restock)",
+    codAfter?.paymentStatus === "REFUNDED" &&
+      codAfter?.orderStatus === "CONFIRMED" &&
+      auditAfter === auditBefore,
+    JSON.stringify({ paymentStatus: codAfter?.paymentStatus, orderStatus: codAfter?.orderStatus })
+  );
+  const doubleRefund = await callAction("/admin/orders", ids.refundOrderPayment, [codPaid.id], adminLogin.jar);
+  check(
+    "a second refund is refused (already refunded)",
+    doubleRefund.json?.success === false && doubleRefund.json?.error === "This payment has already been refunded.",
+    JSON.stringify(doubleRefund.json)
+  );
+  const refundedDetail = await get(`/admin/orders/${codPaid.id}`, adminLogin.jar);
+  check(
+    "detail page reflects the refunded payment",
+    /Payment:\s*(?:<!-- -->)?REFUNDED/.test(refundedDetail.html),
+    "payment state not rendered"
+  );
+
+  // --- stock audit feed -----------------------------------------------------
+  const stockPage = await get("/admin/stock", adminLogin.jar);
+  check("admin stock page renders", stockPage.status === 200 && stockPage.html.includes("Stock history"), `${stockPage.status}`);
+  const stockReason = `E2E P13 stock ${TS}`;
+  await db.stockAdjustment.create({
+    data: {
+      variationId: V_SMALL,
+      previousStock: 9,
+      adjustment: -1,
+      newStock: 8,
+      reason: stockReason,
+      adminId: null,
+    },
+  });
+  const stockFeed = await get("/admin/stock", adminLogin.jar);
+  check(
+    "feed shows the adjustment with customer-cancel attribution",
+    stockFeed.html.includes(stockReason) && stockFeed.html.includes("Customer (order cancel)"),
+    "row missing from feed"
+  );
+  // Feed search matches product/variation names (not the reason text).
+  const stockSearch = await get(`/admin/stock?search=${encodeURIComponent(FIXTURE_NAME)}`, adminLogin.jar);
+  check("feed search narrows to the fixture product's rows", stockSearch.html.includes(stockReason), `${stockSearch.status}`);
+  const stockNone = await get("/admin/stock?search=no-such-product-xyz", adminLogin.jar);
+  check(
+    "feed search empty state",
+    stockNone.html.includes("No stock changes match"),
+    `${stockNone.status}`
+  );
+}
+
 // ── cleanup ─────────────────────────────────────────────────────────────────
 await wipeUserCart(customer.id);
 await db.cart.deleteMany({ where: { guestId: { startsWith: "e2e-guest-" } } });
@@ -1488,6 +1739,8 @@ if (newUser) await db.user.delete({ where: { id: newUser.id } }); // cascades th
 await db.order.delete({ where: { id: probeOrder.id } }).catch(() => {});
 if (reviewOrder) await db.order.delete({ where: { id: reviewOrder.id } }).catch(() => {});
 for (const orderId of p12Orders) await db.order.delete({ where: { id: orderId } }).catch(() => {});
+for (const orderId of p13Orders) await db.order.delete({ where: { id: orderId } }).catch(() => {});
+await db.stockAdjustment.deleteMany({ where: { reason: { contains: "E2E P13 stock" } } });
 if (p11Order) await db.order.delete({ where: { id: p11Order.id } }).catch(() => {});
 if (p11Product) await db.product.delete({ where: { id: p11Product.id } }).catch(() => {});
 for (const product of [...Object.values(floatProducts), unavailableProduct, fixtureProduct]) {

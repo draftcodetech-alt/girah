@@ -115,7 +115,9 @@ const customer = await apiLogin("dev-customer@girah.test", "DevCustomer123!");
 await hit("public / renders (homepage)", "/");
 await hit("public /login renders", "/login");
 await hit("public /register renders", "/register");
+await hit("admin /admin renders (dashboard)", "/admin", admin);
 await hit("admin /admin/orders renders", "/admin/orders", admin);
+await hit("admin /admin/stock renders", "/admin/stock", admin);
 await hit("admin /admin/variations renders", "/admin/variations", admin);
 await hit("admin /admin/products/new renders", "/admin/products/new", admin);
 const detailProduct = fixture ?? (await db.product.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } }));
@@ -174,6 +176,8 @@ if (!receiptOrder) {
   receiptOrder = { id: seeded.id };
 }
 await hit("customer order receipt renders", `/account/orders/${receiptOrder.id}/receipt`, customer);
+// Phase 13: admin order detail reuses the same order (any owned order works).
+await hit("admin /admin/orders/[id] renders", `/admin/orders/${receiptOrder.id}`, admin);
 if (seededReceiptOrderId) await db.order.delete({ where: { id: seededReceiptOrderId } }).catch(() => {});
 
 if (!seededLine) await db.cartItem.deleteMany({ where: { cart: { userId: customerRow.id } } });
