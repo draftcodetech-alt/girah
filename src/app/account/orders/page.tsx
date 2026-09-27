@@ -21,7 +21,7 @@ export default async function OrdersPage() {
         <Breadcrumbs
           items={[{ label: "Home", href: "/" }, { label: "Account", href: "/account" }, { label: "Orders" }]}
         />
-        <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">Orders</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase">Orders</h1>
         <p className="font-body text-body text-muted mt-4">You haven&apos;t placed any orders yet.</p>
         <Link
           href="/shop"
@@ -38,7 +38,7 @@ export default async function OrdersPage() {
       <Breadcrumbs
         items={[{ label: "Home", href: "/" }, { label: "Account", href: "/account" }, { label: "Orders" }]}
       />
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal mb-8">Orders</h1>
+      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase mb-8">Orders</h1>
       <div className="divide-y divide-border">
         {orders.map((order) => (
           <Link

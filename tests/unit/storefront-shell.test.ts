@@ -26,7 +26,7 @@ describe("Phase 9: homepage", () => {
 
   it("is the real, data-driven homepage", () => {
     expect(source).toMatch(/getProducts/);
-    expect(source).toMatch(/getCategories/);
+    expect(source).toMatch(/getWishlistProductIds/);
     expect(source).toMatch(/ProductCard/);
   });
 

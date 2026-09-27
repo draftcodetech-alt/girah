@@ -10,15 +10,15 @@ export default async function CartPage() {
   if (cart.items.length === 0) {
     return (
       <div className="max-w-[1280px] mx-auto px-4 py-24 text-center">
-        <h1 className="font-[family-name:var(--font-display)] text-h2 text-charcoal">
-          Your cart is empty
+        <h1 className="font-[family-name:var(--font-display)] text-[32px] leading-[1.2] text-charcoal">
+          Your cart is empty.
         </h1>
         <p className="font-body text-body text-muted mt-4">
           Find something handmade to cherish.
         </p>
         <Link
           href="/shop"
-          className="inline-block mt-8 h-12 px-6 leading-[48px] rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold"
+          className="inline-block mt-8 h-12 px-6 leading-[48px] rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold uppercase tracking-[0.02em] hover:bg-charcoal transition-colors"
         >
           Shop Handmade
         </Link>
@@ -77,14 +77,14 @@ export default async function CartPage() {
             <span>Shipping</span>
             <span>FREE</span>
           </div>
-          <div className="flex justify-between font-body text-card-title font-semibold text-charcoal mt-4 pt-4 border-t border-border">
+          <div className="flex justify-between font-body text-[20px] font-semibold text-charcoal mt-4 pt-4 border-t border-border">
             <span>Total</span>
             <span>{formatPrice(cart.subtotal)}</span>
           </div>
 
           <Link
             href="/checkout"
-            className="block w-full h-12 mt-6 leading-[48px] text-center rounded-[var(--radius-control)] font-body text-button font-semibold bg-sage text-cream"
+            className="block w-full h-12 mt-6 leading-[48px] text-center rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage text-cream hover:bg-charcoal transition-colors"
           >
             Proceed to Checkout
           </Link>

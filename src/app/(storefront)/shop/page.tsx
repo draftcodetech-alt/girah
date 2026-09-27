@@ -1,5 +1,6 @@
 import { getProducts, getCategories } from "@/modules/catalog";
 import type { SortOption } from "@/modules/catalog";
+import Link from "next/link";
 import { getWishlistProductIds } from "@/modules/wishlist";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { CategoryTabs } from "@/components/storefront/CategoryTabs";
@@ -32,14 +33,28 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   });
   const wished = new Set(await getWishlistProductIds());
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: `${appUrl}/` },
+      { "@type": "ListItem", position: 2, name: "Shop", item: `${appUrl}/shop` },
+    ],
+  };
+
   return (
     <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Shop" }]} />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
       <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal text-center">
         Shop
       </h1>
       <p className="font-body text-body text-muted text-center mt-4 max-w-[500px] mx-auto">
-        Discover pieces made by hand, with care in every stitch.
+        Discover handmade pieces, made with care.
       </p>
 
       <div className="mt-6">
@@ -72,7 +87,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
 
           {products.length === 0 ? (
             <div className="text-center py-24">
-              <h2 className="font-[family-name:var(--font-display)] text-h3 text-charcoal">
+              <h2 className="font-[family-name:var(--font-display)] text-h3 text-charcoal uppercase tracking-[0.04em]">
                 {params.search ? "No matches" : "Nothing here"}
               </h2>
               <p className="font-body text-body text-muted mt-4">
@@ -80,6 +95,14 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                   ? `We couldn't find anything for "${params.search}".`
                   : "Try adjusting your filters to find a piece."}
               </p>
+              <div className="mt-6">
+                <Link
+                  href="/shop"
+                  className="inline-block h-12 px-6 leading-[48px] rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold uppercase tracking-[0.02em] hover:bg-charcoal transition-colors"
+                >
+                  {params.search ? "Clear Search" : "Clear Filters"}
+                </Link>
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">

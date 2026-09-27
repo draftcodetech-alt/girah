@@ -93,7 +93,7 @@ describe("header and menu search retarget", () => {
     const header = readSource("src/components/shared/Header.tsx");
     expect(header).toMatch(/<form method="GET" action="\/search"/);
     expect(header).not.toMatch(/<form method="GET" action="\/shop"/);
-    expect(header).toContain('href="/wishlist"');
+    expect(header).toContain('href: "/wishlist"');
     expect(header).toContain('label: "Wishlist"');
   });
 

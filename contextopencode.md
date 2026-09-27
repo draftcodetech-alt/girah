@@ -63,7 +63,7 @@ Built through **Phase 8.5** (git history): scaffold → catalog/cart/checkout/pa
 | 13 | Admin ops & dashboard: metrics, order detail + refund, stock history, filters | ✅ **DONE** (§21) |
 | 14 | Emails (Resend): order/status/welcome + forgot/reset password | ✅ **DONE** (§22) |
 | 15 | Wishlist + dedicated `/search` results page | ✅ **DONE** (§23) |
-| 16 | Design system & polish: primitives migration, skeletons, a11y pass | ⬜ **(next)** |
+| 16 | Design & polish: applied design from the original design doc (florals, homepage, shell, product page, copy, a11y/motion, JSON-LD) | ✅ **DONE** (§24) |
 
 ---
 
@@ -267,9 +267,9 @@ curl -s -b $JAR localhost:3100/api/auth/session   # → user JSON (before fix: n
 
 ## 9. Immediate next step
 
-**Phase 16 — design system & polish** (feature plan, §2, the final feature phase): primitives migration, skeletons, accessibility pass. Phases 9–15 all done; Phase 15 delivered the wishlist (model, module, `/wishlist`, hearts on cards + product panel, proxy gating) and the dedicated `/search` results page with header/mobile forms retargeted (§23).
+**All phases (1–16) are complete.** Phase 16 (§24) applied the original design doc (`initial design/claude.md`) across the storefront: rembg floral cutouts, hero/magazine/immersive homepage, header/footer/full-screen menu, product accordions + mini-cart drawer, spec copy passes, motion/a11y tokens, gated Instagram showcase, JSON-LD. Gate: `npm run test` 591/591, lint 0/0, build green, smoke 21/21, E2E **279/279**, leftovers 0.
 
-Still owed by the user: manual browser checklists for **Phase 6** (§14.5), **Phase 7** (§15.5), **Phase 9** (§17.5), **Phase 10** (§18.5), **Phase 11** (§19.5), **Phase 12** (§20.5), **Phase 13** (§21.5), **Phase 14** (§22.5) and **Phase 15** (§23.5) — one pass after Phase 16. CI secrets were added in Phase 8 (§16.4); Phase 14's push was green (run `36294515544`); Phase 15's push triggers the next run.
+Still owed by the user: the one deferred manual-browser pass over **§14.5, §15.5, §17.5, §18.5, §19.5, §20.5, §21.5, §22.5, §23.5** plus the new Phase 16 visual checklist **§24.5** (server on `:3100`). After that: final review of the Phase 16 commit/CI run, and `initial design/` stays uncommitted forever (commit with `git add -A -- . ':!initial design'`).
 
 ---
 
@@ -1135,3 +1135,84 @@ Scope: per-account wishlist (model + module + `/wishlist` page + heart controls 
 - The catalog mapper extraction (touching `getProducts`) was accepted as necessary: two implementations of the card shape would drift (ratings/pricing rules), and `catalog-filters`/`reviews` stayed green through the change.
 - Manual checklists §22.5 + §23.5 join the deferred list (user directive): one pass after **Phase 16**.
 - No new dependencies in either phase — `resend` (Phase 14) was the only addition, and it is lazy-loaded.
+
+---
+
+## 24. Phase 16 — design & polish (the original design doc, applied) — detailed log
+
+Scope: apply `initial design/claude.md` (the original GPT design spec) as **applied design** across the storefront, with zero feature downgrades. **No schema change** (migrations stay at 10), **no new routes**, **no new runtime dependencies** (rembg ran in a throwaway `/tmp` venv), **no invented content** (no About/FAQ/Contact pages, no fabricated Instagram posts or shipping FAQs).
+
+### 24.1 Decisions (user-confirmed before execution)
+
+1. **Florals = rembg AI background removal** (①): the 6 `assets/product-photos/*` images were cut out via `scripts/cutouts.py` (rembg, alpha-bbox trimmed) → committed as `public/florals/*.png`. The soft-mask fallback was not needed.
+2. **About/FAQ/Contact/Privacy/Terms skip this phase** (②): nav/footer link only existing routes — the do-not-invent-content rule wins over the design doc's link list.
+3. **Instagram showcase is gated** (③): renders only when `NEXT_PUBLIC_INSTAGRAM_URL` is set **and** tiles exist in `public/instagram/` — no fake posts. Same gate for WhatsApp/email socials (`NEXT_PUBLIC_WHATSAPP_URL`, `NEXT_PUBLIC_CONTACT_EMAIL`, added to `.env.example`).
+4. **Trust strip kept** (④): not in the design doc, but shipped in Phase 9 — restyled quiet on cream instead of removed.
+5. **Product accordions = DESCRIPTION + DETAILS only** (⑤): no invented shipping/care/returns copy. The near-ATC line "Free shipping on all orders." was verified true first (`Order.shipping @default(0)` — checkout shows FREE).
+6. **Standing no-downgrade rule**: wishlist, header search, card star ratings (a Phase 10 guarantee enforced by unit + E2E), the admin revenue chart and forgot/reset password all stay. The design doc's "no ratings on cards" note was overridden by this rule.
+
+### 24.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | No transparent florals for editorial layouts | `scripts/cutouts.py` (rembg, CPU) maps 6 sources → `public/florals/{sunflower,sunflower-02,sunflower-03,lily,duck,duck-01}.png`; the whole `public/` dir was previously untracked and is now committed (CI E2E serves these files) | `scripts/cutouts.py`, `public/florals/` |
+| 2 | Design-doc tokens missing (motions, spacing, focus) | `globals.css`: `--dur-fast/standard/comfort/editorial` (150/250/400/700ms), `--ease-ui/media/organic`, spacing `--space-1..12` (4→120px), `--container-max: 1280px`, `--header-h-desktop/mobile` (80/64), global `:focus-visible` sage outline, global `prefers-reduced-motion: reduce` kill-switch, **`--color-muted: #6F786F → #656E65`** (contrast, §24.7) | `src/app/globals.css` |
+| 3 | Header/menu/footer were Phase 9's shell, not the spec's | **Header** rewritten (h-16 md:h-20 = 64/80, Playfair wordmark, primary nav Home/Shop/[Wishlist when signed in]/account, `action="/search"` form kept, CartBadge); **MobileMenu** rewritten as a full-screen cream overlay (`fixed inset-0 z-50`, `role="dialog"` + `aria-modal`, Escape, body-scroll lock, focus-on-open, primary/secondary groups + search); **Footer** rewritten (cream, wordmark + "Handmade pieces, made to be cherished.", SHOP/ACCOUNT columns linking only live routes, gated social row, `© {year} Girah` + trust line) | `src/components/shared/{Header,MobileMenu,Footer}.tsx` |
+| 4 | Homepage was the Phase 9 editorial, not the design doc's | New `src/components/storefront/home/{Hero,MagazineGrid,ImmersiveBouquet,ClosingCta,InstagramShowcase}.tsx`; `page.tsx` rewritten (hero → magazine → featured trio `FIND SOMETHING TO CHERISH` `slice(0,3)` with 01/02/03 → trust strip restyled → scroll-driven immersive → closing CTA → gated Instagram); categories section **removed**, `getWishlistProductIds` kept; `Button` BASE gained `uppercase tracking-[0.02em]`; `ProductCard` gained `priority` (first home card = LCP) with the star rating **restored** | `src/app/(storefront)/page.tsx`, `home/*.tsx`, `src/components/ui/Button.tsx`, `ProductCard.tsx` |
+| 5 | Product page had no accordions or post-ATC drawer | New **`Accordion`** (`aria-expanded`/`aria-controls`, +/−, `border-t` dividers) and **`MiniCartDrawer`** (`role="dialog"`, Escape, backdrop, scroll lock, `role="status"` totals, View Cart/Continue Shopping, desktop right drawer / mobile bottom sheet); **`PurchasePanel`** rewritten: DESCRIPTION (open) + DETAILS accordions, free-shipping line, `aria-pressed` variation buttons, IntersectionObserver mobile sticky ATC (`lg:hidden`), success opens the drawer, `role="alert"` error feedback | `src/components/storefront/{Accordion,MiniCartDrawer,PurchasePanel}.tsx` |
+| 6 | Spec copy missing across the funnel | Copy passes: cart (empty-state verbatim + uppercase CTAs + 20px Total), checkout h1, confirmation (sage glyph, `Total:` prefix, uppercase links — its Phase 3 state-machine messages kept), LoginForm/RegisterForm, account dashboard (bordered 2×2 blocks: Orders/Profile/Saved Shipping/**Wishlist**), profile/addresses/orders h1s `+= uppercase`, shop intro "Discover handmade pieces, made with care." + uppercase empty states + Clear Search/Clear Filters, 9 form files `+= uppercase tracking-[0.02em]` | cart/checkout/confirmation/shop/search/account pages, 9 form components |
+| 7 | No structured data | JSON-LD: product page (`Product` + `aggregateRating` + PKR `offers` + Brand Girah), home (`WebSite` + `Organization` `@graph`), shop (`BreadcrumbList`) | `product/[slug]/page.tsx`, `page.tsx`, `shop/page.tsx` |
+| 8 | Nothing guarded the new surface | New `tests/unit/design-phase16.test.ts` (**33**: floral assets, tokens, reduced-motion, homepage copy/single-h1/sections, gated Instagram, header/menu/footer wiring, accordions/drawer, spec copy, JSON-LD shapes); two guards re-aimed — `storefront-shell` homepage `getCategories` → `getWishlistProductIds`, `wishlist-search` header wishlist link now `href: "/wishlist"` (nav config object); E2E **section 20** (**28** checks) | `tests/`, `scripts/e2e.mjs` |
+
+### 24.3 Behaviour worth knowing before touching this code
+
+- **Header height is 64px mobile / 80px desktop** (`h-16 md:h-20`, matching `--header-h-*` in CSS). The mobile menu is a full-screen overlay, not a dropdown — it holds its own copy of the search form (still `action="/search"`).
+- **`ImmersiveBouquet` is the only client component on the homepage** (scroll-driven `--bouquet-scale`); everything else is server-rendered. The global reduced-motion rule parks the scrub and any marquee.
+- **`InstagramShowcase` returns `null`** unless the env var is set — the E2E asserts `FOLLOW GIRAH` is **absent**, so adding a real showcase must add the env/tiles together.
+- **The mini-cart drawer only exists in client state after a successful ATC.** E2E is HTTP-level (`callAction`), so the drawer can never break those tests — its behaviour is unit-guarded + manual (§24.5).
+- **Card star ratings are contract, not styling**: `reviews`/`wishlist-search` unit guards and the E2E "shop card shows the star line after approval" prevent a future design pass from removing them (§24.7 ①).
+- **`--color-muted: #656E65` is a deliberate deviation** from the spec's `#6F786F` (4.30:1 on cream fails AA; 656E65 measures 4.98/4.52) — the reason is a comment in `globals.css`.
+- **E2E "exactly one `<h1>`" and "exactly two `>Shop Handmade</a>`" depend on counting *rendered* HTML**: the RSC flight payload inside inline `<script>`s duplicates text nodes (same trap family as the `&quot;` escapes). Always strip scripts (`visibleHtml`) or count markup anchors.
+- **Florals are served through `next/image`** (`/_next/image?url=%2Fflorals%2F…`), so assert on the substring `florals`, not `src="/florals/…"`. The raw file still resolves 200 directly.
+- **`initial design/` must never be committed** — always `git add -A -- . ':!initial design'`.
+
+### 24.4 Tests & gate
+
+- Unit **301 → 334** (20 files): new `tests/unit/design-phase16.test.ts` (**33**) — florals exist + SVG boilerplate guard untouched, token presence (motion/spacing/header dims), reduced-motion + focus-visible, homepage locked copy + single h1 + sections + gated IG, header/menu/footer (no dead links, gated socials), accordion/drawer presence + aria, spec copy across cart/checkout/confirmation/auth/account/shop/search, JSON-LD shapes; plus the two re-aimed guards noted in §24.2 row 8.
+- Integration **257** (33 files) — unchanged: Phase 16 touched no data layer.
+- Gate: `npm run test` **591/591** (334 unit / 20 files + 257 integration / 33 files) · `tsc --noEmit` clean · `eslint .` **0/0** · `prisma validate` + `migrate status` (**10**, unchanged — no migration) · `npm run build` green (routes unchanged, +0) · **smoke 21/21 + E2E 279/279** (section 20 = 28 new checks: locked hero copy/subtext, old copy gone, single h1, hero-CTA count, magazine/closing copy, old sage band + category chips gone, trust strip, immersive hook + message, gated Instagram, WebSite JSON-LD, footer brand sentence + no dead links, Home nav, florals served, open Description accordion, free-shipping line, `aria-pressed`, product JSON-LD, shop intro + BreadcrumbList, login guest hatch, account blocks) on the new build (server pid 28041, `ss`-verified) · post-run leftover query **0** (wishlist rows, tokens, e2e users, stray orders, e2e products).
+- Regression watch held: `catalog-filters`, `client-forms-guard`, `reviews`, `storefront-shell`, `wishlist-search`, `account-actions`, `webhook`, `email-hooks`, `password-reset` all green.
+
+### 24.5 Manual browser checklist (needs a human; server on `:3100`)
+
+1. **Homepage**: hero florals layered on cream, exactly one `h1`, "Shop Handmade" (hero + closing) → `/shop`; magazine 60/40 grid with layered florals; trust strip quiet on cream; immersive bouquet scrubs on scroll (**and does not** with OS reduced-motion on); closing CTA; **no** Instagram section while `NEXT_PUBLIC_INSTAGRAM_URL` is unset (set it + drop tiles into `public/instagram/` to see it).
+2. **Header**: 80px desktop / 64px mobile; hamburger → full-screen cream menu; Escape/backdrop close; body scroll locked while open; search posts to `/search`; **Wishlist** nav entry only when signed in.
+3. **Footer**: brand sentence, SHOP/ACCOUNT columns link only live routes; socials appear only when the three env vars are set; `© 2026 Girah`.
+4. **Product page**: Description open / Details closed (±, `aria-expanded`), free-shipping line, variation buttons toggle `aria-pressed`, ATC success → mini-cart drawer (right on desktop / bottom sheet on mobile, Escape + backdrop close, totals in `role="status"`); mobile sticky ATC bar slides in when the main ATC scrolls off-screen.
+5. **Copy sweep**: cart empty state, checkout h1, login/register (`WELCOME BACK`-style uppercase via CSS), account 2×2 blocks incl. Wishlist, shop intro + "No matches" empty state, confirmation `Total:` line.
+6. **View-source**: JSON-LD on `/`, `/shop`, and a product page.
+7. Then walk the deferred checklists from earlier phases in the same sitting: **§14.5, §15.5, §17.5, §18.5, §19.5, §20.5, §21.5, §22.5, §23.5**.
+
+### 24.6 Errors hit in Phase 16 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | E2E crash: `ReferenceError: productPath is not defined` at section 20 | `productPath` was a `const` inside section 14's block scope, invisible to section 20 | build the URL inline: `` get(`/product/${fixtureProduct.slug}`) `` |
+| 2 | Section-20 check failed: CTA count was **4**, expected 2 | the RSC flight payload in inline `<script>`s duplicates every text node | count `>Shop Handmade</a>` (rendered anchors only) — same family as the `&quot;` trap |
+| 3 | The crash skipped E2E's in-script cleanup → orphans blocked a clean leftover state (4 e2e products, 2 e2e users, and **99** stray orders accumulated across earlier phases' runs) | cleanup only runs when the script reaches the end | one-off sweep `/tmp/opencode/e2e-sweep.js` (not committed); FK order matters — orders → adjustments → carts → reviews-by-doomed-user → tokens → wishlists → users → products; narrowed the doomed-user set so `dev-customer`'s seed review survives; then a full rerun |
+| 4 | Sweep died: `23001 … Review_userId_fkey RESTRICT` on `user.deleteMany` | the blanket `text startsWith "E2E"` review filter didn't match every review owned by doomed users | fetch doomed user ids first, `review.deleteMany({ userId: { in } })`, then delete the users |
+| 5 | `Cannot find module '@prisma/client'` running the sweep | the script lives in `/tmp`, outside the project | run with `NODE_PATH=<repo>/node_modules` |
+| 6 | Two self-inflicted unit-guard failures (a comment contained the word "Shipping"; the search-empty assertion assumed quoted markup) | over-broad literal matching against source | narrowed the comment assertion; search asserted by the literal `No matches` |
+| 7 | Each rembg cutout took ~3 min (CPU onnxruntime) | no GPU in this environment | acceptable for a one-off asset pipeline; `scripts/cutouts.py` is committed so the PNGs are reproducible |
+
+### 24.7 Decisions recorded
+
+- **Card star ratings stay** — the no-downgrade rule overrides the design doc's "no ratings on cards"; both a unit guard and an E2E check now make removal impossible by accident.
+- **`--color-muted #656E65` is a documented deviation** from spec `#6F786F` (AA contrast on cream), recorded inline in `globals.css` — do not "restore" the spec value.
+- **No About/FAQ/Contact/Privacy/Terms pages** were invented; the nav/footer link only what exists. Revisit only with real content (user directive ②).
+- **Instagram stays gated** — three social env vars in `.env.example`, no fabricated posts; the showcase + its socials render only when the owner supplies real assets.
+- **DESCRIPTION + DETAILS only** — no invented shipping/returns/care copy; the one shipping claim on the page ("Free shipping on all orders.") was verified against `Order.shipping @default(0)` before being written.
+- **Florals are committed** (`public/florals/*.png`, derived from the repo's own `assets/product-photos` via `scripts/cutouts.py`); `public/` was previously untracked — it is now part of the repo because CI's E2E section 20 fetches those files.
+- **No schema change, no new runtime dependencies, no new routes** — Phase 16 is presentation-only; rembg ran in a throwaway `/tmp` venv.
+- `initial design/` stays uncommitted forever: `git add -A -- . ':!initial design'`.
+- The deferred manual pass is now a single sitting: **§14.5–§23.5 + §24.5** (§9).

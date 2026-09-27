@@ -31,7 +31,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 
   return (
     <div className="max-w-[420px] mx-auto px-4 py-16">
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal text-center">
+      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal text-center uppercase">
         Welcome Back
       </h1>
       <p className="font-body text-body text-muted text-center mt-4">Sign in to your account</p>
@@ -70,7 +70,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full h-12 rounded-[var(--radius-control)] font-body text-button font-semibold bg-sage text-cream disabled:opacity-60"
+          className="w-full h-12 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage text-cream disabled:opacity-60"
         >
           {isPending ? "Signing in…" : "Sign In"}
         </button>

@@ -13,7 +13,7 @@ const SIZES = {
 } as const;
 
 const BASE =
-  "inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] font-body text-button font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:opacity-60 disabled:cursor-not-allowed";
+  "inline-flex items-center justify-center gap-2 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sage focus-visible:ring-offset-2 focus-visible:ring-offset-cream disabled:opacity-60 disabled:cursor-not-allowed";
 
 export type ButtonVariant = keyof typeof VARIANTS;
 export type ButtonSize = keyof typeof SIZES;

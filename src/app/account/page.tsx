@@ -16,28 +16,68 @@ export default async function AccountPage() {
   return (
     <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Account" }]} />
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">My Account</h1>
+      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase">
+        My Account
+      </h1>
       <p className="font-body text-body text-muted mt-2">Welcome back, {session.user.name}</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-        <Link href="/account/orders" className="bg-sage-light rounded-[var(--radius-surface)] p-6 hover:bg-sage-light/70">
-          <h2 className="font-body text-card-title text-charcoal">Orders</h2>
+        <Link
+          href="/account/orders"
+          className="border border-border bg-sage-light rounded-[var(--radius-surface)] p-8 hover:bg-sage-light/70 transition-colors"
+        >
+          <h2 className="font-body text-card-title uppercase tracking-[0.04em] text-charcoal">
+            Orders
+          </h2>
           <p className="font-body text-small text-muted mt-2">View your previous purchases</p>
+          <span className="font-body text-small font-medium text-sage mt-4 inline-block">
+            View&nbsp;→
+          </span>
         </Link>
-        <Link href="/account/profile" className="bg-sage-light rounded-[var(--radius-surface)] p-6 hover:bg-sage-light/70">
-          <h2 className="font-body text-card-title text-charcoal">Profile</h2>
+        <Link
+          href="/account/profile"
+          className="border border-border bg-sage-light rounded-[var(--radius-surface)] p-8 hover:bg-sage-light/70 transition-colors"
+        >
+          <h2 className="font-body text-card-title uppercase tracking-[0.04em] text-charcoal">
+            Profile
+          </h2>
           <p className="font-body text-small text-muted mt-2">Manage your account information</p>
+          <span className="font-body text-small font-medium text-sage mt-4 inline-block">
+            Edit&nbsp;→
+          </span>
         </Link>
-        <Link href="/account/addresses" className="bg-sage-light rounded-[var(--radius-surface)] p-6 hover:bg-sage-light/70">
-          <h2 className="font-body text-card-title text-charcoal">Shipping Address</h2>
-          <p className="font-body text-small text-muted mt-2">Save the address checkout fills in for you</p>
+        <Link
+          href="/account/addresses"
+          className="border border-border bg-sage-light rounded-[var(--radius-surface)] p-8 hover:bg-sage-light/70 transition-colors"
+        >
+          <h2 className="font-body text-card-title uppercase tracking-[0.04em] text-charcoal">
+            Saved Shipping
+          </h2>
+          <p className="font-body text-small text-muted mt-2">
+            Save the address checkout fills in for you
+          </p>
+          <span className="font-body text-small font-medium text-sage mt-4 inline-block">
+            Manage&nbsp;→
+          </span>
+        </Link>
+        <Link
+          href="/wishlist"
+          className="border border-border bg-sage-light rounded-[var(--radius-surface)] p-8 hover:bg-sage-light/70 transition-colors"
+        >
+          <h2 className="font-body text-card-title uppercase tracking-[0.04em] text-charcoal">
+            Wishlist
+          </h2>
+          <p className="font-body text-small text-muted mt-2">Pieces you&apos;ve saved for later</p>
+          <span className="font-body text-small font-medium text-sage mt-4 inline-block">
+            View&nbsp;→
+          </span>
         </Link>
       </div>
 
       <form action={logout} className="mt-8">
         <button
           type="submit"
-          className="h-12 px-6 rounded-[var(--radius-control)] font-body text-button font-semibold bg-sage-light text-charcoal"
+          className="h-12 px-6 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage-light text-charcoal"
         >
           Log Out
         </button>

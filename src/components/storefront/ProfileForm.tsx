@@ -92,7 +92,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <button
           type="submit"
           disabled={isPending}
-          className="h-12 px-6 rounded-[var(--radius-control)] font-body text-button font-semibold bg-sage text-cream disabled:opacity-60"
+          className="h-12 px-6 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage text-cream disabled:opacity-60"
         >
           {isPending ? "Saving…" : "Save Changes"}
         </button>
@@ -139,7 +139,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           <button
             type="submit"
             disabled={isPasswordPending}
-            className="h-12 px-6 rounded-[var(--radius-control)] font-body text-button font-semibold bg-sage-light text-charcoal disabled:opacity-60"
+            className="h-12 px-6 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage-light text-charcoal disabled:opacity-60"
           >
             {isPasswordPending ? "Changing…" : "Change Password"}
           </button>

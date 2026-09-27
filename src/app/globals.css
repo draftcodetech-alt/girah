@@ -11,7 +11,10 @@
 
   /* ── UI tokens ── */
   --color-border: #D8DED6;
-  --color-muted: #6F786F;
+  /* Spec's #6F786F measured 4.30:1 on cream — fails WCAG AA (4.5) for body
+     text; nudged to #656E65 (4.98 cream / 4.52 sage-light), visually the
+     same muted gray-green. Deliberate a11y deviation. */
+  --color-muted: #656E65;
   --color-placeholder: #8A928A;
 
   /* ── Semantic colors — never used as primary brand color ── */
@@ -53,12 +56,63 @@
   --shadow-subtle: 0 2px 8px rgba(41, 48, 43, 0.08);
   --shadow-elevated: 0 8px 24px rgba(41, 48, 43, 0.12);
 
+  /* ── Easing (design spec: UI=ease-out, media=ease-in-out, editorial=smooth) ── */
+  --ease-ui: ease-out;
+  --ease-media: ease-in-out;
+  --ease-organic: cubic-bezier(0.33, 0, 0.15, 1);
+
   /* Breakpoints: Tailwind v4 defaults (640/768/1024/1280) are used
      as-is — intentionally not overridden. */
+}
+
+:root {
+  /* ── Motion durations: fast 150 / standard 250 / comfort 400 / editorial 700 ── */
+  --dur-fast: 150ms;
+  --dur-standard: 250ms;
+  --dur-comfort: 400ms;
+  --dur-editorial: 700ms;
+
+  /* ── Spacing scale (4 → 120px) ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 40px;
+  --space-8: 48px;
+  --space-9: 64px;
+  --space-10: 80px;
+  --space-11: 96px;
+  --space-12: 120px;
+
+  /* ── Global dimensions ── */
+  --container-max: 1280px;
+  --header-h-desktop: 80px;
+  --header-h-mobile: 64px;
 }
 
 body {
   background: var(--color-cream);
   color: var(--color-charcoal);
   font-family: var(--font-body);
+}
+
+/* Focus: visible Deep Sage ring on everything interactive (never color-only) */
+:focus-visible {
+  outline: 2px solid var(--color-sage);
+  outline-offset: 2px;
+}
+
+/* Reduced motion: kill scroll-driven florals, entry animations, hover movement.
+   Essential info never depends on animation. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -36,7 +36,9 @@ export default async function OrderConfirmationPage({
 
   return (
     <div className="max-w-[600px] mx-auto px-4 py-16 text-center">
-      <p className="text-h3">{glyph}</p>
+      <p className="text-[36px] leading-none text-sage" aria-hidden="true">
+        {glyph}
+      </p>
       <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal mt-4">
         {view.heading}
       </h1>
@@ -57,7 +59,7 @@ export default async function OrderConfirmationPage({
       <p className="font-body text-small font-semibold text-sage mt-6 tracking-wide">
         #{order.orderNumber}
       </p>
-      <p className="font-body text-card-title text-charcoal mt-1">{formatPrice(order.total)}</p>
+      <p className="font-body text-card-title text-charcoal mt-1">Total: {formatPrice(order.total)}</p>
 
       <div className="bg-sage-light rounded-[var(--radius-surface)] p-6 mt-8 text-left">
         <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-charcoal mb-4">
@@ -81,7 +83,7 @@ export default async function OrderConfirmationPage({
         <form action={startSafepayRetry.bind(null, order.id)} className="mt-6">
           <button
             type="submit"
-            className="inline-block h-12 px-8 rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold"
+            className="inline-block h-12 px-8 rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold uppercase tracking-[0.02em]"
           >
             Pay Now
           </button>
@@ -90,7 +92,7 @@ export default async function OrderConfirmationPage({
 
       <Link
         href="/shop"
-        className="inline-block mt-8 h-12 px-6 leading-[48px] rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold"
+        className="inline-block mt-8 h-12 px-6 leading-[48px] rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold uppercase tracking-[0.02em]"
       >
         Continue Shopping
       </Link>

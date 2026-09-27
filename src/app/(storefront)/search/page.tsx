@@ -1,5 +1,6 @@
 import { getProducts } from "@/modules/catalog";
 import type { SortOption } from "@/modules/catalog";
+import Link from "next/link";
 import { getWishlistProductIds } from "@/modules/wishlist";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { SortSelect } from "@/components/storefront/SortSelect";
@@ -70,7 +71,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
       {products.length === 0 ? (
         <div className="text-center py-24">
-          <h2 className="font-[family-name:var(--font-display)] text-h3 text-charcoal">
+          <h2 className="font-[family-name:var(--font-display)] text-h3 text-charcoal uppercase tracking-[0.04em]">
             No matches
           </h2>
           <p className="font-body text-body text-muted mt-4">
@@ -78,6 +79,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
               ? `We couldn't find anything for "${query}".`
               : "Try a different word, or browse the shop."}
           </p>
+          <div className="mt-6">
+            <Link
+              href="/search"
+              className="inline-block h-12 px-6 leading-[48px] rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold uppercase tracking-[0.02em] hover:bg-charcoal transition-colors"
+            >
+              Clear Search
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">

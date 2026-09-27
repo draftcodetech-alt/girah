@@ -91,7 +91,7 @@ export function ResetPasswordForm({ token }: { token?: string }) {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full h-12 rounded-[var(--radius-control)] font-body text-button font-semibold bg-sage text-cream disabled:opacity-60"
+          className="w-full h-12 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage text-cream disabled:opacity-60"
         >
           {isPending ? "Updating…" : "Update Password"}
         </button>

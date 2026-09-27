@@ -37,6 +37,42 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const wished = new Set(wishedIds);
   const related = categoryProducts.filter((item) => item.slug !== product.slug).slice(0, 4);
 
+  // Structured data (research: Product + aggregateRating materially lifts
+  // CTR for niche stores). Price is integer paisa — divided to PKR here.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const productUrl = `${appUrl}/product/${product.slug}`;
+  const purchasable = product.variations.filter((v) => v.isEnabled && v.stock > 0);
+  const priced = product.variations.filter((v) => v.isEnabled);
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image: product.images.map((image) => image.url),
+    description: product.description,
+    brand: { "@type": "Brand", name: "Girah" },
+    url: productUrl,
+    ...(summary.rating.count > 0 &&
+      summary.rating.average !== null && {
+        aggregateRating: {
+          "@type": "AggregateRating",
+          ratingValue: summary.rating.average,
+          reviewCount: summary.rating.count,
+        },
+      }),
+    ...(priced.length > 0 && {
+      offers: {
+        "@type": "Offer",
+        url: productUrl,
+        priceCurrency: "PKR",
+        price: (Math.min(...priced.map((v) => v.price)) / 100).toFixed(0),
+        availability:
+          purchasable.length > 0
+            ? "https://schema.org/InStock"
+            : "https://schema.org/OutOfStock",
+      },
+    }),
+  };
+
   return (
     <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
       <Breadcrumbs
@@ -161,6 +197,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
           </div>
         </section>
       )}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
     </div>
   );
 }

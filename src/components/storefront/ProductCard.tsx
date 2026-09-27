@@ -8,9 +8,11 @@ type ProductCardProps = {
   product: ProductListItem;
   number?: string; // e.g. "01" — homepage editorial numbering only
   wishlisted?: boolean;
+  /** LCP hint — first homepage card only. */
+  priority?: boolean;
 };
 
-export function ProductCard({ product, number, wishlisted }: ProductCardProps) {
+export function ProductCard({ product, number, wishlisted, priority }: ProductCardProps) {
   return (
     <div className="relative">
       <Link
@@ -29,6 +31,7 @@ export function ProductCard({ product, number, wishlisted }: ProductCardProps) {
               src={product.mainImageUrl}
               alt={product.name}
               fill
+              priority={priority}
               className="object-cover transition-transform duration-300 ease-out group-hover:scale-105"
               sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
             />
@@ -46,6 +49,9 @@ export function ProductCard({ product, number, wishlisted }: ProductCardProps) {
         </div>
 
         <h3 className="font-body text-card-title text-charcoal mt-4">{product.name}</h3>
+        {/* Reviews-on-cards is a Phase 10 storefront guarantee (E2E:
+            "shop card shows the star line after approval") — kept despite the
+            design doc's card-minimalism note: no downgrades. */}
         {product.ratingCount > 0 && (
           <span
             className="mt-1.5 flex items-center gap-1.5 font-body text-small text-sage"

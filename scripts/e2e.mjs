@@ -1940,6 +1940,91 @@ const p13Orders = [];
   );
 }
 
+// ── 20. Phase 16: design & polish — applied spec ───────────────────────────
+{
+  const home = await get("/");
+  check(
+    "homepage hero carries the locked headline",
+    home.status === 200 && home.html.includes("Handmade Pieces, Made to Be Cherished."),
+    `${home.status}`
+  );
+  check(
+    "homepage hero subtext is the spec line",
+    home.html.includes("From lasting blooms to little keepsakes, every piece is made with care.")
+  );
+  check("the old hero copy is gone", !home.html.includes("one stitch at a time"));
+  check(
+    "homepage renders exactly one h1",
+    (home.html.match(/<h1/g) ?? []).length === 1,
+    String((home.html.match(/<h1/g) ?? []).length)
+  );
+  check("single hero CTA text (hero + closing only)", (home.html.match(/>Shop Handmade<\/a>/g) ?? []).length === 2, String((home.html.match(/>Shop Handmade<\/a>/g) ?? []).length));
+  check("featured section uses the locked heading", home.html.includes("FIND SOMETHING TO CHERISH"));
+  check("magazine grid copy ships", home.html.includes("HANDMADE") && home.html.includes("FROM YARN"));
+  check(
+    "closing CTA eyebrow + statement ship",
+    home.html.includes("A SMALL GIRAH MOMENT") && home.html.includes("Handmade things,")
+  );
+  check(
+    "the old sage CTA band and category chips are gone",
+    !home.html.includes("Start shopping") && !home.html.includes("Shop by category")
+  );
+  check("trust strip is present", home.html.includes("Why shop with Girah"));
+  check("immersive bouquet ships its scroll-driven hook", home.html.includes("--bouquet-scale"));
+  check("immersive message copy ships", home.html.includes("with care in every stitch."));
+  check("Instagram showcase stays gated without real assets", !home.html.includes("FOLLOW GIRAH"));
+  check(
+    "home ships WebSite/Organization structured data",
+    home.html.includes("application/ld+json") && home.html.includes('"@type":"WebSite"'),
+    (home.html.match(/"@type":"\w+"/g) ?? ["no ld+json"])[0]
+  );
+  check("footer carries the brand sentence", home.html.includes("Handmade pieces, made to be cherished."));
+  check(
+    "footer never links unbuilt pages",
+    !home.html.includes('href="/about"') &&
+      !home.html.includes('href="/faq"') &&
+      !home.html.includes('href="/contact"')
+  );
+  check("header links Home", home.html.includes(">Home</a>"));
+  check("floral cutouts are served through the app", home.html.includes("florals"));
+  check("floral file itself resolves 200", (await get("/florals/sunflower.png")).status === 200);
+
+  const product = await get(`/product/${fixtureProduct.slug}`);
+  check(
+    "product page renders an open Description accordion",
+    product.status === 200 && product.html.includes('aria-expanded="true"'),
+    `${product.status}`
+  );
+  check("product accordions ship Description + Details", product.html.includes("Description") && product.html.includes("Details"));
+  check("free shipping estimate sits near the buy action", product.html.includes("Free shipping on all orders."));
+  check("variation buttons expose aria-pressed", product.html.includes('aria-pressed="false"'));
+  check(
+    "product JSON-LD ships with offer data",
+    product.html.includes('"@type":"Product"') && product.html.includes("priceCurrency")
+  );
+
+  const shop = await get("/shop");
+  check("shop intro matches the spec", shop.html.includes("Discover handmade pieces, made with care."));
+  check("shop ships BreadcrumbList structured data", shop.html.includes('"@type":"BreadcrumbList"'));
+
+  const loginPage = await get("/login");
+  check(
+    "login keeps the spec guest escape hatch",
+    loginPage.status === 200 && loginPage.html.includes("Continue as Guest"),
+    `${loginPage.status}`
+  );
+
+  const account = await get("/account", loginJar);
+  check(
+    "account dashboard ships the editorial blocks incl. wishlist",
+    account.status === 200 &&
+      account.html.includes('href="/account/orders"') &&
+      account.html.includes('href="/account/addresses"') &&
+      account.html.includes('href="/wishlist"'),
+    `${account.status}`
+  );
+}
+
 // ── cleanup ─────────────────────────────────────────────────────────────────
 await wipeUserCart(customer.id);
 await db.cart.deleteMany({ where: { guestId: { startsWith: "e2e-guest-" } } });

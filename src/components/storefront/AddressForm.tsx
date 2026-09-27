@@ -93,7 +93,7 @@ export function AddressForm({ address }: { address: SavedShippingView | null }) 
           <button
             type="submit"
             disabled={isPending || isDeleting}
-            className="h-12 px-6 rounded-[var(--radius-control)] font-body text-button font-semibold bg-sage text-cream disabled:opacity-60"
+            className="h-12 px-6 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage text-cream disabled:opacity-60"
           >
             {isPending ? "Saving…" : "Save Address"}
           </button>

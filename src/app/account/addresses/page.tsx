@@ -21,7 +21,7 @@ export default async function AddressesPage() {
           { label: "Shipping Address" },
         ]}
       />
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">
+      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase">
         Shipping Address
       </h1>
       <p className="font-body text-body text-muted mt-2">

@@ -1,106 +1,130 @@
-import Link from "next/link";
-import { getCategories, getProducts } from "@/modules/catalog";
+import { getProducts } from "@/modules/catalog";
 import { getWishlistProductIds } from "@/modules/wishlist";
 import { ProductCard } from "@/components/storefront/ProductCard";
-import { ButtonLink } from "@/components/ui/ButtonLink";
+import { Hero } from "@/components/storefront/home/Hero";
+import { MagazineGrid } from "@/components/storefront/home/MagazineGrid";
+import { ImmersiveBouquet } from "@/components/storefront/home/ImmersiveBouquet";
+import { ClosingCta } from "@/components/storefront/home/ClosingCta";
+import { InstagramShowcase } from "@/components/storefront/home/InstagramShowcase";
 
 const TRUST_POINTS = [
   {
     title: "Handmade to order",
     body: "Every piece is crocheted by hand in small batches — no two are ever exactly alike.",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="24"
+        height="24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M5 19c8 0 14-6 14-14-8 0-14 6-14 14z" />
+        <path d="M5 19c0-4 2-8 6-10" />
+      </svg>
+    ),
   },
   {
     title: "Cash on delivery",
     body: "Prefer to pay when your order arrives? Cash on delivery is available nationwide.",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="24"
+        height="24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <rect x="3" y="7" width="18" height="10" rx="2" />
+        <circle cx="12" cy="12" r="2.5" />
+      </svg>
+    ),
   },
   {
     title: "Secure online payment",
     body: "Prefer cards? Pay online through Safepay, with payments verified server-side.",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        width="24"
+        height="24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" />
+      </svg>
+    ),
   },
 ];
 
 export default async function Home() {
-  const [categories, products, wishedIds] = await Promise.all([
-    getCategories(),
+  const [products, wishedIds] = await Promise.all([
     getProducts({ sort: "featured" }),
     getWishlistProductIds(),
   ]);
   const wished = new Set(wishedIds);
-  // Featured grid is capped; "featured" has no admin flag yet (catalog order).
-  const featured = products.slice(0, 6);
+  // Featured is a curated trio per the design spec; the full catalog lives
+  // on /shop ("featured" has no admin flag yet — catalog order).
+  const featured = products.slice(0, 3);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const siteJsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        name: "Girah",
+        url: appUrl,
+        description: "Handmade pieces, made to be cherished.",
+      },
+      {
+        "@type": "Organization",
+        name: "Girah",
+        url: appUrl,
+        description: "Handmade crochet pieces — bouquets, keychains and keepsakes.",
+      },
+    ],
+  };
 
   return (
     <div>
-      <section className="bg-sage-light">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-20 md:py-28">
-          <p className="font-body text-label font-semibold tracking-[0.12em] uppercase text-sage">
-            Handmade crochet
-          </p>
-          <h1 className="font-[family-name:var(--font-display)] text-display text-charcoal mt-4 max-w-[760px]">
-            Pieces made by hand, one stitch at a time.
-          </h1>
-          <p className="font-body text-body text-muted mt-6 max-w-[560px]">
-            Bouquets that never wilt, keychains with character — crafted slowly in Pakistan and
-            shipped to your door.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-4">
-            <ButtonLink href="/shop">Shop the collection</ButtonLink>
-            <ButtonLink href="/shop?sort=newest" variant="outline">
-              What&apos;s new
-            </ButtonLink>
-          </div>
-        </div>
-      </section>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd) }}
+      />
+      <Hero />
+      <MagazineGrid />
 
-      {categories.length > 0 && (
-        <section aria-labelledby="home-categories" className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-16">
+      <section aria-labelledby="home-featured" className="bg-cream pb-16">
+        <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8">
           <h2
-            id="home-categories"
-            className="font-[family-name:var(--font-display)] text-h2 text-charcoal"
+            id="home-featured"
+            className="font-[family-name:var(--font-display)] font-medium text-[32px] leading-[1.15] text-charcoal max-w-[500px] lg:text-[40px]"
           >
-            Shop by category
+            FIND SOMETHING TO CHERISH
           </h2>
-          <div className="mt-6 flex flex-wrap gap-3">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/shop?category=${category.slug}`}
-                className="h-10 px-5 inline-flex items-center rounded-[var(--radius-control)] border border-sage font-body text-small text-sage hover:bg-sage-light transition-colors"
-              >
-                {category.name}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section aria-labelledby="home-featured" className="bg-sage-light/50">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-16">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h2
-                id="home-featured"
-                className="font-[family-name:var(--font-display)] text-h2 text-charcoal"
-              >
-                Featured pieces
-              </h2>
-              <p className="font-body text-body text-muted mt-3">
-                A few favourites from the workshop.
-              </p>
-            </div>
-            <ButtonLink href="/shop" variant="outline" size="sm" className="shrink-0">
-              View all
-            </ButtonLink>
-          </div>
 
           {featured.length > 0 ? (
-            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
               {featured.map((product, index) => (
                 <ProductCard
                   key={product.id}
                   product={product}
                   number={String(index + 1).padStart(2, "0")}
                   wishlisted={wished.has(product.id)}
+                  priority={index === 0}
                 />
               ))}
             </div>
@@ -109,47 +133,33 @@ export default async function Home() {
               <p className="font-body text-body text-muted">
                 The workshop is being restocked — new pieces land here soon.
               </p>
-              <div className="mt-6 flex justify-center">
-                <ButtonLink href="/shop" variant="secondary" size="sm">
-                  Browse the shop
-                </ButtonLink>
-              </div>
             </div>
           )}
         </div>
       </section>
 
-      <section aria-labelledby="home-trust" className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-16">
-        <h2 id="home-trust" className="sr-only">
-          Why shop with Girah
-        </h2>
-        <ul className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {TRUST_POINTS.map((point) => (
-            <li
-              key={point.title}
-              className="rounded-[var(--radius-panel)] border border-border bg-cream p-6"
-            >
-              <h3 className="font-body text-card-title text-charcoal">{point.title}</h3>
-              <p className="font-body text-small text-muted mt-2">{point.body}</p>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="bg-sage text-cream">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-16 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div>
-            <h2 className="font-[family-name:var(--font-display)] text-h2">Made to be cherished</h2>
-            <p className="font-body text-body mt-3 max-w-[560px] text-cream/85">
-              Each order supports a small workshop that does things slowly, on purpose. Find a
-              piece for someone you love — or for yourself.
-            </p>
-          </div>
-          <ButtonLink href="/shop" variant="secondary" className="shrink-0">
-            Start shopping
-          </ButtonLink>
+      {/* Trust strip — not in the design doc, kept per research (trust
+          signals matter for handmade stores), restyled quiet on cream. */}
+      <section aria-labelledby="home-trust" className="bg-cream pb-16">
+        <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8">
+          <h2 id="home-trust" className="sr-only">
+            Why shop with Girah
+          </h2>
+          <ul className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {TRUST_POINTS.map((point) => (
+              <li key={point.title}>
+                <div className="text-sage">{point.icon}</div>
+                <h3 className="font-body text-card-title text-charcoal mt-3">{point.title}</h3>
+                <p className="font-body text-small text-muted mt-2 max-w-[340px]">{point.body}</p>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
+
+      <ImmersiveBouquet />
+      <ClosingCta />
+      <InstagramShowcase />
     </div>
   );
 }
