@@ -29,6 +29,42 @@ const db = new PrismaClient({
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3100";
 const TS = Date.now();
 
+// ── stale-fixture sweep ─────────────────────────────────────────────────────
+// A run that dies before reaching its cleanup block leaves fixtures behind.
+// They accumulate and eventually push this run's fresh fixtures past the
+// shop's 12-per-page window (default sort is createdAt asc), breaking
+// catalogue assertions. Runs at startup, before this run creates anything.
+async function sweepStaleFixtures() {
+  const stale = await db.product.findMany({
+    where: { slug: { startsWith: "e2e-" } },
+    select: { id: true, variations: { select: { id: true } } },
+  });
+  if (stale.length) {
+    const productIds = stale.map((p) => p.id);
+    const variationIds = stale.flatMap((p) => p.variations.map((v) => v.id));
+    // CartItem/OrderItem hold Restrict FKs to variations — clear them first.
+    await db.cartItem.deleteMany({ where: { variationId: { in: variationIds } } });
+    const staleOrders = await db.order.findMany({
+      where: { items: { some: { variationId: { in: variationIds } } } },
+      select: { id: true },
+    });
+    for (const order of staleOrders) {
+      await db.order.delete({ where: { id: order.id } }).catch(() => {});
+    }
+    // Variations/images/reviews/wishlists cascade from the product delete.
+    await db.product.deleteMany({ where: { id: { in: productIds } } }).catch(() => {});
+  }
+  // Orphaned register-test users from aborted runs (their carts cascade away).
+  const staleUsers = await db.user.findMany({
+    where: { email: { startsWith: "e2e-user-", endsWith: "@example.com" } },
+    select: { id: true },
+  });
+  for (const user of staleUsers) {
+    await db.user.delete({ where: { id: user.id } }).catch(() => {});
+  }
+}
+await sweepStaleFixtures();
+
 const results = [];
 function check(name, ok, detail = "") {
   results.push({ name, ok, detail });
@@ -1951,14 +1987,20 @@ const p13Orders = [];
 // ── 20. Phase 16: design & polish — applied spec ───────────────────────────
 {
   const home = await get("/");
+  // The h1 ships as two spans (mockup line break) — normalize tags and
+  // whitespace so the contiguous-copy locks apply to the rendered text.
+  const homeText = home.html
+    .replace(/<script[\s\S]*?<\/script>/g, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ");
   check(
     "homepage hero carries the locked headline",
-    home.status === 200 && home.html.includes("Handmade Pieces, Made to Be Cherished."),
+    home.status === 200 && homeText.includes("Handmade Pieces, Made to Be Cherished."),
     `${home.status}`
   );
   check(
     "homepage hero subtext is the spec line",
-    home.html.includes("From lasting blooms to little keepsakes, every piece is made with care.")
+    homeText.includes("From lasting blooms to little keepsakes, every piece is made with care.")
   );
   check("the old hero copy is gone", !home.html.includes("one stitch at a time"));
   check(
@@ -1966,7 +2008,11 @@ const p13Orders = [];
     (home.html.match(/<h1/g) ?? []).length === 1,
     String((home.html.match(/<h1/g) ?? []).length)
   );
-  check("single hero CTA text (hero + closing only)", (home.html.match(/>Shop Handmade<\/a>/g) ?? []).length === 2, String((home.html.match(/>Shop Handmade<\/a>/g) ?? []).length));
+  const htmlNoScripts = home.html.replace(/<script[\s\S]*?<\/script>/g, "");
+  const shopAnchors = [...htmlNoScripts.matchAll(/<a\s[^>]*>([\s\S]*?)<\/a>/g)]
+    .map((m) => m[1].replace(/<[^>]+>/g, "").trim())
+    .filter((text) => text === "Shop Handmade");
+  check("single hero CTA text (hero + closing only)", shopAnchors.length === 2, String(shopAnchors.length));
   check("featured section uses the locked heading", home.html.includes("FIND SOMETHING TO CHERISH"));
   check("magazine grid copy ships", home.html.includes("HANDMADE") && home.html.includes("FROM YARN"));
   check(

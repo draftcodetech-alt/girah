@@ -95,12 +95,18 @@ describe("Phase 16: homepage sections", () => {
   const instagram = readSource("src/components/storefront/home/InstagramShowcase.tsx");
 
   it("hero carries the locked copy and a single CTA", () => {
-    expect(hero).toContain("Handmade Pieces, Made to Be Cherished.");
+    // Headline ships as two spans (mockup line break) — assert both halves.
+    expect(hero).toContain("Handmade Pieces,");
+    expect(hero).toContain("Made to Be Cherished.");
     expect(hero).toContain("From lasting blooms to little keepsakes, every piece is made with care.");
     expect(hero).toContain("Shop Handmade");
     expect(hero).not.toContain("What's new");
     expect(hero.match(/<ButtonLink/g) ?? []).toHaveLength(1);
     expect(hero).toMatch(/min-h-\[80vh\]/);
+    expect(hero).toContain("HANDMADE WITH LOVE");
+    expect(hero).toContain("rounded-full");
+    expect(hero).not.toContain("florals/lily");
+    expect(hero).toContain("Girah");
   });
 
   it("ships the asymmetric magazine grid copy", () => {

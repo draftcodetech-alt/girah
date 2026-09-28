@@ -10,6 +10,9 @@ export async function Header() {
   const primaryLinks = [
     { label: "Home", href: "/" },
     { label: "Shop", href: "/shop" },
+    // Phase 17 content pages — both real routes (FAQ deliberately absent).
+    { label: "About", href: "/about" },
+    { label: "Contact", href: "/contact" },
     ...(session?.user ? [{ label: "Wishlist", href: "/wishlist" }] : []),
   ];
   const accountLink = session?.user
