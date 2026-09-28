@@ -14,7 +14,9 @@ export function CategoryTabs({ categories, activeSlug, searchParams }: CategoryT
   const buildHref = (slug?: string) => {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(searchParams ?? {})) {
-      if (key === "category") continue;
+      // Reset pagination on category change — a narrower set on a stale
+      // ?page= lands on an empty screen.
+      if (key === "category" || key === "page") continue;
       if (value) params.set(key, value);
     }
     if (slug) params.set("category", slug);

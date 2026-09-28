@@ -1,10 +1,16 @@
-import { getProducts } from "@/modules/catalog";
+import { getProducts, paginate, normalizePage } from "@/modules/catalog";
 import type { SortOption } from "@/modules/catalog";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getWishlistProductIds } from "@/modules/wishlist";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { SortSelect } from "@/components/storefront/SortSelect";
+import { Pagination } from "@/components/storefront/Pagination";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
+
+// Phase 17: thin, query-driven results pages must not compete with /shop in
+// the index (also listed in robots.txt).
+export const metadata: Metadata = { title: "Search", robots: { index: false, follow: false } };
 
 type SearchPageProps = {
   searchParams: Promise<{
@@ -13,6 +19,7 @@ type SearchPageProps = {
     minPrice?: string;
     maxPrice?: string;
     inStockOnly?: string;
+    page?: string;
   }>;
 };
 
@@ -24,7 +31,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const params = await searchParams;
   const query = typeof params.search === "string" ? params.search.trim() : "";
 
-  const [products, wishedIds] = await Promise.all([
+  const [allProducts, wishedIds] = await Promise.all([
     getProducts({
       search: query || undefined,
       sort: params.sort as SortOption | undefined,
@@ -37,9 +44,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const wished = new Set(wishedIds);
   // ONE template expression: React SSR splits adjacent text nodes with
   // <!-- --> comments, which would break exact-string assertions.
-  const countLabel = `${products.length} ${products.length === 1 ? "product" : "products"}${
+  // The label counts the TOTAL matches (not just the current page's slice).
+  const countLabel = `${allProducts.length} ${allProducts.length === 1 ? "product" : "products"}${
     query ? ` matching "${query}"` : ""
   }`;
+  const { items: products, page: currentPage, totalPages } = paginate(
+    allProducts,
+    normalizePage(params.page)
+  );
 
   return (
     <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
@@ -99,6 +111,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
           ))}
         </div>
       )}
+      <Pagination basePath="/search" params={params} page={currentPage} totalPages={totalPages} />
     </div>
   );
 }

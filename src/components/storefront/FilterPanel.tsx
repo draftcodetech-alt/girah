@@ -28,6 +28,9 @@ export function FilterPanel({ onApply }: { onApply?: () => void }) {
     } else {
       params.delete("inStockOnly");
     }
+    // Filter changes reset pagination (a smaller set on a stale ?page= is an
+    // empty screen).
+    params.delete("page");
     router.push(`/shop?${params.toString()}`);
     onApply?.();
   }
@@ -40,6 +43,7 @@ export function FilterPanel({ onApply }: { onApply?: () => void }) {
     params.delete("minPrice");
     params.delete("maxPrice");
     params.delete("inStockOnly");
+    params.delete("page");
     router.push(`/shop?${params.toString()}`);
     onApply?.();
   }

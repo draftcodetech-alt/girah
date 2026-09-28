@@ -15,9 +15,20 @@ type CheckoutFormProps = {
   defaultEmail?: string | null;
   /** Only signed-in users get the save-address checkbox. */
   showSaveOption?: boolean;
+  /**
+   * Server-provided: Safepay credentials are configured. Fail-closed —
+   * when false the online-payment option isn't rendered at all.
+   */
+  safepayEnabled?: boolean;
 };
 
-export function CheckoutForm({ cart, savedAddress, defaultEmail, showSaveOption }: CheckoutFormProps) {
+export function CheckoutForm({
+  cart,
+  savedAddress,
+  defaultEmail,
+  showSaveOption,
+  safepayEnabled = false,
+}: CheckoutFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -168,17 +179,19 @@ export function CheckoutForm({ cart, savedAddress, defaultEmail, showSaveOption 
           />
           Cash on Delivery
         </label>
-        <label className={`flex items-center gap-2 h-12 px-4 rounded-[var(--radius-control)] border-2 font-body text-body text-charcoal cursor-pointer mt-2 ${paymentMethod === "SAFEPAY" ? "border-sage bg-cream" : "border-border bg-cream"}`}>
-          <input
-            type="radio"
-            name="paymentMethod"
-            value="SAFEPAY"
-            checked={paymentMethod === "SAFEPAY"}
-            onChange={() => setPaymentMethod("SAFEPAY")}
-            className="accent-sage"
-          />
-          Online Payment (Cards, JazzCash, EasyPaisa)
-        </label>
+        {safepayEnabled && (
+          <label className={`flex items-center gap-2 h-12 px-4 rounded-[var(--radius-control)] border-2 font-body text-body text-charcoal cursor-pointer mt-2 ${paymentMethod === "SAFEPAY" ? "border-sage bg-cream" : "border-border bg-cream"}`}>
+            <input
+              type="radio"
+              name="paymentMethod"
+              value="SAFEPAY"
+              checked={paymentMethod === "SAFEPAY"}
+              onChange={() => setPaymentMethod("SAFEPAY")}
+              className="accent-sage"
+            />
+            Online Payment (Cards, JazzCash, EasyPaisa)
+          </label>
+        )}
 
         {error && <p role="alert" className="font-body text-small text-error mt-4">{error}</p>}
 

@@ -155,11 +155,11 @@ export async function moveImageCore(
       ? [imageId, ...others.map((other) => other.id)]
       : [...others.map((other) => other.id), imageId];
 
-  await db.$transaction(
-    orderedIds.map((id, index) =>
-      db.productImage.update({ where: { id }, data: { sortOrder: index } })
-    )
-  );
+  await db.$transaction(async (tx) => {
+    for (const [index, id] of orderedIds.entries()) {
+      await tx.productImage.update({ where: { id }, data: { sortOrder: index } });
+    }
+  });
 
   return { success: true, productId: image.product.id, slug: image.product.slug };
 }

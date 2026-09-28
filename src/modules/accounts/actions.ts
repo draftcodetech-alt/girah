@@ -12,10 +12,33 @@ import { mergeGuestCartForCurrentUser } from "@/modules/cart";
 import { sendEmailSafe } from "@/lib/email";
 import { welcomeEmail, passwordResetEmail } from "@/lib/email-templates";
 import { isRateLimited, recordFailure } from "@/lib/rate-limit";
+import { headers } from "next/headers";
 
 export type AccountActionResult =
   | { success: true }
   | { success: false; error: string; fieldErrors?: Record<string, string> };
+
+// Phase 17: registration throttle — same bucket logic as login/password
+// reset. Keyed by client IP (Cloudflare's cf-connecting-ip when proxied,
+// x-forwarded-for otherwise) so a bot can't mass-create accounts; per-email
+// limits wouldn't stop the flood since every attempt uses a new address.
+const REGISTER_RATE = { max: 10, windowMs: 15 * 60 * 1000 };
+
+async function registerRateKey(): Promise<string> {
+  // Server actions run in a request scope, but integration tests call this
+  // action directly outside one — degrade to a shared bucket instead of
+  // throwing. Test runs are skipped entirely below anyway.
+  try {
+    const h = await headers();
+    return (
+      h.get("cf-connecting-ip")?.trim() ||
+      h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      "unknown"
+    );
+  } catch {
+    return "unknown";
+  }
+}
 
 export async function login(input: LoginInput): Promise<AccountActionResult> {
   const parsed = loginSchema.safeParse(input);
@@ -66,6 +89,17 @@ export async function register(input: RegisterInput): Promise<AccountActionResul
     const fieldErrors: Record<string, string> = {};
     for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
     return { success: false, error: "Please check the highlighted fields.", fieldErrors };
+  }
+
+  // Throttle BEFORE the existence check so the limit can't be used as an
+  // oracle and a flood costs at most one DB read per attempt. Skipped under
+  // NODE_ENV=test (integration suites legitimately register repeatedly).
+  if (process.env.NODE_ENV !== "test") {
+    const rateKey = `register:${await registerRateKey()}`;
+    if (isRateLimited(rateKey, REGISTER_RATE)) {
+      return { success: false, error: "Too many attempts — please wait a few minutes and try again." };
+    }
+    recordFailure(rateKey, REGISTER_RATE);
   }
 
   // Phase 4 L1: case-insensitive so a mixed-case variant of an existing
@@ -265,16 +299,16 @@ export async function requestPasswordReset(input: ForgotPasswordInput): Promise<
   });
   if (user) {
     const token = crypto.randomBytes(32).toString("hex");
-    await db.$transaction([
-      db.passwordResetToken.deleteMany({ where: { userId: user.id } }),
-      db.passwordResetToken.create({
+    await db.$transaction(async (tx) => {
+      await tx.passwordResetToken.deleteMany({ where: { userId: user.id } });
+      await tx.passwordResetToken.create({
         data: {
           userId: user.id,
           tokenHash: sha256(token),
           expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
         },
-      }),
-    ]);
+      });
+    });
     const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
     await sendEmailSafe(
       passwordResetEmail({
@@ -310,12 +344,12 @@ export async function resetPassword(input: ResetPasswordInput): Promise<AccountA
   }
 
   const passwordHash = await bcrypt.hash(parsed.data.password, 10);
-  await db.$transaction([
-    db.user.update({
+  await db.$transaction(async (tx) => {
+    await tx.user.update({
       where: { id: record.userId },
       data: { passwordHash, sessionVersion: { increment: 1 } },
-    }),
-    db.passwordResetToken.deleteMany({ where: { userId: record.userId } }),
-  ]);
+    });
+    await tx.passwordResetToken.deleteMany({ where: { userId: record.userId } });
+  });
   return { success: true };
 }

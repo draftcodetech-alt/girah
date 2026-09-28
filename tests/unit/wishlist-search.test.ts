@@ -55,9 +55,15 @@ describe("proxy gates the wishlist", () => {
   const proxy = readSource("src/proxy.ts");
 
   it("matches /wishlist and bounces guests to login with a callback", () => {
-    expect(proxy).toContain('"/wishlist/:path*"');
+    // Phase 17: the matcher is catch-all (except Auth.js's own endpoints)
+    // so security headers apply to every response; the wishlist gate itself
+    // keys off the path prefixes below.
+    expect(proxy).toContain('matcher: ["/((?!api/auth/).*)"]');
     expect(proxy).toMatch(/isAccountRoute \|\| isWishlistRoute/);
     expect(proxy).toMatch(/pathname\.startsWith\("\/wishlist"\)/);
+    // ...and the header pipeline exists for all of them.
+    expect(proxy).toContain("Content-Security-Policy");
+    expect(proxy).toContain("X-Content-Type-Options");
   });
 });
 

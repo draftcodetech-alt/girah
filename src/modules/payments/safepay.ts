@@ -2,12 +2,34 @@ import Safepay from "@sfpy/node-core";
 import axios from "axios";
 import { db } from "@/lib/db";
 
-const SAFEPAY_HOST = "https://sandbox.api.getsafepay.com"; // TODO: switch to https://api.getsafepay.com when going live
+// Phase 17: one switch for the whole integration. "sandbox" (default) hits
+// sandbox.api.getsafepay.com; set SAFEPAY_ENV=live to point at the production
+// API once Safepay approves the merchant account.
+const SAFEPAY_ENV: "live" | "sandbox" = process.env.SAFEPAY_ENV === "live" ? "live" : "sandbox";
+const SAFEPAY_HOST =
+  SAFEPAY_ENV === "live" ? "https://api.getsafepay.com" : "https://sandbox.api.getsafepay.com";
 
-const safepay = new Safepay(process.env.SAFEPAY_API_SECRET!, {
-  authType: "secret",
-  host: SAFEPAY_HOST,
-});
+export function isSafepayConfigured(): boolean {
+  return Boolean(process.env.SAFEPAY_API_KEY && process.env.SAFEPAY_API_SECRET);
+}
+
+let safepay: Safepay | null = null;
+
+// Lazy so importing this module (checkout page, orders actions) never throws
+// when the merchant account isn't configured yet — the checkout UI hides the
+// payment option instead, and callers that still reach here get a clear error.
+function getSafepayClient(): Safepay {
+  if (!isSafepayConfigured()) {
+    throw new Error(
+      "Safepay is not configured (SAFEPAY_API_KEY / SAFEPAY_API_SECRET are missing)."
+    );
+  }
+  safepay ??= new Safepay(process.env.SAFEPAY_API_SECRET!, {
+    authType: "secret",
+    host: SAFEPAY_HOST,
+  });
+  return safepay;
+}
 
 export type SafepayCheckoutParams = {
   orderId: string;
@@ -17,6 +39,7 @@ export type SafepayCheckoutParams = {
 };
 
 export async function createSafepayCheckoutUrl(params: SafepayCheckoutParams): Promise<string> {
+  const safepay = getSafepayClient();
   // Step A: create the payment session ("tracker") — SDK confirmed working
   const sessionResponse = await safepay.payments.session.setup({
     merchant_api_key: process.env.SAFEPAY_API_KEY!,
@@ -50,7 +73,9 @@ export async function createSafepayCheckoutUrl(params: SafepayCheckoutParams): P
 
   // Step C: build the actual checkout URL — SDK confirmed working
   const checkoutUrl = safepay.checkout.createCheckoutUrl({
-    env: "sandbox",
+    // The hosted checkout calls the live environment "production", the API
+    // host calls it "live" — map our one switch onto each vocabulary.
+    env: SAFEPAY_ENV === "live" ? "production" : "sandbox",
     tbt: authToken,
     tracker: trackerToken,
     source: "hosted",
@@ -86,7 +111,7 @@ export async function refundSafepayPayment(
   amountInPaisa: number
 ): Promise<void> {
   try {
-    const response: unknown = await safepay.order.cancel.refund(tracker, {
+    const response: unknown = await getSafepayClient().order.cancel.refund(tracker, {
       currency: "PKR",
       amount: amountInPaisa,
     });

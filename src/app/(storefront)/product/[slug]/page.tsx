@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { getProducts, getProductBySlug } from "@/modules/catalog";
 import {
   getProductReviewsAndRating,
@@ -18,6 +19,25 @@ import { formatDate } from "@/lib/format";
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
 };
+
+// Phase 17: unique title/description per product (inherits the "· Girah"
+// template + site OG defaults from the root layout).
+export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductBySlug(slug);
+  if (!product) return {};
+  const cover = product.images[0]?.url;
+  return {
+    title: product.name,
+    description: product.description,
+    openGraph: {
+      title: product.name,
+      description: product.description,
+      ...(cover ? { images: [{ url: cover, alt: product.name }] } : {}),
+    },
+    twitter: cover ? { images: [cover] } : {},
+  };
+}
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;

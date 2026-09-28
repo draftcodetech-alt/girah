@@ -1216,3 +1216,74 @@ Scope: apply `initial design/claude.md` (the original GPT design spec) as **appl
 - **No schema change, no new runtime dependencies, no new routes** — Phase 16 is presentation-only; rembg ran in a throwaway `/tmp` venv.
 - `initial design/` stays uncommitted forever: `git add -A -- . ':!initial design'`.
 - The deferred manual pass is now a single sitting: **§14.5–§23.5 + §24.5** (§9).
+
+## 25. Phase 17 — launch readiness (Cloudflare Workers deploy) — detailed log
+
+Scope: make the app deployable on **Cloudflare Workers Free ($0/month)** via OpenNext and launch-ready — hardening, SEO, pagination, legal/content pages, a guarded production seed, tests and docs — then commit, push, and hand the user the manual deploy steps (`https://www.girah.workers.dev`).
+
+### 25.1 Decisions (user-confirmed before execution)
+
+1. **Cloudflare Workers via OpenNext** (①) — free forever, `www.girah.workers.dev` subdomain is fine. The 64 MiB size cap turned out to be **uncompressed** (our bundle ≈19.5 MiB ✓); the real Free-plan watch item is **10 ms CPU per invocation** (§25.3).
+2. **Cash-on-delivery first, Safepay later** (②) — the online-payment option must exist but can be switched on by env once the merchant account is live.
+3. **Legal pages are skeletons with visible `[placeholders]`** (③) — nothing invented, nothing fake ships silently.
+4. **Excluded this phase**: coupons, tax, shipping zones, order tracking, multi-currency, 2FA, blog, i18n.
+5. **No schema change** (migrations stay at 10), no new runtime dependencies (the one npm change is an `overrides` entry, §25.2 row 3).
+
+### 25.2 Changes
+
+| # | Problem | Fix | Where |
+|---|---------|-----|-------|
+| 1 | Online payment was hard-wired to Safepay sandbox | `SAFEPAY_ENV` (`sandbox` \| `live`) drives both the API host and the hosted-checkout env (live → `"production"`, Safepay's own vocabulary); client built **lazily** (`getSafepayClient()`) so importing never throws unconfigured; `isSafepayConfigured()` exported; `CheckoutForm` takes a `safepayEnabled` prop that hides the radio (fail-closed); `placeOrder` rejects `SAFEPAY` server-side **before** any order row is created | `src/modules/payments/{safepay,index}.ts`, `CheckoutForm.tsx`, `checkout/page.tsx`, `checkout/actions.ts`, `.env.example` |
+| 2 | `prisma db seed` would happily overwrite production | `isProductionLike()` = `NODE_ENV==="production"` OR non-local https `NEXT_PUBLIC_APP_URL`; refuses without `ALLOW_PROD_SEED=1`; with the flag requires `ADMIN_EMAIL` + `ADMIN_PASSWORD` (≥ 8 chars) and then creates **only** that real admin — `DevAdmin123!` fixtures exist only locally. All four paths exercised (dev, prod-no-flag, flag-no-admin, full prod) | `prisma/seed.ts` |
+| 3 | No security headers; middleware duplicated Auth.js's CSRF cookie; no registration throttle; 1 npm advisory | `src/proxy.ts` adds CSP (same-origin, `frame-ancestors 'none'`, dev relaxations), nosniff, `X-Frame-Options: DENY`, Referrer-Policy, Permissions-Policy, HSTS + `upgrade-insecure-requests` (prod only) to every response; matcher narrowed to `"/((?!api/auth/).*)"` — wrapping Auth.js's own endpoints produced a **second** `authjs.csrf-token` whose value ≠ the JSON body (Set-Cookie merge order differs Node vs OpenNext) → `MissingCSRF`; register action gets an IP-keyed throttle (10 / 15 min, `REGISTER_RATE`, skips `NODE_ENV=test`); `overrides: { "deepmerge-ts": "^8.0.2" }` → `npm audit` 0; `.wrangler/` gitignored | `src/proxy.ts`, `accounts/actions.ts`, `package.json`, `.gitignore` |
+| 4 | No SEO surface | `robots.ts` (disallow `/admin /account /wishlist /order /search /cart /checkout /api`, sitemap pointer), `sitemap.ts` (force-dynamic — never queried at build; content pages + live product slugs), root `metadataBase` + title template `%s · Girah` + OG/Twitter defaults with `/florals/sunflower.png`, per-product `generateMetadata`, `robots.index:false` on search/cart/checkout, titles on shop/search/cart/checkout | `src/app/{robots,sitemap}.ts`, `layout.tsx`, storefront pages |
+| 5 | No pagination (shop/search dumped every result) | `src/modules/catalog/pagination.ts` (`PAGE_SIZE=12`, `normalizePage`, `paginate` clamps to the last page, empty = page 1), `components/storefront/Pagination.tsx` (Prev/Next + gap window, `aria-current`, hides at ≤ 1 page), wired into shop + search; `page` reset added to CategoryTabs / SortSelect / FilterPanel links so filters never keep a stale page | `catalog/pagination.ts`, `Pagination.tsx`, `shop`, `search`, filter components |
+| 6 | Footer linked only SHOP/ACCOUNT; no legal pages | Shared `ContentPage` shell (ContentPage / ContentHeading / PlaceholderNote) + six routes — `/about /contact /shipping /returns /privacy /terms` — each with `[placeholders]`, metadata, and only verified facts; footer gained a third **Information** column (`INFO_LINKS`, `sm:grid-cols-3`); `/terms` links the real `/returns` | `shared/ContentPage.tsx`, six route dirs, `Footer.tsx` |
+| 7 | P2025 misclassified as FK when the Prisma error source text merely *mentioned* `23001` (our own comment above `db.product.delete`) | `isForeignKeyRestriction` now **code-maps** `KnownRequestError` (P2003/P2014/`"23001"` → FK; any other known code → not FK; message scan only for unknown errors) and both FK/notFound helpers now return `false` for `PrismaClientValidationError` | `src/modules/admin/db-errors.ts` |
+| 8 | Nothing guarded the new surface | Unit **335 → 411** (+76, 27 files): new `pagination`, `db-errors`, `phase17-seo`, `phase17-safepay`, `phase17-seed-guard`, `phase17-content-pages`, `phase17-hardening`; re-aimed `wishlist-search` (matcher + CSP) and `design-phase16` / `storefront-shell` (footer six routes, no `/faq`); E2E **section 21** (31 checks) → **279 → 310**, section 20's "footer never links unbuilt pages" check updated to the new contract | `tests/unit/*`, `scripts/e2e.mjs` |
+
+### 25.3 Behaviour worth knowing before touching this code
+
+- **workerd cannot read `.env`.** `scripts/sync-dev-vars.mjs` (run by `prepreview`) generates the gitignored `.dev.vars`; `AUTH_URL=http://localhost:8787` pinned there is what keeps the local cookie name identical to production.
+- **`src/lib/db.ts` is a Proxy**: in workerd, interactive `db.$transaction(fn)` and any "Transactions are not supported in HTTP mode" failure are routed to a throwaway **WS** `PrismaNeon`; batch `db.$transaction([...])` rejects outright. Node keeps the pooled client. Guest-cart merge is the hot-path interactive transaction — if logins ever stop merging, look for `guest-cart merge failed` in `wrangler tail`.
+- **`console.error` does not surface in the wrangler log — `console.log` does.** Debugging workerd behaviour means a temporary `console.log` + rebuild (§25.5 row 5).
+- **Smoke and E2E both honour `E2E_BASE_URL`** (default `http://localhost:3100`); an E2E run that forgets it silently tests Node. A CF gate must run both with `E2E_BASE_URL=http://localhost:8787`.
+- **`npm run seed` does not exist** — it is `npx prisma db seed` (package.json `prisma.seed` → tsx).
+- **E2E `check()` failures don't abort; cleanup runs only if the script reaches the end.** A crash before cleanup poisons the next run (Phase 16 §24.6 row 3).
+- **React escapes quotes in text nodes** — assert `content="noindex` as a prefix (`noindex, nofollow` is the real attribute) and `matching &quot;E2E Page&quot;` for in-page labels. Same family as the RSC `<!-- -->` trap.
+- **`pkill -f`/`pgrep -f` patterns must not appear in the same command line** — use the bracket trick (`[w]orkerd`) *and* prefer killing by PID; a pattern that matches the invoking shell kills the session (§25.5 row 6).
+- **Free-plan realism**: 10 ms CPU/invocation — server actions stay small by design (validation + a couple of queries); the 64 MiB bundle cap is uncompressed and we sit at ≈19.5 MiB.
+
+### 25.4 Tests & gate
+
+- Unit **335 → 411** (20 → 27 files): `pagination` (14: clamp/empty/normalize), `db-errors` (11 incl. the P2025-polluted-message regression), `phase17-seo` (13), `phase17-safepay` (12), `phase17-seed-guard` (6), `phase17-content-pages` (17), `phase17-hardening` (10); re-aimed `wishlist-search`, `design-phase16`, `storefront-shell`.
+- Integration **257** (33 files) — unchanged; the db-errors edit is covered by unit + E2E.
+- Gate: `tsc --noEmit` clean · `eslint .` **0/0** · unit **411/411** · integration **257/257** · **Node**: build → smoke **21/21** + E2E **310/310** · **Cloudflare**: `CF_BUILD=1 opennextjs-cloudflare build` → preview :8787 → smoke **21/21** + E2E **310/310 twice** (clean build) · `npm audit` **0** · `prisma validate` + `migrate status` **10** · leftover sweep clean (`[dbg]`/`TXFAIL`/`console.log` in src all absent or intentional).
+- E2E section 21 (31): 13 pagination fixtures → shop page 1/2/999 + `rel=prev/next` + `aria-current` + category links drop `page`; search total-count label, clamp, empty state; six content pages 200 + `<title>… · Girah` + footer links + `[placeholder]` markers; robots.txt + sitemap (live product slug, no `/search`); noindex on search/cart/checkout; `og:title`/`og:image`; CSP/nosniff/X-Frame-Options/HSTS headers; exactly one `authjs.csrf-token` from `/api/auth/csrf`.
+
+### 25.5 Errors hit in Phase 17 & fixes
+
+| # | Error | Cause | Fix |
+|---|-------|-------|-----|
+| 1 | E2E `search page 2 keeps the TOTAL match count` failed with status 200 | React escapes `"` in text nodes → the HTML reads `13 products matching &quot;E2E Page&quot;` | assert the escaped form; pass the matched label as failure detail |
+| 2 | E2E `checkout is noindex` failed though the page ships `robots:{index:false}` | check expected `content="noindex"`; Next renders `content="noindex, nofollow"` | assert `content="noindex"` as a prefix |
+| 3 | `node --check` SyntaxError at line 2177 | one closing `'` lost while writing section 21 (byte-inspected with `od -c`) | restored the quote; `node --check` + eslint clean |
+| 4 | CF E2E: 5 deterministic login-merge failures across two runs (`girah_guest_id` kept, guest cart row kept, account cart empty) while register's merge passed on the same worker | isolated with temporary `console.log` in the merge wrapper + login catch; with logging (behaviour unchanged) the run passed; instrumentation removed, then **two further full CF runs passed 310/310** | not reproduced after rebuild — treat as a watch item, not a fixed bug: the merge is deliberately best-effort (cookie retained → next login retries), and `wrangler tail` logging now points straight at it |
+| 5 | `console.error` invisible in the wrangler/preview log | workerd only surfaces `console.log` there | temporary `console.log` instrumentation, then revert |
+| 6 | The whole shell died running a build command | `pkill -f "[c]loudflare preview"` inside a command line that *also contained* `opennextjs-cloudflare preview` → the pattern matched its own shell | split kill and build into separate commands; bracket-trick alone is not enough when the target's name appears later in the same command line |
+| 7 | 67 historical `MissingCSRF` E2E failures (root-caused earlier, fixed here) | the proxy's catch-all matcher wrapped `/api/auth/*`, adding a second CSRF cookie whose value ≠ the request body (merge order differs by runtime) | matcher `"/((?!api/auth/).*)"` + an E2E check that `/api/auth/csrf` returns exactly one `authjs.csrf-token` |
+
+### 25.6 Decisions recorded
+
+- **Workers it is**: OpenNext build + `wrangler.jsonc` + `open-next.config.ts` + `public/_headers` are committed; `npm run deploy` sets `NEXT_PUBLIC_APP_URL=https://www.girah.workers.dev` at build time. Free plan only — no paid tier ever required by this codebase.
+- **Safepay stays opt-in and fail-closed**: no credentials → no radio, no server-side order path; `SAFEPAY_ENV=live` (plus live credentials + webhook secret) is the single switch for launch.
+- **The seed guard is a hard contract**: production-like + no `ALLOW_PROD_SEED=1` → refuse; with the flag → only the real admin. Unit-guarded (`phase17-seed-guard`).
+- **Security headers live in `src/proxy.ts`**, and `/api/auth/*` is permanently excluded from that middleware — re-adding it to the matcher reintroduces the double-CSRF bug (E2E guards it).
+- **Legal pages ship as skeletons**: `[placeholder]` markers are asserted by unit + E2E; replacing them with real copy is a content task, not a code task.
+- **Pagination is `PAGE_SIZE=12`, clamped** — out-of-range pages fall back to the last real page instead of an empty state; every filter/category/sort link resets `page`.
+
+### 25.7 Manual checklist (needs the owner)
+
+1. **Deploy steps 5–8** (owner only): `npx wrangler login` → 8× `wrangler secret put` → set `NEXT_PUBLIC_APP_URL`, `SAFEPAY_ENV=sandbox`, `AUTH_URL` as Worker vars → `npx prisma migrate deploy` + `ALLOW_PROD_SEED=1 ADMIN_EMAIL=… ADMIN_PASSWORD=… npx prisma db seed` → `npm run deploy`.
+2. From Pakistan (or any fresh network): open `https://www.girah.workers.dev`, view-source → security headers present; `/robots.txt`, `/sitemap.xml`; six footer Information links; shop pagination UI; search label; `/checkout` shows **Cash on delivery** (and the online option only with Safepay configured); place one COD order; `npx wrangler tail` clean.
+3. Then walk the deferred checklists from earlier phases: **§14.5, §15.5, §17.5, §18.5, §19.5, §20.5, §21.5, §22.5, §23.5, §24.5**.

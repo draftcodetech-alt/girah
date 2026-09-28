@@ -1,8 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { getCart } from "@/modules/cart";
 import { CartLineControls } from "@/components/storefront/CartLineControls";
 import { formatPrice } from "@/lib/format";
+
+// Phase 17: session-specific page — never indexed.
+export const metadata: Metadata = { title: "Cart", robots: { index: false, follow: false } };
 
 export default async function CartPage() {
   const cart = await getCart();

@@ -95,6 +95,13 @@ describe("Phase 9: Footer", () => {
       "/account/orders",
       "/account/profile",
       "/account/addresses",
+      // Phase 17 content pages
+      "/about",
+      "/contact",
+      "/shipping",
+      "/returns",
+      "/privacy",
+      "/terms",
     ]);
     const literalHrefs = [
       ...[...footer.matchAll(/href="([^"]+)"/g)].map((match) => match[1]), // JSX href="…"

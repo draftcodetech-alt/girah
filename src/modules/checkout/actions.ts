@@ -1,5 +1,5 @@
 "use server";
-import { createSafepayCheckoutUrl } from "@/modules/payments";
+import { createSafepayCheckoutUrl, isSafepayConfigured } from "@/modules/payments";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { resolveCartIdentity } from "@/modules/cart";
@@ -19,6 +19,16 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
     return { success: false, error: "Please check the highlighted fields.", fieldErrors };
   }
   const data = parsed.data;
+
+  // Phase 17: the checkout UI hides online payment when Safepay isn't
+  // configured — this server-side check keeps the action honest for stale
+  // clients and direct callers (before any order row is created).
+  if (data.paymentMethod === "SAFEPAY" && !isSafepayConfigured()) {
+    return {
+      success: false,
+      error: "Online payment is not available right now. Please choose Cash on Delivery.",
+    };
+  }
 
   const identity = await resolveCartIdentity();
   const session = await auth();

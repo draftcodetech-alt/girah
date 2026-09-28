@@ -59,8 +59,11 @@ async function hit(label, path, jar) {
 }
 
 const { PrismaClient } = require("@prisma/client");
+const { PrismaNeon } = require("@prisma/adapter-neon");
 const bcrypt = require("bcryptjs");
-const db = new PrismaClient();
+const db = new PrismaClient({
+  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
+});
 
 async function ensureUser({ email, password, role }) {
   const existing = await db.user.findUnique({ where: { email } });

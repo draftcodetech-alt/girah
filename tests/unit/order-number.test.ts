@@ -10,6 +10,25 @@ function p2002(target: unknown): Prisma.PrismaClientKnownRequestError {
   });
 }
 
+function p2002Adapter(fields: string[], originalMessage: string): Prisma.PrismaClientKnownRequestError {
+  return new Prisma.PrismaClientKnownRequestError(originalMessage, {
+    code: "P2002",
+    clientVersion: "test",
+    meta: {
+      modelName: "Order",
+      driverAdapterError: {
+        name: "DriverAdapterError",
+        cause: {
+          kind: "UniqueConstraintViolation",
+          originalCode: "23505",
+          originalMessage,
+          constraint: { fields },
+        },
+      },
+    },
+  });
+}
+
 describe("generateOrderNumber", () => {
   it("matches GIR- + 12 uppercase hex characters", () => {
     for (let i = 0; i < 500; i++) {
@@ -28,6 +47,19 @@ describe("isOrderNumberCollision", () => {
   it("is true for an orderNumber unique-constraint violation", () => {
     expect(isOrderNumberCollision(p2002(["orderNumber"]))).toBe(true);
     expect(isOrderNumberCollision(p2002("Order_orderNumber_key"))).toBe(true);
+  });
+
+  it("is true for driver-adapter meta (client engine reports no target)", () => {
+    expect(
+      isOrderNumberCollision(
+        p2002Adapter(['"orderNumber"'], 'duplicate key value violates unique constraint "Order_orderNumber_key"')
+      )
+    ).toBe(true);
+    expect(
+      isOrderNumberCollision(
+        p2002Adapter(['"id"'], 'duplicate key value violates unique constraint "Order_pkey"')
+      )
+    ).toBe(false);
   });
 
   it("is false for unique violations on other fields", () => {

@@ -1,8 +1,13 @@
 import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import { getCart } from "@/modules/cart";
 import { getCurrentUserProfile } from "@/modules/accounts";
 import { getMyShippingAddress } from "@/modules/addresses";
+import { isSafepayConfigured } from "@/modules/payments";
 import { CheckoutForm } from "@/components/storefront/CheckoutForm";
+
+// Phase 17: conversion funnel — never indexed.
+export const metadata: Metadata = { title: "Checkout", robots: { index: false, follow: false } };
 
 export default async function CheckoutPage() {
   const cart = await getCart();
@@ -27,6 +32,7 @@ export default async function CheckoutPage() {
           savedAddress={savedAddress}
           defaultEmail={profile?.email ?? null}
           showSaveOption={Boolean(profile)}
+          safepayEnabled={isSafepayConfigured()}
         />
       </div>
     </div>

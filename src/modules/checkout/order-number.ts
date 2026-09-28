@@ -13,8 +13,24 @@ export function isOrderNumberCollision(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
     return false;
   }
-  const target = String((error.meta as { target?: unknown } | undefined)?.target ?? "");
-  return target.toLowerCase().includes("ordernumber");
+  // Engine (library) builds report `meta.target`; the Phase 17 client engine
+  // (query compiler + driver adapter) reports the constraint instead. Match
+  // either shape, case-insensitively.
+  const meta = error.meta as
+    | {
+        target?: unknown;
+        driverAdapterError?: {
+          cause?: { constraint?: { fields?: unknown[] }; originalMessage?: string };
+        };
+      }
+    | undefined;
+  const candidates: string[] = [];
+  if (meta?.target !== undefined) candidates.push(String(meta.target));
+  const fields = meta?.driverAdapterError?.cause?.constraint?.fields;
+  if (Array.isArray(fields)) candidates.push(...fields.map(String));
+  const originalMessage = meta?.driverAdapterError?.cause?.originalMessage;
+  if (typeof originalMessage === "string") candidates.push(originalMessage);
+  return candidates.some((candidate) => candidate.toLowerCase().includes("ordernumber"));
 }
 
 /**

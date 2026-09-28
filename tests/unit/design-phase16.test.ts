@@ -183,9 +183,13 @@ describe("Phase 16: header, menu, footer", () => {
     expect(footer).toContain("© {year} Girah");
   });
 
-  it("never links routes that do not exist", () => {
-    for (const route of ["/about", "/faq", "/contact", "/privacy", "/terms"]) {
-      expect(footer).not.toContain(`href="${route}"`);
+  it("links only content routes that exist", () => {
+    // FAQ has no page — never linked.
+    expect(footer).not.toContain('href: "/faq"');
+    // Phase 17 shipped these six as real routes, all linked from the footer
+    // (INFO_LINKS uses object-literal `href: "/…"` syntax).
+    for (const route of ["/about", "/contact", "/shipping", "/returns", "/privacy", "/terms"]) {
+      expect(footer).toContain(`href: "${route}"`);
     }
   });
 });

@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+const isCloudflareBuild = process.env.CF_BUILD === "1";
+
 const nextConfig: NextConfig = {
   // Phase 11: admin image uploads travel as multipart Server Action bodies.
   // The default cap is 1MB — real product photos exceed it — so raise it just
@@ -10,7 +12,9 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "4mb",
     },
   },
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
   images: {
+    unoptimized: isCloudflareBuild,
     remotePatterns: [
       {
         protocol: "https",

@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { getCategories } from "@/modules/catalog";
 
-// Every href here must resolve to a route that exists — no dead links
-// (About/FAQ/Contact/Privacy/Terms pages do not exist yet and must not be linked).
 const SHOP_LINKS = [{ label: "All Products", href: "/shop" }];
 
 const ACCOUNT_LINKS = [
@@ -12,6 +10,16 @@ const ACCOUNT_LINKS = [
   { label: "Shipping address", href: "/account/addresses" },
   { label: "Sign in", href: "/login" },
   { label: "Create account", href: "/register" },
+];
+
+// Phase 17: the six content pages — every href resolves to a real route.
+const INFO_LINKS = [
+  { label: "About", href: "/about" },
+  { label: "Contact", href: "/contact" },
+  { label: "Shipping & Delivery", href: "/shipping" },
+  { label: "Returns & Refunds", href: "/returns" },
+  { label: "Privacy Policy", href: "/privacy" },
+  { label: "Terms of Service", href: "/terms" },
 ];
 
 // Social row is gated — real links only, rendered when configured
@@ -56,7 +64,7 @@ export async function Footer() {
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-10 max-w-[640px] mx-auto">
+        <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-10 max-w-[840px] mx-auto">
           <nav aria-label="Shop links">
             <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-charcoal text-center">
               Shop
@@ -84,6 +92,19 @@ export async function Footer() {
             </h2>
             <ul className="mt-4 space-y-2 text-center">
               {ACCOUNT_LINKS.map((link) => (
+                <li key={link.href}>
+                  <FooterLink href={link.href} label={link.label} />
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <nav aria-label="Information links">
+            <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-charcoal text-center">
+              Information
+            </h2>
+            <ul className="mt-4 space-y-2 text-center">
+              {INFO_LINKS.map((link) => (
                 <li key={link.href}>
                   <FooterLink href={link.href} label={link.label} />
                 </li>

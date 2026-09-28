@@ -4,16 +4,14 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { getFreshAccount } from "@/lib/account-guard";
 import { isRateLimited, recordFailure, resetRateLimit } from "@/lib/rate-limit";
+import { authConfig } from "@/lib/auth.config";
 
+// Server-side instance: session strategy, pages, trustHost, and the shared
+// session callback come from the edge-safe base config (auth.config.ts);
+// only the DB/bcrypt-dependent pieces live here (see auth.edge.ts for the
+// middleware instance).
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  session: { strategy: "jwt" }, // Credentials provider requires JWT
-  // Without this, Auth.js rejects every request on self-hosted production
-  // (NODE_ENV=production, no AUTH_URL) — and login() then reports success
-  // without ever setting a session cookie (Phase 1 C3).
-  trustHost: true,
-  pages: {
-    signIn: "/login",
-  },
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -82,6 +80,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    // Shared session callback (token → session.user mapping) from base config.
+    ...authConfig.callbacks,
     async jwt({ token, user }) {
       if (user) {
         // Initial sign-in — seed the token from the freshly authenticated user.
@@ -111,13 +111,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       token.name = account.name;
       token.email = account.email;
       return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as "CUSTOMER" | "ADMIN";
-      }
-      return session;
     },
   },
 });

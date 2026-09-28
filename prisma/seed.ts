@@ -1,36 +1,109 @@
 import { PrismaClient, Role } from "@prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import bcrypt from "bcryptjs";
 
-const prisma = new PrismaClient();
+// engineType = "client" (Phase 17 worker budget) needs a driver adapter —
+// same Neon adapter the app and test suites use.
+const prisma = new PrismaClient({
+  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
+});
 
 // NOTE: TEST ACCOUNTS BELOW ARE LOCAL DEVELOPMENT ONLY.
 // Never reuse these credentials anywhere real; never run this seed against production.
 
+// Phase 17: production guard. The seed is idempotent (all upserts), but the
+// dev fixture accounts (DevAdmin123!…) must never exist on a live site. We
+// treat the environment as production-looking when NODE_ENV says so OR
+// NEXT_PUBLIC_APP_URL is a non-local https origin; only an explicit
+// ALLOW_PROD_SEED=1 gets past that, and then ADMIN_EMAIL/ADMIN_PASSWORD are
+// required so the live site gets a real admin instead of fixtures.
+const nextAppUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+const isProductionLike =
+  process.env.NODE_ENV === "production" ||
+  (nextAppUrl.startsWith("https://") && !/localhost|127\.0\.0\.1/.test(nextAppUrl));
+
+function assertSeedAllowed(): void {
+  if (!isProductionLike) return;
+  if (process.env.ALLOW_PROD_SEED !== "1") {
+    console.error(
+      "[seed] Refusing to run: this looks like a production environment " +
+        `(NODE_ENV=${process.env.NODE_ENV ?? "unset"}, NEXT_PUBLIC_APP_URL=${nextAppUrl || "unset"}).`
+    );
+    console.error(
+      "[seed] To seed production deliberately, re-run with ALLOW_PROD_SEED=1 " +
+        "ADMIN_EMAIL=<your email> ADMIN_PASSWORD=<a strong password>."
+    );
+    process.exit(1);
+  }
+  const email = process.env.ADMIN_EMAIL ?? "";
+  const password = process.env.ADMIN_PASSWORD ?? "";
+  if (!email || password.length < 8) {
+    console.error(
+      "[seed] ALLOW_PROD_SEED=1 requires ADMIN_EMAIL and ADMIN_PASSWORD (min 8 chars) " +
+        "so production never gets the dev fixture accounts."
+    );
+    process.exit(1);
+  }
+}
+
 async function main() {
-  const adminPasswordHash = await bcrypt.hash("DevAdmin123!", 10);
-  const customerPasswordHash = await bcrypt.hash("DevCustomer123!", 10);
+  assertSeedAllowed();
 
-  await prisma.user.upsert({
-    where: { email: "dev-admin@girah.test" },
-    update: {},
-    create: {
-      email: "dev-admin@girah.test",
-      name: "Dev Admin",
-      passwordHash: adminPasswordHash,
-      role: Role.ADMIN,
-    },
-  });
+  // Exactly one of the two credential sets is active: dev fixtures locally,
+  // a real ADMIN_EMAIL/ADMIN_PASSWORD admin on production-like runs.
+  let devAdminHash: string | null = null;
+  let devCustomerHash: string | null = null;
+  let prodAdmin: { email: string; passwordHash: string } | null = null;
 
-  await prisma.user.upsert({
-    where: { email: "dev-customer@girah.test" },
-    update: {},
-    create: {
-      email: "dev-customer@girah.test",
-      name: "Dev Customer",
-      passwordHash: customerPasswordHash,
-      role: Role.CUSTOMER,
-    },
-  });
+  if (isProductionLike) {
+    // assertSeedAllowed() already guaranteed both are present and valid.
+    prodAdmin = {
+      email: process.env.ADMIN_EMAIL!,
+      passwordHash: await bcrypt.hash(process.env.ADMIN_PASSWORD!, 10),
+    };
+  } else {
+    devAdminHash = await bcrypt.hash("DevAdmin123!", 10);
+    devCustomerHash = await bcrypt.hash("DevCustomer123!", 10);
+  }
+
+  if (prodAdmin) {
+    await prisma.user.upsert({
+      where: { email: prodAdmin.email },
+      update: {},
+      create: {
+        email: prodAdmin.email,
+        name: "Girah Admin",
+        passwordHash: prodAdmin.passwordHash,
+        role: Role.ADMIN,
+      },
+    });
+  }
+
+  if (devAdminHash !== null) {
+    await prisma.user.upsert({
+      where: { email: "dev-admin@girah.test" },
+      update: {},
+      create: {
+        email: "dev-admin@girah.test",
+        name: "Dev Admin",
+        passwordHash: devAdminHash,
+        role: Role.ADMIN,
+      },
+    });
+  }
+
+  if (devCustomerHash !== null) {
+    await prisma.user.upsert({
+      where: { email: "dev-customer@girah.test" },
+      update: {},
+      create: {
+        email: "dev-customer@girah.test",
+        name: "Dev Customer",
+        passwordHash: devCustomerHash,
+        role: Role.CUSTOMER,
+      },
+    });
+  }
 
   const bouquets = await prisma.category.upsert({
     where: { slug: "bouquets" },
@@ -126,6 +199,11 @@ async function main() {
   });
 
   console.log("Seeded:", { sunflower: sunflower.id, duck: duck.id, lily: lily.id });
+  console.log(
+    isProductionLike
+      ? `Production seed complete — admin account: ${prodAdmin?.email}`
+      : "Development fixture accounts ensured (dev-admin / dev-customer)."
+  );
 }
 
 main()

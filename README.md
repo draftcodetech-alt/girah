@@ -7,7 +7,7 @@ Handmade crochet storefront: catalogue and filters, cart, checkout (COD + Safepa
 - **Next.js 16** (App Router) + **React 19**, TypeScript
 - **Prisma 6** + **Neon Postgres** (serverless driver over WebSockets)
 - **NextAuth v5** — credentials provider, JWT sessions, per-account `sessionVersion` invalidation
-- **Safepay** sandbox — passport token, hosted checkout, webhook verification, refunds
+- **Safepay** — sandbox by default, switch the whole integration to live with `SAFEPAY_ENV=live` (passport token, hosted checkout, webhook verification, refunds)
 - **Cloudinary** image hosting, **Tailwind CSS 4**, **Vitest 5**
 
 ## Getting started
@@ -52,7 +52,7 @@ Tests always run against the **`girah_test`** database — derived from `DATABAS
 npm run build
 DATABASE_URL=<url> npm start &        # production server, default port 3100
 npm run test:smoke                    # 21 sensitive pages render without error
-npm run test:e2e                      # 279 checks: actions, redirects, guards, 404s, shell, design
+npm run test:e2e                      # 310 checks: actions, redirects, guards, SEO, pagination, design
 ```
 
 Both scripts are **self-contained**: they create their own users, products and
@@ -91,9 +91,11 @@ in CI.
 | `npm run lint` | ESLint (must be 0 errors / 0 warnings) |
 | `npm test` | Unit + integration suites |
 | `npm run test:smoke` | Page-render smoke suite (server must be running) |
-| `npm run test:e2e` | 279-check HTTP E2E suite (server must be running) |
+| `npm run test:e2e` | 310-check HTTP E2E suite (server must be running) |
+| `npm run preview` | Local Cloudflare Worker (OpenNext + wrangler, port 8787); pre-step syncs `.env` → `.dev.vars` |
+| `npm run deploy` | Build + deploy the Worker to `https://www.girah.workers.dev` |
 | `npx prisma migrate dev` | Create/apply migrations |
-| `npx prisma db seed` | Seed demo data |
+| `npx prisma db seed` | Seed demo data (guarded in production — see below) |
 
 ## Test accounts (local seed only)
 
@@ -102,7 +104,60 @@ in CI.
 | `dev-admin@girah.test` | `DevAdmin123!` | ADMIN |
 | `dev-customer@girah.test` | `DevCustomer123!` | CUSTOMER |
 
-Never reuse these credentials anywhere real, and never run the seed against production.
+Never reuse these credentials anywhere real. The seed itself refuses to run in
+production (any `NODE_ENV=production` or non-local https `NEXT_PUBLIC_APP_URL`)
+unless `ALLOW_PROD_SEED=1` is set **and** `ADMIN_EMAIL` + `ADMIN_PASSWORD`
+(≥ 8 chars) are provided — then it creates only that real admin, never the
+fixtures above.
+
+## Deploy (Cloudflare Workers, free plan)
+
+The app deploys to **Cloudflare Workers** via OpenNext — `$0/month` on the
+Free plan (the entire bundle is ~19 MiB, well under the 64 MiB limit; the plan
+serves 10 ms CPU per invocation, so keep server actions small).
+
+```bash
+npx wrangler login                  # once
+npm run deploy                      # CF build → https://www.girah.workers.dev
+```
+
+**One-time production setup:**
+
+```bash
+npx wrangler secret put AUTH_SECRET
+npx wrangler secret put DATABASE_URL
+npx wrangler secret put SAFEPAY_API_KEY
+npx wrangler secret put SAFEPAY_API_SECRET
+npx wrangler secret put SAFEPAY_WEBHOOK_SECRET
+npx wrangler secret put CLOUDINARY_URL
+npx wrangler secret put CLOUDINARY_FOLDER
+npx wrangler secret put RESEND_API_KEY
+```
+
+Also set non-secret Worker vars (`wrangler.jsonc` / dashboard):
+`NEXT_PUBLIC_APP_URL=https://www.girah.workers.dev`, `SAFEPAY_ENV`
+(`sandbox` until Safepay is approved, then `live`), `NEXT_PUBLIC_CONTACT_EMAIL`,
+`AUTH_URL`.
+
+Production database, once:
+
+```bash
+npx prisma migrate deploy
+ALLOW_PROD_SEED=1 ADMIN_EMAIL=<you> ADMIN_PASSWORD=<real-password> npx prisma db seed
+```
+
+Notes:
+
+- **`.env` is not readable inside workerd** — `npm run preview` regenerates a
+  gitignored `.dev.vars` from it (`prepreview` hook); secrets come from
+  `.dev.vars` locally and `wrangler secret` in production.
+- **Security headers** (CSP, `X-Content-Type-Options`, `X-Frame-Options: DENY`,
+  Referrer-Policy, Permissions-Policy, HSTS in production) are applied by
+  `src/proxy.ts` to every response; Auth.js's own `/api/auth/*` endpoints are
+  deliberately excluded from that middleware (wrapping them duplicates the
+  CSRF cookie and breaks sign-in).
+- After deploying: place one Cash-on-Delivery order, check `npx wrangler tail`
+  for errors, and confirm the site loads from a fresh browser (workers.dev).
 
 ## Project layout
 
@@ -126,4 +181,4 @@ scripts/        HTTP E2E + smoke suites (npm run test:e2e / test:smoke)
 
 ## Status
 
-All 8 phases of the bug-fix plan are complete (security, stock/order integrity, Safepay, accounts/authz, cart/catalog, forms/admin feedback, hygiene, test automation + CI). The follow-up feature/UI plan (phases 9–16) is **also complete**: **Phase 9 (storefront shell), Phase 10 (reviews & recommendations — verified-buyer submissions, moderation queue, card ratings, related products), Phase 11 (admin catalog — images, category/variation CRUD, deletes), Phase 12 (account completion — saved shipping address, customer cancel/reorder/receipt, account sub-nav), Phase 13 (admin ops & dashboard — metrics + 14-day SVG revenue chart, order detail + refund, stock history, order filters), Phase 14 (emails — Resend transport with dev-log fallback, order/status/welcome mail, forgot/reset password), Phase 15 (wishlist + dedicated /search results page) and Phase 16 (design & polish — rembg floral cutouts, hero/magazine/immersive homepage, header/footer/menu, product accordions + mini-cart drawer, spec copy passes, motion/a11y tokens, JSON-LD)**. Plans, findings and per-phase logs live in [`contextopencode.md`](./contextopencode.md).
+All 8 phases of the bug-fix plan are complete (security, stock/order integrity, Safepay, accounts/authz, cart/catalog, forms/admin feedback, hygiene, test automation + CI). The follow-up feature/UI plan (phases 9–17) is **also complete**: **Phase 9 (storefront shell), Phase 10 (reviews & recommendations — verified-buyer submissions, moderation queue, card ratings, related products), Phase 11 (admin catalog — images, category/variation CRUD, deletes), Phase 12 (account completion — saved shipping address, customer cancel/reorder/receipt, account sub-nav), Phase 13 (admin ops & dashboard — metrics + 14-day SVG revenue chart, order detail + refund, stock history, order filters), Phase 14 (emails — Resend transport with dev-log fallback, order/status/welcome mail, forgot/reset password), Phase 15 (wishlist + dedicated /search results page) Phase 16 (design & polish — rembg floral cutouts, hero/magazine/immersive homepage, header/footer/menu, product accordions + mini-cart drawer, spec copy passes, motion/a11y tokens, JSON-LD) and Phase 17 (launch readiness — Cloudflare Workers deploy via OpenNext, Safepay env switch with fail-closed checkout, guarded production seed, global security headers, robots/sitemap/metadata, pagination, six legal/content pages, throttled registration)**. Plans, findings and per-phase logs live in [`contextopencode.md`](./contextopencode.md).

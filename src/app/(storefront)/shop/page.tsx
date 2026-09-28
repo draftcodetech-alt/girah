@@ -1,11 +1,15 @@
-import { getProducts, getCategories } from "@/modules/catalog";
+import { getProducts, getCategories, paginate, normalizePage } from "@/modules/catalog";
 import type { SortOption } from "@/modules/catalog";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getWishlistProductIds } from "@/modules/wishlist";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { CategoryTabs } from "@/components/storefront/CategoryTabs";
 import { SortSelect } from "@/components/storefront/SortSelect";
 import { ShopFilters } from "@/components/storefront/ShopFilters";
+import { Pagination } from "@/components/storefront/Pagination";
+
+export const metadata: Metadata = { title: "Shop" };
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
 type ShopPageProps = {
@@ -16,6 +20,7 @@ type ShopPageProps = {
     minPrice?: string;
     maxPrice?: string;
     inStockOnly?: string;
+    page?: string;
   }>;
 };
 
@@ -23,7 +28,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const params = await searchParams;
   const categories = await getCategories();
 
-  const products = await getProducts({
+  const allProducts = await getProducts({
     categorySlug: params.category,
     search: params.search,
     sort: params.sort as SortOption | undefined,
@@ -31,6 +36,10 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     maxPrice: params.maxPrice ? Number(params.maxPrice) * 100 : undefined,
     inStockOnly: params.inStockOnly === "true",
   });
+  const { items: products, page: currentPage, totalPages } = paginate(
+    allProducts,
+    normalizePage(params.page)
+  );
   const wished = new Set(await getWishlistProductIds());
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
@@ -111,6 +120,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
               ))}
             </div>
           )}
+          <Pagination basePath="/shop" params={params} page={currentPage} totalPages={totalPages} />
         </div>
       </div>
     </div>

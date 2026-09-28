@@ -18,10 +18,13 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const require = createRequire(join(ROOT, "package.json"));
 require("dotenv").config({ path: join(ROOT, ".env") });
 const { PrismaClient } = require("@prisma/client");
+const { PrismaNeon } = require("@prisma/adapter-neon");
 const bcrypt = require("bcryptjs");
 const crypto = require("node:crypto");
 
-const db = new PrismaClient();
+const db = new PrismaClient({
+  adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL }),
+});
 
 const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3100";
 const TS = Date.now();
@@ -1108,12 +1111,17 @@ let p11Order = null;
     "row still present"
   );
 
-  // Admin list: cover thumbnail (optimizable host → next/image <img>) + delete.
+  // Admin list: cover thumbnail + delete. Node builds run the next/image
+  // optimizer (src="/_next/image?url=…"); the Cloudflare build sets
+  // images.unoptimized by design, so there the thumbnail is the raw
+  // <img alt="<product name>"> instead — accept either form.
   const listPage = await get("/admin/products", adminLogin.jar);
   const fixtureRowAt = listPage.html.indexOf(FIXTURE_NAME);
   check(
     "product list renders the cover thumbnail",
-    fixtureRowAt >= 0 && listPage.html.includes("/_next/image?url="),
+    fixtureRowAt >= 0 &&
+      (listPage.html.includes("/_next/image?url=") ||
+        listPage.html.includes(`alt="${FIXTURE_NAME}"`)),
     `fixtureRowAt=${fixtureRowAt}`
   );
   check(
@@ -1980,10 +1988,12 @@ const p13Orders = [];
   );
   check("footer carries the brand sentence", home.html.includes("Handmade pieces, made to be cherished."));
   check(
-    "footer never links unbuilt pages",
-    !home.html.includes('href="/about"') &&
-      !home.html.includes('href="/faq"') &&
-      !home.html.includes('href="/contact"')
+    "footer links the six built content pages, never /faq",
+    home.html.includes('href="/about"') &&
+      home.html.includes('href="/contact"') &&
+      home.html.includes('href="/privacy"') &&
+      home.html.includes('href="/terms"') &&
+      !home.html.includes('href="/faq"')
   );
   check("header links Home", home.html.includes(">Home</a>"));
   check("floral cutouts are served through the app", home.html.includes("florals"));
@@ -2025,6 +2035,210 @@ const p13Orders = [];
   );
 }
 
+// ── 21. Phase 17: launch readiness — pagination, SEO, content pages, headers ─
+const paginatedProducts = [];
+{
+  // 13 products so the e2e-page search matches paginate across 2 pages
+  // (PAGE_SIZE is 12) while the rest of the catalog stays untouched.
+  for (let i = 1; i <= 13; i++) {
+    const n = String(i).padStart(2, "0");
+    paginatedProducts.push(
+      await db.product.create({
+        data: {
+          name: `E2E Page ${n} ${TS}`,
+          slug: `e2e-page-${n}-${TS}`,
+          description: "Phase 17 pagination fixture.",
+          categoryId: category.id,
+          variations: { create: [{ name: "Standard", price: 100000, stock: 3, isEnabled: true }] },
+        },
+        include: { variations: true },
+      })
+    );
+  }
+
+  // --- pagination: /shop -------------------------------------------------
+  const shopP1 = await get("/shop?page=1");
+  check(
+    "shop page 1 renders with a Next link",
+    shopP1.status === 200 && shopP1.html.includes('rel="next"'),
+    `${shopP1.status}`
+  );
+  const shopP2 = await get("/shop?page=2");
+  check(
+    "shop page 2 renders with a Prev link and content",
+    shopP2.status === 200 &&
+      shopP2.html.includes('rel="prev"') &&
+      shopP2.html.includes('aria-label="Pagination"') &&
+      !shopP2.html.includes("Nothing here"),
+    `${shopP2.status}`
+  );
+  const shopClamped = await get("/shop?page=999");
+  check(
+    "shop ?page=999 clamps to a real page instead of an empty screen",
+    shopClamped.status === 200 &&
+      !shopClamped.html.includes("Nothing here") &&
+      shopClamped.html.includes('aria-current="page"'),
+    `${shopClamped.status}`
+  );
+  const categoryHrefs = [...shopP2.html.matchAll(/href="(\/shop\?category=[^"]*)"/g)].map((m) => m[1]);
+  check(
+    "category tab links reset ?page (no stale pagination)",
+    categoryHrefs.length > 0 && categoryHrefs.every((href) => !href.includes("page=")),
+    JSON.stringify(categoryHrefs.slice(0, 3))
+  );
+
+  // --- pagination: /search ----------------------------------------------
+  const searchQuery = encodeURIComponent("E2E Page");
+  const searchP2 = await get(`/search?search=${searchQuery}&page=2`);
+  check(
+    "search page 2 keeps the TOTAL match count in the label",
+    searchP2.status === 200 && searchP2.html.includes("13 products matching &quot;E2E Page&quot;"),
+    `${searchP2.status} ${searchP2.html.match(/\d+ products matching[^<]*/)?.[0] ?? "no label"}`
+  );
+  check(
+    "search page 2 paginates",
+    searchP2.html.includes('aria-label="Pagination"') && searchP2.html.includes('rel="prev"')
+  );
+  const searchClamped = await get(`/search?search=${searchQuery}&page=999`);
+  check(
+    "search ?page=999 clamps (no empty state)",
+    searchClamped.status === 200 && !searchClamped.html.includes("No matches"),
+    `${searchClamped.status}`
+  );
+  const noMatch = await get(`/search?search=${encodeURIComponent("zzz-no-such-thing-zzz")}`);
+  check(
+    "empty search still shows the empty state without pagination",
+    noMatch.status === 200 &&
+      noMatch.html.includes("No matches") &&
+      !noMatch.html.includes('aria-label="Pagination"')
+  );
+
+  // --- six content pages + footer ----------------------------------------
+  const contentSpecs = [
+    ["about", "About"],
+    ["contact", "Contact"],
+    ["shipping", "Shipping &amp; Delivery"],
+    ["returns", "Returns &amp; Refunds"],
+    ["privacy", "Privacy Policy"],
+    ["terms", "Terms of Service"],
+  ];
+  const contentHtml = {};
+  for (const [slug, title] of contentSpecs) {
+    const res = await get(`/${slug}`);
+    contentHtml[slug] = res.html;
+    check(
+      `/${slug} renders 200 with the templated title`,
+      res.status === 200 && res.html.includes(`<title>${title} · Girah</title>`),
+      `${res.status}`
+    );
+  }
+  const home21 = await get("/");
+  check(
+    "home footer links every content page",
+    contentSpecs.every(([slug]) => home21.html.includes(`href="/${slug}"`)) &&
+      !home21.html.includes('href="/faq"')
+  );
+  check(
+    "legal skeletons carry visible [placeholder] markers",
+    ["returns", "privacy", "terms"].every((slug) => contentHtml[slug].includes("placeholder"))
+  );
+  check(
+    "contact only lists configured channels",
+    contentHtml.contact.includes("NEXT_PUBLIC_CONTACT_EMAIL") ||
+      contentHtml.contact.includes("mailto:") ||
+      contentHtml.contact.includes("placeholder")
+  );
+
+  // --- robots + sitemap ---------------------------------------------------
+  const robots = await get("/robots.txt");
+  check(
+    "robots.txt ships with private routes blocked and a sitemap pointer",
+    robots.status === 200 &&
+      robots.html.includes("Disallow: /admin/") &&
+      robots.html.includes("Disallow: /checkout") &&
+      robots.html.includes("Sitemap:"),
+    `${robots.status}`
+  );
+  const sitemap = await get("/sitemap.xml");
+  check(
+    "sitemap lists shop, live products, and content pages",
+    sitemap.status === 200 &&
+      sitemap.html.includes("/shop") &&
+      sitemap.html.includes(`/product/${fixtureProduct.slug}`) &&
+      sitemap.html.includes("/terms") &&
+      !sitemap.html.includes("/search"),
+    `${sitemap.status}`
+  );
+
+  // --- noindex on thin/session pages --------------------------------------
+  const searchThin = await get("/search?search=sun");
+  check("search results are noindex", searchThin.html.includes('name="robots" content="noindex'));
+  const cartPage = await get("/cart");
+  check("cart is noindex", cartPage.html.includes('name="robots" content="noindex'));
+
+  // Checkout: needs a filled cart (customer session) — the Safepay radio
+  // renders because the environment ships credentials.
+  const addToCheckoutCart = await callAction(
+    "/cart",
+    ids.addToCart,
+    [paginatedProducts[0].variations[0].id, 1],
+    loginJar
+  );
+  check(
+    "seed item added for the checkout render",
+    addToCheckoutCart.json?.success === true,
+    JSON.stringify(addToCheckoutCart.json)
+  );
+  const checkoutPage = await get("/checkout", loginJar);
+  check(
+    "checkout renders with the online-payment option (Safepay configured)",
+    checkoutPage.status === 200 &&
+      checkoutPage.html.includes("Online Payment (Cards, JazzCash, EasyPaisa)"),
+    `${checkoutPage.status}`
+  );
+  check(
+    "checkout is noindex",
+    checkoutPage.html.includes('name="robots" content="noindex'),
+    checkoutPage.html.match(/name="robots"[^>]* /)?.[0] ?? "NO_META"
+  );
+
+  // --- per-product OG + root metadata -------------------------------------
+  const ogProduct = await get(`/product/${fixtureProduct.slug}`);
+  check(
+    "product page ships og:title with the product name",
+    ogProduct.html.includes(`property="og:title" content="${FIXTURE_NAME}"`)
+  );
+  check("home ships og:image (brand asset)", home21.html.includes('property="og:image"'));
+  check("shop uses the title template", (await get("/shop")).html.includes("<title>Shop · Girah</title>"));
+
+  // --- security headers + the /api/auth carve-out --------------------------
+  const headerHome = await get("/");
+  const csp = headerHome.res.headers.get("content-security-policy") ?? "";
+  check(
+    "CSP ships on HTML responses (same-origin, framed denied)",
+    csp.includes("default-src 'self'") && csp.includes("frame-ancestors 'none'"),
+    csp.slice(0, 90)
+  );
+  check(
+    "nosniff + frame denial ship",
+    headerHome.res.headers.get("x-content-type-options") === "nosniff" &&
+      headerHome.res.headers.get("x-frame-options") === "DENY"
+  );
+  check(
+    "HSTS ships on the production build",
+    Boolean(headerHome.res.headers.get("strict-transport-security"))
+  );
+  const csrfProbe = await safeFetch(`${BASE}/api/auth/csrf`, { headers: {} });
+  const csrfCookies = csrfProbe.headers
+    .getSetCookie()
+    .filter((sc) => sc.startsWith("authjs.csrf-token="));
+  check(
+    "csrf endpoint returns exactly one csrf cookie (middleware excluded)",
+    csrfCookies.length === 1,
+    String(csrfCookies.length)
+  );
+}
+
 // ── cleanup ─────────────────────────────────────────────────────────────────
 await wipeUserCart(customer.id);
 await db.cart.deleteMany({ where: { guestId: { startsWith: "e2e-guest-" } } });
@@ -2037,6 +2251,9 @@ await db.stockAdjustment.deleteMany({ where: { reason: { contains: "E2E P13 stoc
 if (p11Order) await db.order.delete({ where: { id: p11Order.id } }).catch(() => {});
 if (p11Product) await db.product.delete({ where: { id: p11Product.id } }).catch(() => {});
 for (const product of [...Object.values(floatProducts), unavailableProduct, fixtureProduct]) {
+  await db.product.delete({ where: { id: product.id } }).catch(() => {});
+}
+for (const product of paginatedProducts) {
   await db.product.delete({ where: { id: product.id } }).catch(() => {});
 }
 // On a database this script bootstrapped, drop the category once it is empty.
