@@ -41,7 +41,7 @@ describe("Phase 16: floral assets (rembg cutouts)", () => {
     const shipped = new Set(readdirSync(join(ROOT, "public/florals")));
     const pages = [
       "src/components/storefront/home/Hero.tsx",
-      "src/components/storefront/home/MagazineGrid.tsx",
+      "src/components/storefront/home/GalleryCollage.tsx",
       "src/components/storefront/home/ImmersiveBouquet.tsx",
     ];
     for (const page of pages) {
@@ -89,7 +89,7 @@ describe("Phase 16: motion & a11y tokens", () => {
 describe("Phase 16: homepage sections", () => {
   const home = readSource("src/app/(storefront)/page.tsx");
   const hero = readSource("src/components/storefront/home/Hero.tsx");
-  const magazine = readSource("src/components/storefront/home/MagazineGrid.tsx");
+  const gallery = readSource("src/components/storefront/home/GalleryCollage.tsx");
   const immersive = readSource("src/components/storefront/home/ImmersiveBouquet.tsx");
   const closing = readSource("src/components/storefront/home/ClosingCta.tsx");
   const instagram = readSource("src/components/storefront/home/InstagramShowcase.tsx");
@@ -109,13 +109,22 @@ describe("Phase 16: homepage sections", () => {
     expect(hero).toContain("Girah");
   });
 
-  it("ships the asymmetric magazine grid copy", () => {
-    expect(magazine).toContain("HANDMADE");
-    expect(magazine).toContain("WITH CARE");
-    expect(magazine).toContain("FROM YARN");
-    expect(magazine).toContain("SOMETHING SPECIAL");
-    expect(magazine).toMatch(/grid-cols-\[60%_40%\]/);
-    expect(magazine).toMatch(/min-h-\[850px\]/);
+  it("ships the gallery collage (replaces the magazine grid)", () => {
+    expect(gallery).toMatch(/^"use client"/);
+    expect(gallery).toContain("A little world,");
+    expect(gallery).toContain("Every stitch tells a story");
+    expect(gallery).toContain("Explore the collection");
+    expect(gallery).toContain('href="/shop"');
+    expect(gallery).toContain('aria-labelledby="gg-heading"');
+    // Reveals + parallax are JS-driven; reduced-motion/no-JS must still show it.
+    expect(gallery).toContain("prefers-reduced-motion");
+    expect(home).toMatch(/<Hero \/>\s*<GalleryCollage \/>/);
+    expect(home).not.toContain("MagazineGrid");
+    expect(exists("src/components/storefront/home/MagazineGrid.tsx")).toBe(false);
+    // Gallery images ship in public/ (vines converted from the 4.3MB PNGs).
+    for (const name of ["sunflower.webp", "vine1.webp", "vine2.webp"]) {
+      expect(exists(`public/gallery/${name}`)).toBe(true);
+    }
   });
 
   it("features the curated trio under the locked heading", () => {

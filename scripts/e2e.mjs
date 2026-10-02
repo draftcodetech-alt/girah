@@ -148,6 +148,9 @@ async function callAction(path, actionId, args, jar = null) {
   return {
     status: res.status,
     location: res.headers.get("location"),
+    // Fetch actions (Next-Action + Accept: text/x-component) communicate a
+    // redirect() inside the action via this header on a 200 — not a 3xx.
+    actionRedirect: res.headers.get("x-action-redirect"),
     setCookies,
     json: parseActionPayload(text),
     text,
@@ -317,6 +320,9 @@ const requiredActions = [
   "requestPasswordReset",
   "resetPassword",
   "toggleWishlist",
+  // Section 22 actions — the wrappers behind Pay Now and the stock audit.
+  "adjustStock",
+  "startSafepayRetry",
 ];
 for (const name of requiredActions) {
   check(`action id resolved: ${name}`, Boolean(ids[name]), `missing from server-reference-manifest.json`);
@@ -2014,7 +2020,14 @@ const p13Orders = [];
     .filter((text) => text === "Shop Handmade");
   check("single hero CTA text (hero + closing only)", shopAnchors.length === 2, String(shopAnchors.length));
   check("featured section uses the locked heading", home.html.includes("FIND SOMETHING TO CHERISH"));
-  check("magazine grid copy ships", home.html.includes("HANDMADE") && home.html.includes("FROM YARN"));
+  check("gallery collage section ships", home.html.includes('class="girah-gallery"'));
+  check(
+    "gallery locked copy ships",
+    home.html.includes("A little world,") && home.html.includes("Every stitch tells a story")
+  );
+  check("gallery CTA points at the catalog", home.html.includes("Explore the collection"));
+  check("gallery images are served", (await get("/gallery/sunflower.webp")).status === 200);
+  check("gallery vine cut-outs resolve", (await get("/gallery/vine1.webp")).status === 200);
   check(
     "closing CTA eyebrow + statement ship",
     home.html.includes("A SMALL GIRAH MOMENT") && home.html.includes("Handmade things,")
@@ -2285,6 +2298,284 @@ const paginatedProducts = [];
   );
 }
 
+// ── 22. coverage gaps: confirmation/profile/customer pages + wrapped actions ─
+const p22Orders = [];
+{
+  for (const name of ["removeCartItem", "adjustStock", "startSafepayRetry"]) {
+    check(`action id resolved: ${name}`, Boolean(ids[name]), "missing from server-reference-manifest.json");
+  }
+
+  // --- /account/profile (page was never fetched) ---------------------------
+  const anonProfile = await get("/account/profile");
+  check(
+    "anon /account/profile bounces to login with callbackUrl",
+    [302, 307].includes(anonProfile.status) &&
+      (anonProfile.location ?? "").includes("/login?callbackUrl=%2Faccount%2Fprofile"),
+    `${anonProfile.status} ${anonProfile.location}`
+  );
+  const profilePage = await get("/account/profile", loginJar);
+  check(
+    "/account/profile renders the profile form and the Security section",
+    profilePage.status === 200 &&
+      profilePage.html.includes('name="email"') &&
+      profilePage.html.includes('name="currentPassword"') &&
+      profilePage.html.includes('name="newPassword"') &&
+      profilePage.html.includes('name="confirmNewPassword"') &&
+      profilePage.html.includes("Security"),
+    `${profilePage.status}`
+  );
+  check(
+    "AccountNav marks Profile as current on /account/profile",
+    /href="\/account\/profile"[^>]*aria-current="page"|aria-current="page"[^>]*href="\/account\/profile"/.test(
+      profilePage.html
+    ),
+    "aria-current missing from the Profile tab"
+  );
+
+  // --- /admin/customers/[id] (page was never fetched) ----------------------
+  const custPath = `/admin/customers/${customer.id}`;
+  const anonCust = await get(custPath);
+  check(
+    "anon customer detail bounces to login with callbackUrl",
+    [302, 307].includes(anonCust.status) &&
+      (anonCust.location ?? "").includes(`/login?callbackUrl=%2Fadmin%2Fcustomers%2F${customer.id}`),
+    `${anonCust.status} ${anonCust.location}`
+  );
+  const custAsCustomer = await get(custPath, loginJar);
+  const custLoc = (custAsCustomer.location ?? "").replace(BASE, "");
+  check(
+    "signed-in customer redirects home from the admin detail page",
+    [302, 307].includes(custAsCustomer.status) && custLoc === "/",
+    `${custAsCustomer.status} ${custAsCustomer.location}`
+  );
+  const adminCust = await get(custPath, adminLogin.jar);
+  check(
+    "admin customer detail renders identity + order history",
+    adminCust.status === 200 &&
+      adminCust.html.includes(customer.email) &&
+      adminCust.html.includes("Order History"),
+    `${adminCust.status}`
+  );
+  check(
+    "customer detail never leaks the bcrypt password hash",
+    !adminCust.html.includes("$2b$") && !adminCust.html.includes("passwordHash"),
+    "hash material rendered into the page or flight payload"
+  );
+  const missingCust = await get(`/admin/customers/no-such-customer-${TS}`, adminLogin.jar);
+  check(
+    "unknown customer id renders our 404 view",
+    missingCust.html.includes("Page not found"),
+    `status ${missingCust.status}`
+  );
+
+  // --- /order/[id]/confirmation (page was never fetched) -------------------
+  const confGuest = await get(`/order/${probeOrder.id}/confirmation`);
+  check(
+    "guest confirmation renders the order number and COD label",
+    confGuest.status === 200 &&
+      confGuest.html.includes(probeOrder.orderNumber) &&
+      confGuest.html.includes("Cash on Delivery") &&
+      confGuest.html.includes("Order Confirmed"),
+    `${confGuest.status} orderNo=${confGuest.html.includes(probeOrder.orderNumber)} cod=${confGuest.html.includes("Cash on Delivery")}`
+  );
+  const confErr = await get(`/order/${probeOrder.id}/confirmation?payment_error=1`);
+  check(
+    "?payment_error=1 renders the retry-error notice",
+    confErr.status === 200 &&
+      confErr.html.includes("start the payment") &&
+      confErr.html.includes("please try again"),
+    `${confErr.status}`
+  );
+  check(
+    "the default confirmation shows NO payment-error notice",
+    !confGuest.html.includes("start the payment"),
+    "notice leaked into the clean confirmation"
+  );
+
+  const safepayPending = await db.order.create({
+    data: {
+      orderNumber: `GIR-P22S${TS.toString(16).slice(-10)}`,
+      customerName: "E2E P22",
+      customerEmail: "e2e-p22@example.com",
+      customerPhone: "03001234567",
+      shippingAddress: "1 E2E Lane",
+      shippingCity: "Karachi",
+      subtotal: 180000,
+      total: 180000,
+      userId: customer.id,
+      paymentMethod: "SAFEPAY",
+      paymentStatus: "PENDING",
+      orderStatus: "CONFIRMED",
+    },
+  });
+  p22Orders.push(safepayPending.id);
+  const payNowPage = await get(`/order/${safepayPending.id}/confirmation`, loginJar);
+  check(
+    "owner sees the pending-payment page with the Pay Now CTA",
+    payNowPage.status === 200 &&
+      payNowPage.html.includes("Payment Pending") &&
+      payNowPage.html.includes("Pay Now"),
+    `${payNowPage.status}`
+  );
+  const strangerConf = await get(`/order/${safepayPending.id}/confirmation`, adminLogin.jar);
+  check(
+    "stranger GET confirmation renders our 404 view",
+    strangerConf.html.includes("Page not found"),
+    `status ${strangerConf.status}`
+  );
+  const anonConf = await get(`/order/${safepayPending.id}/confirmation`);
+  check(
+    "anon GET account confirmation renders our 404 view",
+    anonConf.html.includes("Page not found"),
+    `status ${anonConf.status}`
+  );
+  const missingConf = await get(`/order/no-such-order-${TS}/confirmation`);
+  check(
+    "unknown confirmation id renders our 404 view",
+    missingConf.html.includes("Page not found"),
+    `status ${missingConf.status}`
+  );
+
+  // --- removeCartItem over the wire (anti-oracle + success) ----------------
+  await seedUserCart(customer.id, [{ variationId: V_SMALL, quantity: 2 }]);
+  const cartLine = await db.cartItem.findFirst({ where: { cart: { userId: customer.id } } });
+  check("cart line seeded for the removal probe", Boolean(cartLine), "no CartItem row");
+  if (cartLine) {
+    const REFUSAL = "Item not found in your cart.";
+    const anonRemove = await callAction("/cart", ids.removeCartItem, [cartLine.id], null);
+    check(
+      "anonymous removeCartItem refuses a foreign line",
+      anonRemove.json?.success === false && anonRemove.json?.error === REFUSAL,
+      JSON.stringify(anonRemove.json)
+    );
+    const strangerRemove = await callAction("/cart", ids.removeCartItem, [cartLine.id], adminLogin.jar);
+    check(
+      "stranger removeCartItem gets the IDENTICAL refusal (anti-oracle)",
+      strangerRemove.json?.success === false && strangerRemove.json?.error === REFUSAL,
+      JSON.stringify(strangerRemove.json)
+    );
+    check(
+      "refused removals leave the line intact",
+      Boolean(await db.cartItem.findUnique({ where: { id: cartLine.id } }))
+    );
+    const ownerRemove = await callAction("/cart", ids.removeCartItem, [cartLine.id], loginJar);
+    check(
+      "owner removeCartItem deletes the line",
+      ownerRemove.json?.success === true &&
+        (await db.cartItem.findUnique({ where: { id: cartLine.id } })) === null,
+      JSON.stringify(ownerRemove.json)
+    );
+  }
+
+  // --- adjustStock over the wire (proxy gates + admin audit) --------------
+  const anonAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: 1, reason: "anon" }], null);
+  check(
+    "anonymous adjustStock POST is bounced to /login by the proxy",
+    anonAdjust.status >= 300 && anonAdjust.status < 400 && (anonAdjust.location ?? "").includes("/login"),
+    `${anonAdjust.status} ${anonAdjust.location}`
+  );
+  const customerAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: 1, reason: "customer" }], loginJar);
+  const customerAdjustLoc = (customerAdjust.location ?? "").replace(BASE, "");
+  check(
+    "customer adjustStock POST redirects home (never reaches the action)",
+    customerAdjust.status >= 300 && customerAdjust.status < 400 && customerAdjustLoc === "/",
+    `${customerAdjust.status} ${customerAdjust.location}`
+  );
+
+  const p22Admin = await db.user.findUnique({ where: { email: ADMIN.email } });
+  const stockBefore22 = (await db.productVariation.findUniqueOrThrow({ where: { id: V_SINGLE } })).stock;
+  const adjustReason = `E2E adjust ${TS}`;
+  const okAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: 2, reason: adjustReason }], adminLogin.jar);
+  const stockAfter22 = (await db.productVariation.findUniqueOrThrow({ where: { id: V_SINGLE } })).stock;
+  const adjustRow = await db.stockAdjustment.findFirst({ where: { reason: adjustReason } });
+  check(
+    "admin adjustStock applies the delta over the wire",
+    okAdjust.json?.success === true && stockAfter22 === stockBefore22 + 2,
+    `success=${okAdjust.json?.success} ${stockBefore22} → ${stockAfter22}`
+  );
+  check(
+    "adjustStock writes the audit row attributed to the admin",
+    adjustRow?.adjustment === 2 &&
+      adjustRow?.previousStock === stockBefore22 &&
+      adjustRow?.newStock === stockAfter22 &&
+      adjustRow?.adminId === p22Admin?.id,
+    JSON.stringify(adjustRow)
+  );
+  const badAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: 1, reason: "   " }], adminLogin.jar);
+  check(
+    "adjustStock refuses an empty reason with a field error",
+    badAdjust.json?.success === false && badAdjust.json?.fieldErrors?.reason === "A reason is required",
+    JSON.stringify(badAdjust.json)
+  );
+  const negAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: -99999, reason: `E2E negative ${TS}` }], adminLogin.jar);
+  check(
+    "adjustStock refuses an adjustment past zero",
+    negAdjust.json?.success === false &&
+      negAdjust.json?.error === "Adjustment would result in negative stock.",
+    JSON.stringify(negAdjust.json)
+  );
+  check(
+    "refused adjustments leave stock untouched",
+    (await db.productVariation.findUniqueOrThrow({ where: { id: V_SINGLE } })).stock === stockAfter22,
+    "stock moved after a refusal"
+  );
+
+  // --- startSafepayRetry: deterministic pre-API failures ONLY -------------
+  // Every branch below errors out before createSafepayCheckoutUrl, so no run
+  // ever depends on live Safepay credentials. (The success path is covered by
+  // tests/integration/retry-payment.test.ts with a mocked SDK.)
+  const codRetry = await callAction(`/order/${probeOrder.id}/confirmation`, ids.startSafepayRetry, [probeOrder.id], null);
+  const codRetryTarget = codRetry.actionRedirect ?? codRetry.location ?? "";
+  check(
+    "retry on a COD order redirects to ?payment_error=1",
+    codRetry.status === 200 &&
+      codRetryTarget.includes(`/order/${probeOrder.id}/confirmation?payment_error=1`),
+    JSON.stringify({ status: codRetry.status, actionRedirect: codRetry.actionRedirect, location: codRetry.location })
+  );
+
+  const paidSafepay = await db.order.create({
+    data: {
+      orderNumber: `GIR-P22P${TS.toString(16).slice(-10)}`,
+      customerName: "E2E P22 Paid",
+      customerEmail: "e2e-p22-paid@example.com",
+      customerPhone: "03001234567",
+      shippingAddress: "1 E2E Lane",
+      shippingCity: "Karachi",
+      subtotal: 180000,
+      total: 180000,
+      userId: customer.id,
+      paymentMethod: "SAFEPAY",
+      paymentStatus: "PAID",
+      orderStatus: "CONFIRMED",
+    },
+  });
+  p22Orders.push(paidSafepay.id);
+  const ownerPaidRetry = await callAction(`/order/${paidSafepay.id}/confirmation`, ids.startSafepayRetry, [paidSafepay.id], loginJar);
+  const ownerPaidTarget = ownerPaidRetry.actionRedirect ?? ownerPaidRetry.location ?? "";
+  check(
+    "retry on an already-PAID order redirects to ?payment_error=1 (no API call)",
+    ownerPaidRetry.status === 200 &&
+      ownerPaidTarget.includes(`/order/${paidSafepay.id}/confirmation?payment_error=1`),
+    JSON.stringify({ status: ownerPaidRetry.status, actionRedirect: ownerPaidRetry.actionRedirect })
+  );
+  const strangerPaidRetry = await callAction(`/order/${paidSafepay.id}/confirmation`, ids.startSafepayRetry, [paidSafepay.id], adminLogin.jar);
+  const strangerPaidTarget = strangerPaidRetry.actionRedirect ?? strangerPaidRetry.location ?? "";
+  check(
+    "a stranger's retry gets the IDENTICAL redirect (anti-oracle)",
+    strangerPaidRetry.status === 200 &&
+      strangerPaidTarget.includes(`/order/${paidSafepay.id}/confirmation?payment_error=1`),
+    JSON.stringify({ status: strangerPaidRetry.status, actionRedirect: strangerPaidRetry.actionRedirect })
+  );
+  const anonPaidRetry = await callAction(`/order/${paidSafepay.id}/confirmation`, ids.startSafepayRetry, [paidSafepay.id], null);
+  const anonPaidTarget = anonPaidRetry.actionRedirect ?? anonPaidRetry.location ?? "";
+  check(
+    "anonymous retry on an account order redirects to ?payment_error=1",
+    anonPaidRetry.status === 200 &&
+      anonPaidTarget.includes(`/order/${paidSafepay.id}/confirmation?payment_error=1`),
+    JSON.stringify({ status: anonPaidRetry.status, actionRedirect: anonPaidRetry.actionRedirect })
+  );
+}
+
 // ── cleanup ─────────────────────────────────────────────────────────────────
 await wipeUserCart(customer.id);
 await db.cart.deleteMany({ where: { guestId: { startsWith: "e2e-guest-" } } });
@@ -2293,6 +2584,7 @@ await db.order.delete({ where: { id: probeOrder.id } }).catch(() => {});
 if (reviewOrder) await db.order.delete({ where: { id: reviewOrder.id } }).catch(() => {});
 for (const orderId of p12Orders) await db.order.delete({ where: { id: orderId } }).catch(() => {});
 for (const orderId of p13Orders) await db.order.delete({ where: { id: orderId } }).catch(() => {});
+for (const orderId of p22Orders) await db.order.delete({ where: { id: orderId } }).catch(() => {});
 await db.stockAdjustment.deleteMany({ where: { reason: { contains: "E2E P13 stock" } } });
 if (p11Order) await db.order.delete({ where: { id: p11Order.id } }).catch(() => {});
 if (p11Product) await db.product.delete({ where: { id: p11Product.id } }).catch(() => {});

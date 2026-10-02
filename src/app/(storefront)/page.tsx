@@ -2,7 +2,7 @@ import { getProducts } from "@/modules/catalog";
 import { getWishlistProductIds } from "@/modules/wishlist";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { Hero } from "@/components/storefront/home/Hero";
-import { MagazineGrid } from "@/components/storefront/home/MagazineGrid";
+import { GalleryCollage } from "@/components/storefront/home/GalleryCollage";
 import { ImmersiveBouquet } from "@/components/storefront/home/ImmersiveBouquet";
 import { ClosingCta } from "@/components/storefront/home/ClosingCta";
 import { InstagramShowcase } from "@/components/storefront/home/InstagramShowcase";
@@ -105,7 +105,7 @@ export default async function Home() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd) }}
       />
       <Hero />
-      <MagazineGrid />
+      <GalleryCollage />
 
       <section aria-labelledby="home-featured" className="bg-cream pb-16">
         <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8">

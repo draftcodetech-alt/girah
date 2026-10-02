@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, DM_Sans, Newsreader } from "next/font/google";
+import { Playfair_Display, DM_Sans, Newsreader, Cormorant_Garamond, Jost } from "next/font/google";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -20,6 +20,21 @@ const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
   weight: ["400", "500"],
+});
+
+// Gallery-only serif + sans (reference design fidelity); scoped to
+// .girah-gallery in globals.css via --font-cormorant / --font-jost.
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  subsets: ["latin"],
+  weight: ["500", "600"],
+  style: ["normal", "italic"],
+});
+
+const jost = Jost({
+  variable: "--font-jost",
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
 });
 
 // Phase 17: one canonical origin for metadata (canonical URLs, sitemap,
@@ -56,7 +71,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${playfair.variable} ${dmSans.variable} ${newsreader.variable} h-full antialiased`}
+      className={`${playfair.variable} ${dmSans.variable} ${newsreader.variable} ${cormorant.variable} ${jost.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

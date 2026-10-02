@@ -52,7 +52,7 @@ Tests always run against the **`girah_test`** database — derived from `DATABAS
 npm run build
 DATABASE_URL=<url> npm start &        # production server, default port 3100
 npm run test:smoke                    # 21 sensitive pages render without error
-npm run test:e2e                      # 310 checks: actions, redirects, guards, SEO, pagination, design
+npm run test:e2e                      # 350 checks: actions, redirects, guards, SEO, pagination, design
 ```
 
 Both scripts are **self-contained**: they create their own users, products and
@@ -91,7 +91,7 @@ in CI.
 | `npm run lint` | ESLint (must be 0 errors / 0 warnings) |
 | `npm test` | Unit + integration suites |
 | `npm run test:smoke` | Page-render smoke suite (server must be running) |
-| `npm run test:e2e` | 310-check HTTP E2E suite (server must be running) |
+| `npm run test:e2e` | 350-check HTTP E2E suite (server must be running) |
 | `npm run preview` | Local Cloudflare Worker (OpenNext + wrangler, port 8787); pre-step syncs `.env` → `.dev.vars` |
 | `npm run deploy` | Build + deploy the Worker to `https://www.girah.workers.dev` |
 | `npx prisma migrate dev` | Create/apply migrations |
