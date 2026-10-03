@@ -27,7 +27,10 @@ describe("Phase 9: homepage", () => {
   it("is the real, data-driven homepage", () => {
     expect(source).toMatch(/getProducts/);
     expect(source).toMatch(/getWishlistProductIds/);
-    expect(source).toMatch(/ProductCard/);
+    // Cards live in the collection sections, which must reuse the shared
+    // ProductCard (no hard-coded card markup on the homepage).
+    const collections = readSource("src/components/storefront/home/CollectionSections.tsx");
+    expect(collections).toMatch(/ProductCard/);
   });
 
   it("create-next-app boilerplate is gone", () => {

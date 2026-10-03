@@ -2023,7 +2023,7 @@ const p13Orders = [];
     .map((m) => m[1].replace(/<[^>]+>/g, "").trim())
     .filter((text) => text === "Shop Handmade");
   check("single hero CTA text (hero + closing only)", shopAnchors.length === 2, String(shopAnchors.length));
-  check("featured section uses the locked heading", home.html.includes("FIND SOMETHING TO CHERISH"));
+  check("old featured-trio heading is gone", !home.html.includes("FIND SOMETHING TO CHERISH"));
   check("gallery collage section ships", home.html.includes('class="girah-gallery"'));
   check(
     "gallery locked copy ships",
@@ -2041,8 +2041,17 @@ const p13Orders = [];
     !home.html.includes("Start shopping") && !home.html.includes("Shop by category")
   );
   check("trust strip is present", home.html.includes("Why shop with Girah"));
-  check("immersive bouquet ships its scroll-driven hook", home.html.includes("--bouquet-scale"));
-  check("immersive message copy ships", home.html.includes("with care in every stitch."));
+  check(
+    "curated collections ship their headings + CTAs",
+    home.html.includes("JUST OFF THE HOOK") &&
+      home.html.includes("FLOWERS THAT STAY") &&
+      home.html.includes("MADE TO MAKE SOMEONE SMILE") &&
+      home.html.includes("EXPLORE NEW PIECES")
+  );
+  check(
+    "the immersive bouquet section is gone",
+    !home.html.includes("--bouquet-scale") && !home.html.includes("with care in every stitch.")
+  );
   check("Instagram showcase stays gated without real assets", !home.html.includes("FOLLOW GIRAH"));
   check(
     "home ships WebSite/Organization structured data",

@@ -42,7 +42,6 @@ describe("Phase 16: floral assets (rembg cutouts)", () => {
     const pages = [
       "src/components/storefront/home/Hero.tsx",
       "src/components/storefront/home/GalleryCollage.tsx",
-      "src/components/storefront/home/ImmersiveBouquet.tsx",
     ];
     for (const page of pages) {
       const source = readSource(page);
@@ -90,7 +89,7 @@ describe("Phase 16: homepage sections", () => {
   const home = readSource("src/app/(storefront)/page.tsx");
   const hero = readSource("src/components/storefront/home/Hero.tsx");
   const gallery = readSource("src/components/storefront/home/GalleryCollage.tsx");
-  const immersive = readSource("src/components/storefront/home/ImmersiveBouquet.tsx");
+  const collections = readSource("src/components/storefront/home/CollectionSections.tsx");
   const closing = readSource("src/components/storefront/home/ClosingCta.tsx");
   const instagram = readSource("src/components/storefront/home/InstagramShowcase.tsx");
 
@@ -127,10 +126,11 @@ describe("Phase 16: homepage sections", () => {
     }
   });
 
-  it("features the curated trio under the locked heading", () => {
-    expect(home).toContain("FIND SOMETHING TO CHERISH");
-    expect(home).toMatch(/slice\(0, 3\)/);
+  it("keeps wishlist plumbing and category chips off the homepage", () => {
     expect(home).toContain("getWishlistProductIds");
+    // The featured trio ("FIND SOMETHING TO CHERISH") was removed by request.
+    expect(home).not.toContain("FIND SOMETHING TO CHERISH");
+    expect(home).not.toContain("home-featured");
     // Category chips moved to /shop — the design homepage has no such section.
     expect(home).not.toContain("home-categories");
   });
@@ -140,12 +140,25 @@ describe("Phase 16: homepage sections", () => {
     expect(home).toMatch(/bg-cream pb-16[\s\S]*home-trust/);
   });
 
-  it("immersive bouquet is scroll-driven and reduced-motion safe", () => {
-    expect(immersive).toMatch(/^"use client"/);
-    expect(immersive).toContain("prefers-reduced-motion");
-    expect(immersive).toContain("--bouquet-scale");
-    expect(immersive).toContain("0.85");
-    expect(immersive).toContain("with care in every stitch.");
+  it("ships the curated collections around the untouched product card", () => {
+    // section copy + CTAs from the homepage brief
+    expect(collections).toContain("JUST OFF THE HOOK");
+    expect(collections).toContain("FLOWERS THAT STAY");
+    expect(collections).toContain("MADE TO MAKE SOMEONE SMILE");
+    expect(collections).toContain('href="/shop?sort=newest"');
+    expect(collections).toContain('href="/shop?category=home-decor"');
+    expect(collections).toContain('href="/shop?category=keychains"');
+    // one card implementation only — reuses ProductCard, never a local card
+    expect(collections).toContain('from "@/components/storefront/ProductCard"');
+    expect(collections).not.toContain("function ProductCard");
+    // page order: gallery → collections → brand story; bouquet gone
+    expect(home).toMatch(/<GalleryCollage \/>\s*<CollectionSections/);
+    expect(home).toContain("<CollectionSections");
+    expect(home).toMatch(/<CollectionSections[\s\S]*home-trust/);
+    expect(home).not.toContain("ImmersiveBouquet");
+    // pools are deduped against cards already shown above; 3 cards per section
+    expect(home).toContain("const shown = new Set(");
+    expect(home).toMatch(/slice\(0, 3\)/);
   });
 
   it("closing CTA matches the spec and the sage band is gone", () => {

@@ -2444,3 +2444,148 @@ body {
     translate: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   ── Home: curated collections (02–04) ──
+   Section compositions around the untouched ProductCard: compact centered
+   "fresh", editorial sage-washed "botanical" (side vine), gift-led "smile".
+   Palette strictly from site tokens; reveal is CSS-only (scroll-driven
+   where supported, static otherwise, off under reduced motion).
+   ══════════════════════════════════════════════════════════════════════ */
+.home-collect {
+  position: relative;
+  overflow: hidden;
+  padding: 48px 0;
+}
+@media (min-width: 1024px) {
+  .home-collect {
+    padding: 72px 0;
+  }
+}
+
+/* slightly deeper backgrounds — soft gradient edges, never a hard band */
+.home-collect--botanical {
+  background: linear-gradient(
+    180deg,
+    var(--color-cream) 0%,
+    #edf1e9 16%,
+    #edf1e9 84%,
+    var(--color-cream) 100%
+  );
+}
+.home-collect--gifts {
+  background: linear-gradient(
+    180deg,
+    var(--color-cream) 0%,
+    #f6f1e4 20%,
+    #f6f1e4 80%,
+    var(--color-cream) 100%
+  );
+}
+
+/* ── divider (01 ↓ 02) ── */
+.collect-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 8px;
+  color: var(--color-sage);
+}
+.collect-divider::before,
+.collect-divider::after {
+  content: "";
+  width: min(56px, 12vw);
+  height: 1px;
+  margin: 0 16px;
+  background: currentColor;
+  opacity: 0.35;
+}
+.collect-divider svg {
+  opacity: 0.7;
+}
+
+/* ── shared heading stack ── */
+.collect-mark {
+  display: inline-flex;
+  margin-bottom: 12px;
+  color: var(--color-sage);
+  opacity: 0.8;
+}
+.collect-title {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(26px, 3.2vw, 36px);
+  line-height: 1.15;
+  color: var(--color-charcoal);
+}
+.collect-lede {
+  margin-top: 12px;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-muted);
+}
+
+/* ── CTA link ── */
+.collect-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-sage);
+  transition:
+    color var(--dur-fast) var(--ease-ui),
+    gap var(--dur-fast) var(--ease-ui);
+}
+.collect-cta:hover {
+  gap: 12px;
+  color: var(--color-charcoal);
+}
+
+/* ── botanical side vine (03): gutter only, content paints above ── */
+.collect-vine {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  right: 14px;
+  width: 90px;
+  color: var(--color-sage);
+  opacity: 0.16;
+  pointer-events: none;
+}
+@media (max-width: 1379px) {
+  .collect-vine {
+    display: none;
+  }
+}
+
+/* ── reveal: plays on load without scroll timelines, scroll-driven with
+      them, instant-off under reduced motion (content never stuck hidden) ── */
+.col-reveal {
+  animation: col-fade 0.7s var(--ease-organic) both;
+}
+@keyframes col-fade {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+@supports (animation-timeline: view()) {
+  .col-reveal {
+    animation-timeline: view();
+    animation-range: entry 4% cover 24%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .col-reveal {
+    animation: none;
+  }
+}
