@@ -1135,3 +1135,1312 @@ body {
     display: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+   Product card — ported from assets/product-photos/index(1).html.
+   Cream paper shell, warm stage, olive badge, serif title/price, perks
+   row, pill CTA. Scoped under .pcard so nothing leaks to the panel.
+   ══════════════════════════════════════════════════════════════════════ */
+.pcard {
+  --pc-card: #f9f4e6;
+  --pc-ink: #3f4a30;
+  --pc-muted: #7d8468;
+  --pc-olive: #7a8466;
+  --pc-btn: #8b9476;
+  --pc-btn-hover: #7d8668;
+  --pc-line: #e6dfca;
+
+  /* Card-width container: shop's sidebar makes cards ~40px narrower than
+     home's, so the mockup's 29px title would need 3 lines there. */
+  container-type: inline-size;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--pc-card);
+  border-radius: 24px;
+  padding: 18px 18px 22px;
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 28px 50px -22px rgba(90, 80, 40, 0.38),
+    0 10px 22px -14px rgba(90, 80, 40, 0.25);
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+}
+.pcard:hover {
+  transform: translateY(-4px);
+  box-shadow:
+    0 1px 0 #fff inset,
+    0 36px 60px -22px rgba(90, 80, 40, 0.42),
+    0 12px 24px -14px rgba(90, 80, 40, 0.28);
+}
+.pcard__link {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  color: inherit;
+  text-decoration: none;
+  border-radius: 18px;
+}
+.pcard__link:focus-visible {
+  outline: 2px solid var(--color-sage);
+  outline-offset: 4px;
+}
+
+/* ── stage (full-bleed photo; mockup's floor/sketches dropped — our
+   Cloudinary photos are opaque rectangles, not cut-outs) ── */
+.pcard__stage {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 760 / 773;
+  border-radius: 18px;
+  background: radial-gradient(ellipse at 50% 36%, #fbefd9 0%, #f6e5c8 55%, #f1dcba 100%);
+}
+.pcard__img {
+  transition: transform 0.5s ease;
+}
+.pcard:hover .pcard__img {
+  transform: scale(1.03) rotate(-0.8deg);
+}
+.pcard__placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-body);
+  font-size: var(--text-small);
+  color: var(--pc-muted);
+}
+
+.pcard__badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 5;
+  background: var(--pc-olive);
+  color: #f6f1e0;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 8px 17px;
+  border-radius: 999px;
+}
+
+.pcard__oos {
+  position: absolute;
+  bottom: 14px;
+  left: 16px;
+  z-index: 5;
+  background: rgba(249, 244, 230, 0.92);
+  color: var(--pc-ink);
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border-radius: 999px;
+}
+
+/* ── info ──────────────────────────────────────────────────────────────────
+   Flex column (not the mockup's 2-col grid): our grid cards are ~330px
+   wide vs the mockup's 470px, so price|rating side-by-side squeezed the
+   price into a wrap and the CTA clipped the perks. Rows now: title
+   (fixed 2-line block → identical row offsets across a row of cards),
+   tagline, meta (price | rating, wraps if tight), then the foot pinned
+   to the bottom so every card's divider + CTA line up. */
+.pcard__info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  padding: 20px 8px 0;
+}
+.pcard__title {
+  /* Exactly two lines whether the name takes one or three (clamped). */
+  min-height: 2.2em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-weight: 500;
+  font-size: 29px;
+  line-height: 1.1;
+  letter-spacing: -0.005em;
+  color: var(--pc-ink);
+}
+.pcard__tagline {
+  margin-top: 7px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: 0.01em;
+  color: var(--pc-muted);
+}
+.pcard__tagline i {
+  font-style: normal;
+  margin: 0 6px;
+}
+/* Narrow cards (shop/search with a sidebar): step the title down so
+   "Crochet Sunflower Bouquet" still fits the fixed 2-line block without
+   an ellipsis. Wide cards (home) keep the mockup's 29px. The rest of the
+   narrow-card overrides live in the @container block after .pcard__cta —
+   a container query only beats the base rules when it comes AFTER them. */
+@container (max-width: 300px) {
+  .pcard__title {
+    font-size: 26px;
+  }
+}
+
+.pcard__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 16px;
+  margin-top: 14px;
+}
+.pcard__price {
+  white-space: nowrap;
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.2;
+  color: var(--pc-ink);
+}
+.pcard__rating {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  color: var(--pc-muted);
+}
+.pcard__stars {
+  display: flex;
+  gap: 1px;
+  color: var(--pc-ink);
+}
+
+/* ── foot: perks (with the hairline divider) + CTA. Pinned to the bottom
+   of the card. The two perks stack in a narrow left column so the CTA can
+   sit to the RIGHT of them — button level with the "Worldwide Shipping"
+   line — at every card width (inline perks + CTA never fit our ~330–360px
+   cards). Falls back to CTA-below-right when a card is genuinely too
+   narrow, same wrap for every card in a row, so still aligned. ── */
+.pcard__foot {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--pc-line);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  min-width: 0;
+}
+.pcard__perks {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+.pcard__perk {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-body);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--pc-muted);
+  white-space: nowrap;
+}
+.pcard__perk svg {
+  width: 15px;
+  height: 15px;
+  stroke: var(--pc-muted);
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+
+.pcard__cta {
+  position: relative;
+  overflow: hidden;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--pc-btn);
+  color: #fbf7ea;
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  white-space: nowrap;
+  transition:
+    background 0.2s,
+    transform 0.2s;
+}
+.pcard__cta svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.25s;
+}
+.pcard:hover .pcard__cta {
+  background: var(--pc-btn-hover);
+}
+.pcard:hover .pcard__cta svg {
+  transform: translateX(4px);
+}
+.pcard:active .pcard__cta {
+  transform: scale(0.97);
+}
+
+/* Sidebar shop / related-products cards (~280px): tighten the foot so the
+   CTA still sits to the right of the perks instead of wrapping below.
+   Must come AFTER the base .pcard__foot/perk/cta rules to win. */
+@container (max-width: 300px) {
+  .pcard__info {
+    padding-inline: 4px;
+  }
+  .pcard__foot {
+    gap: 8px;
+  }
+  .pcard__perks {
+    gap: 4px;
+  }
+  .pcard__perk {
+    font-size: 10px;
+  }
+  .pcard__perk svg {
+    width: 14px;
+    height: 14px;
+  }
+  .pcard__cta {
+    font-size: 11.5px;
+    padding: 9px 11px;
+  }
+  .pcard__cta svg {
+    width: 13px;
+    height: 13px;
+  }
+}
+
+/* ── heart: mockup circle, restyles WishlistButton's sm variant only ── */
+.pcard__heart {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  z-index: 6;
+}
+.pcard__heart button {
+  width: 46px;
+  height: 46px;
+  border: 0;
+  border-radius: 50%;
+  background: #efe9db;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+  box-shadow: 0 2px 8px rgba(90, 80, 40, 0.18);
+}
+.pcard__heart button:hover {
+  transform: scale(1.08);
+}
+.pcard__heart .pcard-heart-svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: var(--pc-ink);
+  stroke-width: 1.6;
+  transition:
+    fill 0.25s,
+    stroke 0.25s;
+}
+.pcard__heart button[aria-pressed="true"] .pcard-heart-svg {
+  fill: #d9534f;
+  stroke: #d9534f;
+  animation: pcard-pop 0.4s ease;
+}
+.pcard__heart button:focus-visible {
+  outline: 2px solid var(--color-sage);
+  outline-offset: 2px;
+}
+@keyframes pcard-pop {
+  0% {
+    transform: scale(0.6);
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ── narrow: stack like the mockup ── */
+@media (max-width: 440px) {
+  .pcard__title {
+    font-size: 25px;
+  }
+  .pcard__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .pcard__cta {
+    width: 100%;
+    justify-content: center;
+    margin-left: 0;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Ported from the approved footer reference (assets/footer from claude/
+   index.html): palette snapped to hero/gallery/products tokens, fonts to
+   next/font variables (Playfair logo, Cormorant headings, Mrs Saint
+   Delafield script), scoped to .girah-footer / .ft-* so it can never
+   leak. 1em = 18px of the 2155px-wide reference; scales with viewport.
+   ══════════════════════════════════════════════════════════════════════ */
+.girah-footer {
+  --ft-cream1: #f6eee2;
+  --ft-cream2: #f3e8d9;
+  --ft-ink: #2f4a3a; /* gallery --gg-ink */
+  --ft-text: #4f5e48; /* gallery --gg-ink-soft */
+  --ft-muted: #656e65; /* site muted (AA on cream) */
+  --ft-line: #e6dfca; /* pcard --pc-line */
+  --ft-chip: #eadfca;
+  --ft-chip-hover: #e2d4b8;
+  --ft-sage: #526b5a; /* site sage — link hover */
+  --ft-btn: #2e4a37; /* hero deep green */
+  --ft-btn-hover: #243b26;
+  --ft-gold: #c49a5a; /* site gold */
+  --ft-sprig: #3d5a46; /* gallery --gg-line */
+  --ft-thread: #8fa56f; /* gallery --gg-thread */
+
+  position: relative;
+  overflow: hidden;
+  font-size: min(0.8333vw, 18px);
+  height: 40.5em;
+  background: linear-gradient(180deg, var(--ft-cream1) 0%, #f4eadc 60%, var(--ft-cream2) 100%);
+  color: var(--ft-text);
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+.girah-footer *,
+.girah-footer *::before,
+.girah-footer *::after {
+  box-sizing: border-box;
+}
+.girah-footer a:focus-visible,
+.girah-footer button:focus-visible,
+.girah-footer input:focus-visible {
+  outline: 2px solid var(--ft-sage);
+  outline-offset: 2px;
+}
+.ft-inner {
+  position: relative;
+  width: 119.7em;
+  height: 100%;
+  margin: 0 auto;
+}
+.girah-footer svg.ft-bg {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+.ft-bg-top {
+  top: 0;
+  height: 4.7em;
+}
+.ft-bg-bottom {
+  bottom: 0;
+  height: 7.8em;
+}
+
+/* photos (product-grid cut-outs from the design folder).
+   left photo sits 4.1em up (not the reference's 6.1em): the cut-out has a
+   baked-in yellow leaf that would land on the © line at 6.1em — the drop
+   parks it just below the copyright instead. */
+.ft-photo-left {
+  position: absolute;
+  left: 0;
+  bottom: 4.1em;
+  width: 33.5em;
+  height: auto;
+  z-index: 1;
+  pointer-events: none;
+}
+.ft-photo-right {
+  position: absolute;
+  right: 1em;
+  top: 14.1em;
+  width: 14em;
+  height: 17.1em;
+  overflow: hidden;
+  z-index: 1;
+  pointer-events: none;
+}
+.ft-photo-right img {
+  position: absolute;
+  width: 40em;
+  height: auto;
+  left: -26em;
+  top: -9.6em;
+  max-width: none;
+}
+
+/* line-art sprigs + yellow leaves */
+.ft-sprig {
+  position: absolute;
+  z-index: 2;
+  color: var(--ft-sprig);
+  pointer-events: none;
+  overflow: visible;
+}
+.ft-sprig-tl {
+  left: -1.4em;
+  top: 4.6em;
+  width: 10.6em;
+}
+.ft-sprig-tl2 {
+  left: 2.4em;
+  top: 4.8em;
+  width: 4.5em;
+  opacity: 0.35;
+}
+.ft-sprig-tr {
+  right: -0.6em;
+  top: 0.9em;
+  width: 17em;
+  transform: scaleX(-1) rotate(-12deg) scaleY(-1);
+}
+.ft-sprig-tr2 {
+  right: 1.3em;
+  top: 2em;
+  width: 9em;
+  transform: scaleX(-1) rotate(20deg);
+  opacity: 0.9;
+}
+.ft-sprig-br {
+  right: -0.4em;
+  bottom: 1.6em;
+  width: 16em;
+  transform: scaleX(-1) rotate(2deg);
+}
+.ft-yl {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  filter: drop-shadow(0 0.15em 0.15em rgba(120, 90, 20, 0.25));
+}
+
+/* ---------- main grid ---------- */
+.ft-main {
+  position: absolute;
+  z-index: 3;
+  left: 16.7em;
+  top: 7.8em;
+  display: grid;
+  grid-template-columns: 20.7em 11.4em 15em 16.2em 25em;
+}
+/* The three nav columns are one DOM wrapper (so <1101px can use the
+   Tailwind grid-cols-1 sm:grid-cols-3); display:contents unfolds it into
+   the desktop 5-column grid. Only ≥1101px, so utilities win below. */
+@media (min-width: 1101px) {
+  .ft-cols {
+    display: contents;
+  }
+}
+.ft-brand {
+  margin-top: -3.1em;
+  padding-right: 1.6em;
+  position: relative;
+}
+.ft-logo {
+  position: relative;
+  display: inline-block;
+  font-family: var(--font-playfair), serif;
+  font-weight: 500;
+  font-size: 3.5em;
+  line-height: 1;
+  color: var(--ft-ink);
+  letter-spacing: -0.01em;
+}
+.ft-logo svg {
+  position: absolute;
+  left: 1.62em;
+  top: -0.55em;
+  width: 0.62em;
+  height: 0.62em;
+  color: var(--ft-ink);
+}
+.ft-tag {
+  margin-top: 0.55em;
+  font-size: 0.8em;
+  letter-spacing: 0.21em;
+  line-height: 1.55;
+  color: var(--ft-ink);
+  font-weight: 500;
+  text-transform: uppercase;
+}
+.ft-brand p {
+  margin-top: 1.15em;
+  font-size: 1em;
+  line-height: 1.47;
+  color: var(--ft-text);
+  max-width: 19em;
+}
+.ft-social {
+  display: flex;
+  gap: 1em;
+  margin-top: 1.45em;
+}
+.ft-social a {
+  width: 2.4em;
+  height: 2.4em;
+  border-radius: 50%;
+  background: var(--ft-chip);
+  display: grid;
+  place-items: center;
+  color: var(--ft-ink);
+  transition:
+    transform 0.2s,
+    background 0.2s;
+}
+.ft-social a:hover {
+  transform: translateY(-0.2em);
+  background: var(--ft-chip-hover);
+}
+.ft-social svg {
+  width: 1.15em;
+  height: 1.15em;
+}
+.ft-sprig-line {
+  display: block;
+  width: 6.4em;
+  margin-top: 1.9em;
+  color: var(--ft-thread);
+}
+
+.ft-col {
+  position: relative;
+  text-align: center;
+}
+.ft-col::before,
+.ft-news::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.5em;
+  height: 14em;
+  width: 1px;
+  background: var(--ft-line);
+}
+/* Shop is the wrapper's first child (the reference measured nth-child(2)
+   of the flat grid — the wrapper shifts every index by one). */
+.ft-col:first-child::before {
+  height: 12.2em;
+}
+.ft-leaf {
+  display: block;
+  width: 1.8em;
+  height: 1.8em;
+  margin: 0 auto;
+  color: var(--ft-thread);
+}
+.ft-col h4 {
+  margin-top: 0.7em;
+  font-family: var(--font-cormorant), serif;
+  font-weight: 700;
+  font-size: 0.95em;
+  letter-spacing: 0.22em;
+  color: var(--ft-ink);
+  text-transform: uppercase;
+}
+.ft-col ul {
+  list-style: none;
+  margin-top: 1.5em;
+}
+.ft-col li {
+  line-height: 2.1;
+}
+.ft-col a {
+  color: var(--ft-text);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.ft-col a:hover {
+  color: var(--ft-sage);
+}
+
+/* ---------- newsletter ---------- */
+.ft-news {
+  position: relative;
+  padding-left: 4.2em;
+  margin-top: -0.2em;
+}
+.ft-news::before {
+  top: 0.6em;
+  height: 14.2em;
+}
+.ft-news h3 {
+  font-family: var(--font-mrs-saint), cursive;
+  font-weight: 400;
+  font-size: 3.6em;
+  line-height: 0.9;
+  color: var(--ft-ink);
+  white-space: nowrap;
+  position: relative;
+  display: inline-block;
+}
+.ft-news h3 svg {
+  position: absolute;
+  right: -0.55em;
+  top: -0.1em;
+  width: 0.5em;
+  height: 0.5em;
+  color: var(--ft-gold);
+}
+.ft-news p {
+  margin-top: 0.6em;
+  line-height: 1.47;
+  color: var(--ft-text);
+}
+.ft-form {
+  margin-top: 1.3em;
+  position: relative;
+  width: 21.1em;
+}
+.ft-form input[type="email"] {
+  width: 100%;
+  height: 3.17em;
+  border-radius: 99em;
+  border: 1px solid #d9cdb4;
+  background: rgba(255, 255, 255, 0.28);
+  padding: 0 4em 0 1.15em;
+  font: inherit;
+  color: var(--ft-ink);
+  outline: none;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
+}
+.ft-form input[type="email"]::placeholder {
+  color: var(--ft-muted);
+}
+.ft-form input[type="email"]:focus {
+  border-color: var(--ft-ink);
+  background: rgba(255, 255, 255, 0.55);
+}
+.ft-form button {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 3.17em;
+  height: 3.17em;
+  border-radius: 50%;
+  border: 0;
+  cursor: pointer;
+  background: var(--ft-btn);
+  color: #f6f0e0;
+  display: grid;
+  place-items: center;
+  transition:
+    transform 0.2s,
+    background 0.2s;
+}
+.ft-form button:hover {
+  transform: scale(1.06);
+  background: var(--ft-btn-hover);
+}
+.ft-form button svg {
+  width: 1.2em;
+  height: 1.2em;
+}
+.ft-agree {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin-top: 0.9em;
+  font-size: 0.95em;
+  cursor: pointer;
+  color: var(--ft-text);
+}
+.ft-agree input {
+  appearance: none;
+  width: 1.05em;
+  height: 1.05em;
+  border: 1px solid #a9a891;
+  border-radius: 0.2em;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex: none;
+}
+.ft-agree input:checked {
+  background: var(--ft-ink);
+  border-color: var(--ft-ink);
+}
+.ft-agree input:checked::after {
+  content: "";
+  width: 0.28em;
+  height: 0.55em;
+  border: solid #fff;
+  border-width: 0 0.12em 0.12em 0;
+  transform: rotate(45deg) translate(-0.02em, -0.04em);
+}
+.ft-msg {
+  margin-top: 0.8em;
+  font-size: 0.95em;
+  color: var(--ft-ink);
+  min-height: 1.4em;
+}
+
+/* ---------- bottom bar ----------
+   font-size lives on the CHILDREN: with .85em on .ft-bottom itself the
+   bar's own em (left/top/width) would shrink to 0.85× the root unit,
+   misaligning it with the .ft-main grid and pushing its top border up
+   into the nav columns. Children keep the reference's 0.85em text scale. */
+.ft-bottom {
+  position: absolute;
+  z-index: 3;
+  left: 16.7em;
+  top: 29.15em;
+  width: 88.3em;
+  height: 5em;
+  border-top: 1px solid var(--ft-line);
+}
+.ft-bottom > * {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85em;
+}
+.ft-copy {
+  left: 3.7em;
+  color: var(--ft-text);
+}
+.ft-hand {
+  left: 29.3em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1em;
+  letter-spacing: 0.2em;
+  white-space: nowrap;
+  color: var(--ft-text);
+}
+.ft-hand::before,
+.ft-hand::after {
+  content: "";
+  height: 1px;
+  width: 4.6em;
+  background: #b9b49c;
+}
+.ft-hand svg {
+  width: 2.2em;
+  height: 2.2em;
+  color: var(--ft-thread);
+  margin-right: -0.2em;
+}
+.ft-pay {
+  right: 0.2em;
+  display: flex;
+  align-items: center;
+  gap: 0.75em;
+  white-space: nowrap;
+}
+.ft-badges {
+  display: flex;
+  gap: 0.75em;
+}
+.ft-badge {
+  width: 3.4em;
+  height: 2.05em;
+  border-radius: 0.35em;
+  background: #fff;
+  /* flex, not grid: grid would put <b>G</b> and "Pay" in separate rows */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0.08em 0.3em rgba(80, 70, 40, 0.18);
+  font-weight: 700;
+  font-size: 0.95em;
+  white-space: nowrap;
+}
+.ft-badge-visa {
+  color: #1a3a9c;
+  font-style: italic;
+  font-family: var(--font-dm-sans), sans-serif;
+  letter-spacing: -0.02em;
+}
+.ft-badge-gp b:nth-child(1) {
+  color: #4285f4;
+}
+.ft-badge-gp b:nth-child(2) {
+  color: #ea4335;
+}
+.ft-badge-gp {
+  font-weight: 500;
+  color: #555;
+  font-size: 0.8em;
+}
+.ft-badge-ap {
+  color: #111;
+  font-weight: 600;
+  font-size: 0.88em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15em;
+}
+.ft-badge-ap svg {
+  width: 0.9em;
+  height: 1.05em;
+}
+.ft-badge-mc svg {
+  width: 2.1em;
+  height: 1.3em;
+}
+
+/* ---------- stacked layout (tablets & phones) ----------
+   Raised from the reference's 900px to 1100px: between 900–1100 the
+   reference's vw-scaling renders <9px desktop text — unreadable.
+   The nav columns switch to grid-cols-1 sm:grid-cols-3 (Tailwind) here;
+   ≥1101px .ft-cols is display:contents and they rejoin the em grid. */
+@media (max-width: 1100px) {
+  .girah-footer {
+    font-size: 15px;
+    height: auto;
+    padding-bottom: 7em;
+  }
+  .ft-inner {
+    width: auto;
+    height: auto;
+    padding: 3.5em 1.4em 0;
+  }
+  .ft-main,
+  .ft-bottom {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: auto;
+    display: block;
+  }
+  .ft-brand {
+    margin-top: 0;
+    padding: 0;
+    text-align: center;
+  }
+  .ft-brand p {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .ft-social {
+    justify-content: center;
+  }
+  .ft-sprig-line {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .ft-col {
+    margin-top: 2.2em;
+    padding-top: 1em;
+  }
+  .ft-col::before,
+  .ft-news::before {
+    display: none;
+  }
+  .ft-news {
+    padding: 2em 0 0;
+    margin-top: 2em;
+    text-align: center;
+    border-top: 1px solid var(--ft-line);
+  }
+  .ft-news h3 {
+    font-size: 3.4em;
+  }
+  .ft-form,
+  .ft-news p {
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 24em;
+    width: 100%;
+  }
+  .ft-agree {
+    justify-content: center;
+  }
+  .ft-bottom {
+    margin-top: 2.4em;
+    padding-top: 1.4em;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 1.2em;
+    align-items: center;
+    font-size: 0.9em;
+    text-align: center;
+  }
+  .ft-bottom > * {
+    position: static;
+    transform: none;
+    font-size: 1em;
+  }
+  /* slogan rules would push the hand row past the phone-width bar */
+  .ft-hand::before,
+  .ft-hand::after {
+    display: none;
+  }
+  .ft-pay {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .ft-photo-left,
+  .ft-photo-right,
+  .ft-sprig-tr2,
+  .ft-sprig-tl2,
+  /* the em-anchored leaves land on the stacked text flow */
+  .ft-yl {
+    display: none;
+  }
+  .ft-sprig-tl {
+    width: 7em;
+  }
+  .ft-sprig-tr {
+    width: 11em;
+  }
+  .ft-sprig-br {
+    display: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ── Home: handmade promise ──
+   Ported from the approved "Handmade Promise" reference: palette snapped
+   to site tokens, fonts to next/font variables (Cormorant Garamond
+   headings via --font-cormorant, DM Sans body), scoped to .girah-promise
+   / .hp-* so it can never leak. Reveal mirrors .girah-gallery.
+   ══════════════════════════════════════════════════════════════════════ */
+.girah-promise {
+  --hp-cream: var(--color-cream); /* #FAF8F1 — site cream */
+  --hp-sage: var(--color-sage); /* #526B5A — site sage */
+  --hp-sage-dark: #3e503f; /* reference sage-dark (scoped) */
+  --hp-sage-soft: var(--color-sage-soft); /* #8FA58F */
+  --hp-muted: var(--color-muted); /* #656E65 — AA on cream */
+  --hp-line: rgba(74, 88, 70, 0.16); /* reference line */
+
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  /* outer section keeps the test-locked pb-16; reference rhythm 92/88 ≈ 88/24+64 */
+  padding: 88px 0 24px;
+
+  background:
+    radial-gradient(
+      circle at 12% 20%,
+      rgba(82, 107, 90, 0.07),
+      transparent 28%
+    ),
+    radial-gradient(
+      circle at 88% 80%,
+      rgba(196, 154, 90, 0.08),
+      transparent 30%
+    ),
+    var(--hp-cream);
+}
+
+/* subtle paper texture */
+.girah-promise::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.25;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(80, 70, 50, 0.018) 0px,
+    rgba(80, 70, 50, 0.018) 1px,
+    transparent 1px,
+    transparent 4px
+  );
+  z-index: -1;
+}
+
+/* ── decorative botanical elements ── */
+.hp-leaf {
+  position: absolute;
+  color: var(--hp-sage);
+  opacity: 0.13;
+  pointer-events: none;
+}
+.hp-leaf-left {
+  width: 145px;
+  left: -32px;
+  top: 42px;
+  transform: rotate(-14deg);
+}
+.hp-leaf-right {
+  width: 180px;
+  right: -45px;
+  bottom: 28px;
+  transform: rotate(18deg);
+}
+
+/* ── header ── */
+.hp-header {
+  position: relative;
+  max-width: 760px;
+  margin: 0 auto 64px;
+  text-align: center;
+}
+.hp-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+  color: var(--hp-sage-dark);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+.hp-eyebrow::before,
+.hp-eyebrow::after {
+  content: "";
+  width: 28px;
+  height: 1px;
+  background: var(--hp-sage);
+  opacity: 0.55;
+}
+.hp-title {
+  margin: 0;
+  color: var(--hp-sage-dark);
+  font-family: var(--font-cormorant), serif;
+  font-size: clamp(42px, 5vw, 64px);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: -0.025em;
+}
+.hp-title em {
+  font-weight: 400;
+}
+.hp-intro {
+  max-width: 600px;
+  margin: 22px auto 0;
+  color: var(--hp-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.8;
+}
+
+/* ── promise grid (bordered, three columns with separators) ── */
+.hp-grid {
+  position: relative;
+  max-width: 1180px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--hp-line);
+  border-bottom: 1px solid var(--hp-line);
+}
+.hp-card {
+  position: relative;
+  min-height: 245px;
+  padding: 48px 50px 44px;
+  text-align: center;
+  transition:
+    transform 0.35s ease,
+    background 0.35s ease;
+}
+.hp-card:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 48px;
+  right: 0;
+  width: 1px;
+  height: calc(100% - 96px);
+  background: var(--hp-line);
+}
+.hp-card:hover {
+  transform: translateY(-4px);
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.32),
+    rgba(255, 255, 255, 0)
+  );
+}
+
+/* ── icon ── */
+.hp-icon {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(78, 96, 72, 0.22);
+  border-radius: 50%;
+  color: var(--hp-sage);
+  background: rgba(255, 255, 255, 0.3);
+  transition:
+    transform 0.35s ease,
+    background 0.35s ease,
+    border-color 0.35s ease;
+}
+.hp-card:hover .hp-icon {
+  transform: translateY(-3px) rotate(-3deg);
+  background: rgba(255, 255, 255, 0.65);
+  border-color: rgba(78, 96, 72, 0.4);
+}
+.hp-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.45;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ── card text ── */
+.hp-card-title {
+  margin: 0 0 12px;
+  color: var(--hp-sage-dark);
+  font-family: var(--font-cormorant), serif;
+  font-size: 27px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+.hp-card-body {
+  max-width: 280px;
+  margin: 0 auto;
+  color: var(--hp-muted);
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  font-weight: 300;
+  line-height: 1.75;
+}
+
+/* ── bottom brand note ── */
+.hp-note {
+  position: relative;
+  max-width: 650px;
+  margin: 46px auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--hp-sage-dark);
+  font-family: var(--font-cormorant), serif;
+  font-size: 17px;
+  font-style: italic;
+}
+.hp-flower {
+  width: 25px;
+  height: 25px;
+  opacity: 0.7;
+}
+.hp-flower svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+
+/* ── reveal (gallery pattern: hidden until observed, delays from JSX) ── */
+.hp-reveal {
+  opacity: 0;
+  translate: 0 18px;
+  transition:
+    opacity 0.8s ease,
+    translate 0.8s ease;
+}
+.hp-reveal.hp-show {
+  opacity: 1;
+  translate: 0 0;
+}
+
+/* ── mobile ── */
+@media (max-width: 800px) {
+  .girah-promise {
+    padding-top: 70px;
+  }
+  .hp-header {
+    margin-bottom: 42px;
+  }
+  .hp-grid {
+    grid-template-columns: 1fr;
+  }
+  .hp-card {
+    min-height: auto;
+    padding: 42px 25px;
+  }
+  .hp-card:not(:last-child)::after {
+    top: auto;
+    right: 15%;
+    bottom: 0;
+    width: 70%;
+    height: 1px;
+  }
+  .hp-note {
+    font-size: 15px;
+  }
+}
+
+/* ── small mobile ── */
+@media (max-width: 480px) {
+  .hp-title {
+    font-size: 42px;
+  }
+  .hp-intro {
+    font-size: 13px;
+  }
+  .hp-card-title {
+    font-size: 25px;
+  }
+  .hp-leaf {
+    display: none;
+  }
+}
+
+/* ── reduced motion: content must still show (JS skips the observer) ── */
+@media (prefers-reduced-motion: reduce) {
+  .girah-promise .hp-reveal {
+    opacity: 1;
+    translate: none;
+    transition: none;
+  }
+}
+
+/* ── no-JS: reveal everything (JS normally adds hp-show) ── */
+@media (scripting: none) {
+  .hp-reveal {
+    opacity: 1;
+    translate: none;
+  }
+}

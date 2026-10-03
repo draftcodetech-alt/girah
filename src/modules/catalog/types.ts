@@ -8,6 +8,8 @@ export type ProductListItem = {
   // Phase 10: approved-review rating (null/0 when nothing is approved yet).
   ratingAverage: number | null;
   ratingCount: number;
+  // Card badge (reference design "BOUQUET" pill) — required FK on the schema.
+  categoryName: string;
 };
 
 export type ProductDetail = {

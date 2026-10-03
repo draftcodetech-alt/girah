@@ -47,3 +47,6 @@ next-env.d.ts
 !.env.example
 assets/
 cookies.txt
+
+# local agent workspace (has its own node_modules)
+/.opencode/

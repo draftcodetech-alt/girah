@@ -70,10 +70,15 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
         <CategoryTabs categories={categories} activeSlug={params.category} searchParams={params} />
       </div>
 
-      <div className="flex gap-12 mt-8 items-start">
+      {/* Stacked below lg: the mobile Filters button must sit ABOVE the
+         content, not beside it — as a row sibling it squeezed the grid
+         (and the cards in it) to ~225px and overflowed the viewport. */}
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-12 mt-8 items-start">
         <ShopFilters />
 
-        <div className="flex-1">
+        {/* w-full: the column flex uses items-start, which would otherwise
+            shrink-to-fit this column instead of stretching it. */}
+        <div className="flex-1 w-full">
           <form method="GET" action="/shop">
             {params.category && <input type="hidden" name="category" value={params.category} />}
             {params.sort && <input type="hidden" name="sort" value={params.sort} />}

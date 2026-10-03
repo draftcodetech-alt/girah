@@ -11,8 +11,12 @@ cloudinary.config({
 
 const folder = path.join(process.cwd(), "assets/product-photos");
 
+// Only images — the folder also holds reference mockups (index(1).html)
+// that Cloudinary must never ingest.
+const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".avif", ".gif"]);
+
 async function main() {
-  const files = fs.readdirSync(folder);
+  const files = fs.readdirSync(folder).filter((file) => IMAGE_EXTENSIONS.has(path.extname(file).toLowerCase()));
   const results: Record<string, string> = {};
 
   for (const file of files) {

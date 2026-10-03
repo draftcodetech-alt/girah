@@ -6,68 +6,7 @@ import { GalleryCollage } from "@/components/storefront/home/GalleryCollage";
 import { ImmersiveBouquet } from "@/components/storefront/home/ImmersiveBouquet";
 import { ClosingCta } from "@/components/storefront/home/ClosingCta";
 import { InstagramShowcase } from "@/components/storefront/home/InstagramShowcase";
-
-const TRUST_POINTS = [
-  {
-    title: "Handmade to order",
-    body: "Every piece is crocheted by hand in small batches — no two are ever exactly alike.",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="24"
-        height="24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M5 19c8 0 14-6 14-14-8 0-14 6-14 14z" />
-        <path d="M5 19c0-4 2-8 6-10" />
-      </svg>
-    ),
-  },
-  {
-    title: "Cash on delivery",
-    body: "Prefer to pay when your order arrives? Cash on delivery is available nationwide.",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="24"
-        height="24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <rect x="3" y="7" width="18" height="10" rx="2" />
-        <circle cx="12" cy="12" r="2.5" />
-      </svg>
-    ),
-  },
-  {
-    title: "Secure online payment",
-    body: "Prefer cards? Pay online through Safepay, with payments verified server-side.",
-    icon: (
-      <svg
-        viewBox="0 0 24 24"
-        width="24"
-        height="24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" />
-      </svg>
-    ),
-  },
-];
+import { HandmadePromise } from "@/components/storefront/home/HandmadePromise";
 
 export default async function Home() {
   const [products, wishedIds] = await Promise.all([
@@ -122,7 +61,6 @@ export default async function Home() {
                 <ProductCard
                   key={product.id}
                   product={product}
-                  number={String(index + 1).padStart(2, "0")}
                   wishlisted={wished.has(product.id)}
                   priority={index === 0}
                 />
@@ -138,23 +76,13 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Trust strip — not in the design doc, kept per research (trust
-          signals matter for handmade stores), restyled quiet on cream. */}
+      {/* Trust/promise strip — reference "Handmade Promise" design; the
+          sr-only heading keeps the section's accessible name + test lock. */}
       <section aria-labelledby="home-trust" className="bg-cream pb-16">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8">
-          <h2 id="home-trust" className="sr-only">
-            Why shop with Girah
-          </h2>
-          <ul className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {TRUST_POINTS.map((point) => (
-              <li key={point.title}>
-                <div className="text-sage">{point.icon}</div>
-                <h3 className="font-body text-card-title text-charcoal mt-3">{point.title}</h3>
-                <p className="font-body text-small text-muted mt-2 max-w-[340px]">{point.body}</p>
-              </li>
-            ))}
-          </ul>
-        </div>
+        <h2 id="home-trust" className="sr-only">
+          Why shop with Girah
+        </h2>
+        <HandmadePromise />
       </section>
 
       <ImmersiveBouquet />

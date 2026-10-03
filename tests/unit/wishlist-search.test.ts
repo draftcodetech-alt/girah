@@ -85,6 +85,26 @@ describe("card and panel wiring", () => {
     expect(card).toMatch(/aria-label=\{`Rated/);
   });
 
+  it("carries the approved mockup card: badge, tagline, perks, CTA", () => {
+    // Category badge comes from the shared card mapper (categoryName).
+    expect(card).toContain("{product.categoryName}");
+    expect(card).toContain("pcard__badge");
+    expect(card).toContain("Fresh Blooms");
+    expect(card).toContain("100% Handmade");
+    expect(card).toContain("Worldwide Shipping");
+    expect(card).toContain("View Details");
+    // The CTA stays a <span> — a nested button inside the card Link would
+    // both break HTML and navigate on click.
+    expect(card).not.toMatch(/<button[^>]*pcard__cta/);
+    // Whole-card styling lives in the scoped .pcard block, not Tailwind
+    // one-offs, so all five card surfaces stay in lockstep.
+    const globals = readSource("src/app/globals.css");
+    expect(globals).toMatch(/\.pcard \{/);
+    expect(globals).toContain(".pcard__badge");
+    expect(globals).toContain(".pcard__cta");
+    expect(globals).toContain(".pcard__heart");
+  });
+
   it("the product panel carries a large heart beside the title", () => {
     const panel = readSource("src/components/storefront/PurchasePanel.tsx");
     expect(panel).toContain("<WishlistButton");

@@ -28,7 +28,7 @@ export function WishlistButton({ productId, wishlisted = false, size = "sm" }: W
     });
   }
 
-  const dimension = size === "lg" ? "h-12 w-12 text-2xl" : "h-10 w-10 text-lg";
+  const dimension = size === "lg" ? "h-12 w-12 text-2xl" : "h-11 w-11";
 
   return (
     <div className="relative">
@@ -39,9 +39,18 @@ export function WishlistButton({ productId, wishlisted = false, size = "sm" }: W
         aria-pressed={wishlisted}
         aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
         title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
-        className={`${dimension} inline-flex items-center justify-center rounded-full border border-border bg-cream/90 text-sage hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-sage disabled:opacity-60 transition-colors`}
+        className={`${dimension} inline-flex items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sage disabled:opacity-60 ${size === "lg" ? "border border-border bg-cream/90 text-sage hover:bg-cream transition-colors" : ""}`}
       >
-        <span aria-hidden="true">{wishlisted ? "♥" : "♡"}</span>
+        {/* Card overlay (sm): mockup's stroked SVG heart — .pcard__heart in
+            globals.css paints the circle and the red pressed state. The
+            product panel (lg) keeps the heavier text glyph. */}
+        {size === "sm" ? (
+          <svg viewBox="0 0 24 24" width="23" height="23" aria-hidden="true" className="pcard-heart-svg">
+            <path d="M12 20.5s-7.5-4.6-9.3-9.2C1.5 8 3.4 4.8 6.7 4.8c2 0 3.6 1.1 5.3 3.2 1.7-2.1 3.3-3.2 5.3-3.2 3.3 0 5.2 3.2 4 6.5-1.8 4.6-9.3 9.2-9.3 9.2z" />
+          </svg>
+        ) : (
+          <span aria-hidden="true">{wishlisted ? "♥" : "♡"}</span>
+        )}
       </button>
       {error && (
         <p

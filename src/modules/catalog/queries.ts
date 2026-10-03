@@ -10,6 +10,8 @@ export const CARD_PRODUCT_INCLUDE = {
   // Phase 10 card ratings: APPROVED only — pending/rejected must never
   // leak into shop/homepage averages.
   reviews: { where: { status: "APPROVED" as const }, select: { rating: true } },
+  // Card badge (reference design) — categoryId is required, never null.
+  category: { select: { name: true } },
 } satisfies Prisma.ProductInclude;
 
 type CardProduct = Prisma.ProductGetPayload<{ include: typeof CARD_PRODUCT_INCLUDE }>;
@@ -39,6 +41,7 @@ export function toProductListItem(p: CardProduct): ProductListItem {
     isOutOfStock,
     ratingAverage,
     ratingCount,
+    categoryName: p.category.name,
   };
 }
 

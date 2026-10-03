@@ -425,6 +425,10 @@ check("shop renders 2-decimal prices", countMoney(shop.html) >= 3 && moneyWithou
 const productPage = await get(`/product/${fixtureProduct.slug}`);
 check("product page renders 2-decimal prices", countMoney(productPage.html) >= 1 && moneyWithoutTwoDecimals(productPage.html).length === 0, JSON.stringify(moneyWithoutTwoDecimals(productPage.html)));
 
+// ── 2b. approved card design (mockup port) ─────────────────────────────────
+check("shop cards render the category badge", shop.html.includes("pcard__badge"), "pcard__badge missing");
+check("shop cards render the mockup CTA", shop.html.includes("View Details"), "View Details missing");
+
 // ── 3. catalog filters ──────────────────────────────────────────────────────
 const floatFilter = await get(`/shop?minPrice=8.3`);
 check("minPrice=8.3 keeps the Rs. 8.30 product", floatFilter.html.includes(floatProducts.exact.name), "float paisa dropped an exact match");
