@@ -6,7 +6,7 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
   return (
     <>
       <Header />
-      <main className="flex-1">
+      <main id="main-content" className="flex-1">
         {/* Shared section nav — every account page sits under this wrapper. */}
         <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 pt-8">
           <AccountNav />

@@ -14,9 +14,11 @@ type MenuLink = { label: string; href: string };
 export function MobileMenu({ primary, secondary }: { primary: MenuLink[]; secondary: MenuLink[] }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    const trigger = triggerRef.current;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
@@ -26,6 +28,8 @@ export function MobileMenu({ primary, secondary }: { primary: MenuLink[]; second
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = "";
+      // Keyboard users land back on the trigger they opened the menu from.
+      trigger?.focus();
     };
   }, [open]);
 
@@ -33,6 +37,7 @@ export function MobileMenu({ primary, secondary }: { primary: MenuLink[]; second
     <div className="md:hidden relative">
       <button
         type="button"
+        ref={triggerRef}
         aria-expanded={open}
         aria-controls="mobile-menu"
         aria-label={open ? "Close menu" : "Open menu"}

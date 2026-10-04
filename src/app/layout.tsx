@@ -89,7 +89,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${playfair.variable} ${dmSans.variable} ${newsreader.variable} ${cormorant.variable} ${jost.variable} ${mrsSaint.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-[60] focus:m-3 focus:rounded-[var(--radius-control)] focus:bg-charcoal focus:px-4 focus:py-2 focus:text-cream focus:text-small"
+        >
+          Skip to content
+        </a>
+        {children}
+      </body>
     </html>
   );
 }

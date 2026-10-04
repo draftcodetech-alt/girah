@@ -206,9 +206,24 @@ export async function Footer() {
 
       <div className="ft-inner">
         {/* photos (product-grid cut-outs from the reference) */}
-        <Image className="ft-photo-left" src="/footer/footer-flowers.png" alt="" width={612} height={408} />
+        <Image
+          className="ft-photo-left"
+          src="/footer/footer-flowers.png"
+          alt=""
+          width={612}
+          height={408}
+          loading="lazy"
+          sizes="(min-width: 1100px) 40vw, 100vw"
+        />
         <div className="ft-photo-right">
-          <Image src="/footer/footer-sunflower.png" alt="" width={1536} height={1024} />
+          <Image
+            src="/footer/footer-sunflower.png"
+            alt=""
+            width={1536}
+            height={1024}
+            loading="lazy"
+            sizes="(min-width: 1100px) 45vw, 100vw"
+          />
         </div>
 
         {/* decorations */}

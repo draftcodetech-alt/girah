@@ -1630,8 +1630,8 @@ body {
   opacity: 0.35;
 }
 .ft-sprig-tr {
-  right: -0.6em;
-  top: 0.9em;
+  right: -1.8em;
+  top: 0;
   width: 17em;
   transform: scaleX(-1) rotate(-12deg) scaleY(-1);
 }

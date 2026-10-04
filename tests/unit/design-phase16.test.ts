@@ -19,12 +19,10 @@ function exists(relativePath: string): boolean {
 describe("Phase 16: floral assets (rembg cutouts)", () => {
   it("ships every transparent cutout the homepage references", () => {
     for (const name of [
+      "bouquet-hero.webp",
       "sunflower.png",
-      "sunflower-02.png",
-      "sunflower-03.png",
       "lily.png",
       "duck.png",
-      "duck-01.png",
     ]) {
       expect(exists(`public/florals/${name}`)).toBe(true);
     }

@@ -591,10 +591,10 @@ export function GalleryCollage() {
 
         {/* vine photo cut-outs, draw themselves in */}
         <div className="gg-vine gg-vine--1" aria-hidden="true">
-          <Image src="/gallery/vine1.webp" alt="" width={1536} height={1024} loading="lazy" />
+          <Image src="/gallery/vine1.webp" alt="" width={1536} height={1024} loading="lazy" sizes="100vw" />
         </div>
         <div className="gg-vine gg-vine--2" aria-hidden="true">
-          <Image src="/gallery/vine2.webp" alt="" width={1536} height={1024} loading="lazy" />
+          <Image src="/gallery/vine2.webp" alt="" width={1536} height={1024} loading="lazy" sizes="100vw" />
         </div>
 
         <svg
