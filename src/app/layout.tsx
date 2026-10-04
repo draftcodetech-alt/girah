@@ -31,10 +31,11 @@ const newsreader = Newsreader({
 
 // Gallery-only serif + sans (reference design fidelity); scoped to
 // .girah-gallery in globals.css via --font-cormorant / --font-jost.
+// About page uses Cormorant 300/400 (reference h1/lede weights) too.
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["300", "400", "500", "600", "700"],
   style: ["normal", "italic"],
 });
 

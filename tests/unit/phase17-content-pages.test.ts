@@ -24,7 +24,13 @@ describe("Phase 17: six content pages exist", () => {
       const source = readSource(page.file);
       expect(source).toContain("export const metadata");
       expect(source).toContain(`title: "${page.title}"`);
-      expect(source).toContain("ContentPage");
+      // About ships the full reference design (AboutSections) instead of the
+      // 720px text shell; the other five keep ContentPage.
+      if (page.slug === "about") {
+        expect(source).toContain("AboutSections");
+      } else {
+        expect(source).toContain("ContentPage");
+      }
       // Inside the (storefront) segment → inherits header/footer.
       expect(page.file).toContain("(storefront)");
     });
@@ -56,11 +62,22 @@ describe("Phase 17: skeletons carry visible placeholders, no invented facts", ()
     expect(source).toContain('href="/returns"');
   });
 
-  it("about states only craft facts and links the shop", () => {
+  it("about ships the reference copy and links the shop", () => {
     const source = readSource("src/app/(storefront)/about/page.tsx");
-    expect(source).toContain("made to order");
-    expect(source).toContain('href="/shop"');
-    expect(source).toContain("[placeholder");
+    const sections = readSource("src/components/storefront/about/AboutSections.tsx");
+    const all = source + sections;
+    expect(all).toContain("made to order");
+    expect(all).toContain('href="/shop"');
+    // The old placeholder founder's story is gone — reference copy ships.
+    expect(all).not.toContain("[placeholder");
+    for (const lock of ["What We Make", "How It Works", "Our Story", "Islamabad and Lahore"]) {
+      expect(all).toContain(lock);
+    }
+    // Reference imagery ships from /public/about.
+    expect(existsSync(join(ROOT, "public/about/sunflower.webp"))).toBe(true);
+    expect(existsSync(join(ROOT, "public/about/make-how.webp"))).toBe(true);
+    expect(all).toContain("/about/sunflower.webp");
+    expect(all).toContain("/about/make-how.webp");
   });
 
   it("contact renders only configured channels", () => {
