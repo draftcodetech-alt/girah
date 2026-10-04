@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrderById, getConfirmationView, startSafepayRetry } from "@/modules/orders";
 import { formatPrice } from "@/lib/format";
+
+// Per-order page (order number + total in the DOM): never indexed.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 function paymentLabel(paymentMethod: string, paymentStatus: string): string {
   const status =

@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth.edge";
 import { NextResponse } from "next/server";
+import { assertProdConfig } from "@/lib/config-guard";
 
 // Phase 17: security headers for every response the app renders.
 //
@@ -7,7 +8,7 @@ import { NextResponse } from "next/server";
 // scripts/styles) and relaxed further in dev (HMR websocket, React refresh's
 // eval). Everything is same-origin: the app makes no client-side calls to
 // third parties — checkout leaves via full-page navigation, images come from
-// Cloudinary (covered by `img-src https:`), fonts are self-hosted by next/font.
+// Cloudinary (pinned in `img-src`), fonts are self-hosted by next/font.
 const isDev = process.env.NODE_ENV !== "production";
 
 function applySecurityHeaders(res: NextResponse): void {
@@ -20,7 +21,7 @@ function applySecurityHeaders(res: NextResponse): void {
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
+    "img-src 'self' data: blob: https://res.cloudinary.com",
     "font-src 'self' data:",
     `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
     "media-src 'self'",
@@ -41,6 +42,7 @@ function applySecurityHeaders(res: NextResponse): void {
 }
 
 export default auth((req) => {
+  assertProdConfig();
   const { pathname, search } = req.nextUrl;
   const isAdminRoute = pathname.startsWith("/admin");
   const isAccountRoute = pathname.startsWith("/account");
@@ -57,8 +59,17 @@ export default auth((req) => {
   };
 
   // Every exit path (redirect or next) carries the security headers.
+  // Owner-scoped pages (account, per-order confirmation) must never sit in
+  // a shared cache: mark them private + no-store at the edge.
   const respond = (res: NextResponse) => {
     applySecurityHeaders(res);
+    if (
+      pathname.startsWith("/account") ||
+      pathname.startsWith("/order/") ||
+      pathname.startsWith("/wishlist")
+    ) {
+      res.headers.set("Cache-Control", "private, no-store");
+    }
     return res;
   };
 

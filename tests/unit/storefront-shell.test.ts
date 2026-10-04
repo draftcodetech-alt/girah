@@ -79,7 +79,7 @@ describe("Phase 9: Footer", () => {
 
   it.each(HEADER_LAYOUTS)("%s renders the Footer", (relativePath) => {
     expect(readSource(relativePath)).toMatch(/<Footer\s*\/>/);
-    expect(readSource(relativePath)).toMatch(/<main className="flex-1">/);
+    expect(readSource(relativePath)).toMatch(/<main[^>]*className="flex-1">/);
   });
 
   it("admin ships no storefront Footer", () => {

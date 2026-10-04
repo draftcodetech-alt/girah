@@ -78,6 +78,8 @@ export async function sendEmailSafe(input: SendEmailInput): Promise<void> {
   try {
     await sendEmail(input);
   } catch (error) {
-    console.error(`[email] send failed → ${input.to} "${input.subject}":`, error);
+    // Recipient addresses are PII: full address only outside production logs.
+    const who = process.env.NODE_ENV === "production" ? "[redacted]" : input.to;
+    console.error(`[email] send failed → ${who} "${input.subject}":`, error);
   }
 }

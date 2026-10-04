@@ -1,5 +1,12 @@
 import { z } from "zod";
 
+// bcrypt silently truncates past 72 bytes: reject longer inputs up front so
+// the stored hash always covers the entire password the user typed. Login
+// intentionally has no cap — legacy hashes verify against the same truncation
+// as before, so no existing password can be locked out by this rule.
+const NEW_PASSWORD_MAX = 72;
+const tooLong = "Password must be at most 72 characters";
+
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
@@ -10,7 +17,7 @@ export const registerSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(200),
     email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    password: z.string().min(8, "Password must be at least 8 characters").max(NEW_PASSWORD_MAX, tooLong),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
@@ -29,7 +36,7 @@ export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "Current password is required"),
-    newPassword: z.string().min(8, "New password must be at least 8 characters"),
+    newPassword: z.string().min(8, "New password must be at least 8 characters").max(NEW_PASSWORD_MAX, tooLong),
     confirmNewPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmNewPassword, {
@@ -47,7 +54,7 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export const resetPasswordSchema = z
   .object({
     token: z.string().trim().min(1, "This reset link is invalid or has expired."),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    password: z.string().min(8, "Password must be at least 8 characters").max(NEW_PASSWORD_MAX, tooLong),
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {

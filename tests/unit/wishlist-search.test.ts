@@ -171,7 +171,11 @@ describe("pages", () => {
   it("every ProductCard page passes heart state", () => {
     const home = readSource("src/app/(storefront)/page.tsx");
     expect(home).toContain("getWishlistProductIds");
-    expect(home).toContain("wishlisted={wished.has(product.id)}");
+    // Homepage drills the id set into CollectionSections, which passes the
+    // per-card boolean (curated-sections refactor).
+    expect(home).toContain("wished={wished}");
+    const sections = readSource("src/components/storefront/home/CollectionSections.tsx");
+    expect(sections).toContain("wishlisted={wished.has(product.id)}");
     const detail = readSource("src/app/(storefront)/product/[slug]/page.tsx");
     expect(detail).toContain("getWishlistProductIds");
     expect(detail).toContain("wishlisted={wished.has(product.id)}");

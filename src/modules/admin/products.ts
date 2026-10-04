@@ -3,7 +3,9 @@
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/require-admin";
+import { getCategories } from "@/modules/catalog";
 import { productSchema, type ProductInput } from "./schema";
+import { fieldErrorsFrom } from "./field-errors";
 import { isForeignKeyRestriction, isRecordNotFound } from "./db-errors";
 
 export type AdminActionResult =
@@ -28,7 +30,7 @@ export async function getAdminProductById(id: string) {
 
 export async function getAdminCategories() {
   await requireAdmin();
-  return db.category.findMany({ orderBy: { name: "asc" } });
+  return getCategories();
 }
 
 export async function createProduct(input: ProductInput): Promise<AdminActionResult> {
@@ -36,8 +38,7 @@ export async function createProduct(input: ProductInput): Promise<AdminActionRes
 
   const parsed = productSchema.safeParse(input);
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
+    const fieldErrors = fieldErrorsFrom(parsed.error.issues);
     return { success: false, error: "Please check the highlighted fields.", fieldErrors };
   }
 
@@ -61,8 +62,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Ad
 
   const parsed = productSchema.safeParse(input);
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
+    const fieldErrors = fieldErrorsFrom(parsed.error.issues);
     return { success: false, error: "Please check the highlighted fields.", fieldErrors };
   }
 

@@ -54,3 +54,24 @@ describe("email normalization", () => {
     }
   });
 });
+
+describe("password byte cap (bcrypt truncates past 72)", () => {
+  it("register/change/reset reject over-long new passwords, login does not", async () => {
+    const { registerSchema, changePasswordSchema, resetPasswordSchema } =
+      await import("@/modules/accounts/schema");
+    const long = "p".repeat(73);
+    expect(
+      registerSchema.safeParse({ name: "A", email: "a@e.com", password: long, confirmPassword: long })
+        .success
+    ).toBe(false);
+    expect(
+      changePasswordSchema.safeParse({ currentPassword: "old", newPassword: long, confirmNewPassword: long })
+        .success
+    ).toBe(false);
+    expect(
+      resetPasswordSchema.safeParse({ token: "t", password: long, confirmPassword: long }).success
+    ).toBe(false);
+    // Login keeps no cap: legacy hashes verify exactly as before.
+    expect(loginSchema.safeParse({ email: "a@e.com", password: long }).success).toBe(true);
+  });
+});

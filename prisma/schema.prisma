@@ -219,6 +219,9 @@ model Order {
 
   @@index([userId])
   @@index([orderStatus])
+  // Webhook tracker fallback (findFirst by safepayTracker) — indexed so a
+  // delivery never scans the orders table.
+  @@index([safepayTracker])
 }
 
 model OrderItem {

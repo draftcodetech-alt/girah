@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getMyOrderForReceipt } from "@/modules/orders";
 import { formatPrice, formatDate } from "@/lib/format";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 import { PrintButton } from "@/components/storefront/PrintButton";
+
+// Full-PII invoice: never indexed, never cached shared.
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
+};
 
 // Owner-only invoice (IDOR-protected like the order detail page): the
 // detail view withholds PII on purpose — the receipt is the one page that

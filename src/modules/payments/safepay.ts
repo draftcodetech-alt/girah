@@ -1,5 +1,4 @@
 import Safepay from "@sfpy/node-core";
-import axios from "axios";
 import { db } from "@/lib/db";
 
 // Phase 17: one switch for the whole integration. "sandbox" (default) hits
@@ -64,12 +63,21 @@ export async function createSafepayCheckoutUrl(params: SafepayCheckoutParams): P
 
   // Step B: create a short-lived auth token — DIRECT HTTP CALL, bypassing a
   // confirmed bug in @sfpy/node-core's client.passport.create() method.
-  const passportResponse = await axios.post(
-    `${SAFEPAY_HOST}/client/passport/v1/token`,
-    {},
-    { headers: { "x-sfpy-merchant-secret": process.env.SAFEPAY_API_SECRET! } }
-  );
-  const authToken = passportResponse.data.data;
+  const passportResponse = await fetch(`${SAFEPAY_HOST}/client/passport/v1/token`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-sfpy-merchant-secret": process.env.SAFEPAY_API_SECRET!,
+    },
+    body: "{}",
+  });
+  if (!passportResponse.ok) {
+    throw new Error(`Safepay passport token request failed: ${passportResponse.status}`);
+  }
+  const authToken = ((await passportResponse.json()) as { data: unknown }).data;
+  if (typeof authToken !== "string" || authToken.length === 0) {
+    throw new Error("Safepay passport token request returned an unexpected payload");
+  }
 
   // Step C: build the actual checkout URL — SDK confirmed working
   const checkoutUrl = safepay.checkout.createCheckoutUrl({

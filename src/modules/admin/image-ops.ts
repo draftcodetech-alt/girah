@@ -159,7 +159,7 @@ export async function moveImageCore(
     for (const [index, id] of orderedIds.entries()) {
       await tx.productImage.update({ where: { id }, data: { sortOrder: index } });
     }
-  });
+  }, { maxWait: 5000, timeout: 10000 });
 
   return { success: true, productId: image.product.id, slug: image.product.slug };
 }

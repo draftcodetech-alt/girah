@@ -308,7 +308,7 @@ export async function requestPasswordReset(input: ForgotPasswordInput): Promise<
           expiresAt: new Date(Date.now() + RESET_TOKEN_TTL_MS),
         },
       });
-    });
+    }, { maxWait: 5000, timeout: 10000 });
     const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
     await sendEmailSafe(
       passwordResetEmail({
@@ -340,6 +340,16 @@ export async function resetPassword(input: ResetPasswordInput): Promise<AccountA
   });
   const invalid = !record || !record.user || record.expiresAt.getTime() <= Date.now();
   if (invalid) {
+    // Token guessing is throttled by IP (256-bit tokens are infeasible to
+    // brute-force, but a flood costs one DB read per attempt without this).
+    // Skipped under NODE_ENV=test like the registration throttle.
+    if (process.env.NODE_ENV !== "test") {
+      const verifyKey = `pwreset-verify:${await registerRateKey()}`;
+      if (isRateLimited(verifyKey, REGISTER_RATE)) {
+        return { success: false, error: "Too many attempts — please wait a few minutes and try again." };
+      }
+      recordFailure(verifyKey, REGISTER_RATE);
+    }
     return { success: false, error: "This reset link is invalid or has expired." };
   }
 
@@ -350,6 +360,6 @@ export async function resetPassword(input: ResetPasswordInput): Promise<AccountA
       data: { passwordHash, sessionVersion: { increment: 1 } },
     });
     await tx.passwordResetToken.deleteMany({ where: { userId: record.userId } });
-  });
+  }, { maxWait: 5000, timeout: 10000 });
   return { success: true };
 }
