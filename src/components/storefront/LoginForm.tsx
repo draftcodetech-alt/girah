@@ -38,9 +38,9 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Email</label>
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="email">Email</label>
           <input
-            name="email"
+            id="email" name="email"
             type="email"
             required
             className="w-full h-12 rounded-[var(--radius-control)] border border-border bg-cream px-4 font-body text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"
@@ -48,12 +48,13 @@ export function LoginForm({ callbackUrl }: { callbackUrl?: string }) {
         </div>
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <label className="font-body text-small text-charcoal">Password</label>
+            <label htmlFor="login-password" className="font-body text-small text-charcoal">Password</label>
             <Link href="/forgot-password" className="font-body text-small text-sage font-medium">
               Forgot password?
             </Link>
           </div>
           <input
+            id="login-password"
             name="password"
             type="password"
             required

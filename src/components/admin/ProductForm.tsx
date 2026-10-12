@@ -100,20 +100,20 @@ export function ProductForm({
   return (
     <form onSubmit={handleSubmit} className="max-w-[640px] space-y-4">
       <div>
-        <label className="font-body text-small text-charcoal block mb-1.5">Name</label>
-        <input name="name" defaultValue={existingProduct?.name} required className={inputClass("name")} />
+        <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="name">Name</label>
+        <input id="name" name="name" defaultValue={existingProduct?.name} required className={inputClass("name")} />
         {fieldErrors.name && <p role="alert" className="text-small text-error mt-1">{fieldErrors.name}</p>}
       </div>
       <div>
-        <label className="font-body text-small text-charcoal block mb-1.5">Slug</label>
-        <input name="slug" defaultValue={existingProduct?.slug} required className={inputClass("slug")} />
+        <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="slug">Slug</label>
+        <input id="slug" name="slug" defaultValue={existingProduct?.slug} required className={inputClass("slug")} />
         {fieldErrors.slug && <p role="alert" className="text-small text-error mt-1">{fieldErrors.slug}</p>}
         <p className="font-body text-small text-muted mt-1">Lowercase, hyphens only — becomes the product URL.</p>
       </div>
       <div>
-        <label className="font-body text-small text-charcoal block mb-1.5">Description</label>
+        <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="description">Description</label>
         <textarea
-          name="description"
+          id="description" name="description"
           defaultValue={existingProduct?.description}
           required
           rows={4}
@@ -122,9 +122,9 @@ export function ProductForm({
         {fieldErrors.description && <p role="alert" className="text-small text-error mt-1">{fieldErrors.description}</p>}
       </div>
       <div>
-        <label className="font-body text-small text-charcoal block mb-1.5">Category</label>
+        <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="categoryId">Category</label>
         <select
-          name="categoryId"
+          id="categoryId" name="categoryId"
           value={categoryId}
           onChange={(event) => {
             const value = event.target.value;
@@ -147,8 +147,9 @@ export function ProductForm({
         {showNewCategory && (
           <div className="mt-3 flex flex-wrap items-end gap-3 bg-sage-light p-4 rounded-[var(--radius-control)]">
             <div>
-              <label className="font-body text-small text-charcoal block mb-1">New category name</label>
+              <label htmlFor="new-category-name" className="font-body text-small text-charcoal block mb-1">New category name</label>
               <input
+                id="new-category-name"
                 value={newCategoryName}
                 onChange={(event) => setNewCategoryName(event.target.value)}
                 className={`${smallInputClass(false)} w-44`}
@@ -156,8 +157,9 @@ export function ProductForm({
               />
             </div>
             <div>
-              <label className="font-body text-small text-charcoal block mb-1">Slug</label>
+              <label htmlFor="new-category-slug" className="font-body text-small text-charcoal block mb-1">Slug</label>
               <input
+                id="new-category-slug"
                 value={newCategorySlug}
                 onChange={(event) => setNewCategorySlug(event.target.value)}
                 className={`${smallInputClass(false)} w-44`}

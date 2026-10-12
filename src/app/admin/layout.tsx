@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/customers", label: "Customers" },
   { href: "/admin/reviews", label: "Reviews" },
+  { href: "/admin/newsletter", label: "Newsletter" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -38,7 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </nav>
         </div>
       </div>
-      <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">{children}</div>
+      <main id="main-content" className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">{children}</main>
     </div>
   );
 }

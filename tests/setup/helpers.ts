@@ -14,6 +14,7 @@ export async function resetDb(): Promise<void> {
       "WishlistItem",
       "PasswordResetToken",
       "SavedShipping",
+      "NewsletterSubscriber",
       "ProductImage", "ProductVariation", "Product", "Category",
       "User"
     RESTART IDENTITY CASCADE

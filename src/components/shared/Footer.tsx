@@ -160,7 +160,7 @@ export async function Footer() {
           <div className="ft-cols grid grid-cols-1 sm:grid-cols-3">
             <nav className="ft-col" aria-label="Shop links">
               <LeafIcon className="ft-leaf" />
-              <h4>Shop</h4>
+              <h2>Shop</h2>
               <ul>
                 {SHOP_LINKS.map((link) => (
                   <li key={link.href}>
@@ -177,7 +177,7 @@ export async function Footer() {
 
             <nav className="ft-col" aria-label="Account links">
               <LeafIcon className="ft-leaf" />
-              <h4>Account</h4>
+              <h2>Account</h2>
               <ul>
                 {ACCOUNT_LINKS.map((link) => (
                   <li key={link.href}>
@@ -189,7 +189,7 @@ export async function Footer() {
 
             <nav className="ft-col" aria-label="Information links">
               <LeafIcon className="ft-leaf" />
-              <h4>Information</h4>
+              <h2>Information</h2>
               <ul>
                 {INFO_LINKS.map((link) => (
                   <li key={link.href}>

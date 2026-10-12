@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type FormEvent } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { placeOrder } from "@/modules/checkout/actions";
 import type { CartView } from "@/modules/cart";
@@ -87,18 +88,18 @@ export function CheckoutForm({
           </h2>
           <div className="space-y-4">
             <div>
-              <label className="font-body text-small text-charcoal block mb-1.5">Full Name *</label>
-              <input name="fullName" required defaultValue={savedAddress?.fullName ?? ""} className={inputClass("fullName")} />
+              <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="fullName">Full Name *</label>
+              <input id="fullName" name="fullName" required defaultValue={savedAddress?.fullName ?? ""} className={inputClass("fullName")} />
               {fieldErrors.fullName && <p role="alert" className="text-small text-error mt-1">{fieldErrors.fullName}</p>}
             </div>
             <div>
-              <label className="font-body text-small text-charcoal block mb-1.5">Phone Number *</label>
-              <input name="phone" required defaultValue={savedAddress?.phone ?? ""} className={inputClass("phone")} />
+              <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="phone">Phone Number *</label>
+              <input id="phone" name="phone" required defaultValue={savedAddress?.phone ?? ""} className={inputClass("phone")} />
               {fieldErrors.phone && <p role="alert" className="text-small text-error mt-1">{fieldErrors.phone}</p>}
             </div>
             <div>
-              <label className="font-body text-small text-charcoal block mb-1.5">Email *</label>
-              <input name="email" type="email" required defaultValue={defaultEmail ?? ""} className={inputClass("email")} />
+              <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="email">Email *</label>
+              <input id="email" name="email" type="email" required defaultValue={defaultEmail ?? ""} className={inputClass("email")} />
               {fieldErrors.email && <p role="alert" className="text-small text-error mt-1">{fieldErrors.email}</p>}
             </div>
           </div>
@@ -110,22 +111,22 @@ export function CheckoutForm({
           </h2>
           <div className="space-y-4">
             <div>
-              <label className="font-body text-small text-charcoal block mb-1.5">Address *</label>
-              <input name="address" required defaultValue={savedAddress?.address ?? ""} className={inputClass("address")} />
+              <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="address">Address *</label>
+              <input id="address" name="address" required defaultValue={savedAddress?.address ?? ""} className={inputClass("address")} />
               {fieldErrors.address && <p role="alert" className="text-small text-error mt-1">{fieldErrors.address}</p>}
             </div>
             <div>
-              <label className="font-body text-small text-charcoal block mb-1.5">City *</label>
-              <input name="city" required defaultValue={savedAddress?.city ?? ""} className={inputClass("city")} />
+              <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="city">City *</label>
+              <input id="city" name="city" required defaultValue={savedAddress?.city ?? ""} className={inputClass("city")} />
               {fieldErrors.city && <p role="alert" className="text-small text-error mt-1">{fieldErrors.city}</p>}
             </div>
             <div>
-              <label className="font-body text-small text-charcoal block mb-1.5">Postal Code</label>
-              <input name="postalCode" defaultValue={savedAddress?.postalCode ?? ""} className={inputClass("postalCode")} />
+              <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="postalCode">Postal Code</label>
+              <input id="postalCode" name="postalCode" defaultValue={savedAddress?.postalCode ?? ""} className={inputClass("postalCode")} />
             </div>
             <div>
-              <label className="font-body text-small text-charcoal block mb-1.5">Delivery Notes</label>
-              <textarea name="deliveryNotes" rows={3} className={`${inputClass("deliveryNotes")} h-auto py-3`} />
+              <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="deliveryNotes">Delivery Notes</label>
+              <textarea id="deliveryNotes" name="deliveryNotes" rows={3} className={`${inputClass("deliveryNotes")} h-auto py-3`} />
             </div>
             {showSaveOption && (
               <label className="flex items-center gap-2 font-body text-small text-charcoal cursor-pointer">
@@ -143,11 +144,20 @@ export function CheckoutForm({
         </h2>
         <div className="space-y-3 divide-y divide-border">
           {cart.items.map((item) => (
-            <div key={item.id} className="pt-3 first:pt-0 flex justify-between font-body text-small">
-              <span className="text-charcoal">
+            <div key={item.id} className="pt-3 first:pt-0 flex items-center gap-3 font-body text-small">
+              {item.imageUrl && (
+                <Image
+                  src={item.imageUrl}
+                  alt=""
+                  width={48}
+                  height={48}
+                  className="h-12 w-12 shrink-0 rounded-[var(--radius-control)] object-cover bg-cream"
+                />
+              )}
+              <span className="min-w-0 flex-1 text-charcoal">
                 {item.productName} — {item.variationName} × {item.quantity}
               </span>
-              <span className="text-charcoal">{formatPrice(item.subtotal)}</span>
+              <span className="shrink-0 text-charcoal">{formatPrice(item.subtotal)}</span>
             </div>
           ))}
         </div>

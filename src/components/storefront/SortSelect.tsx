@@ -16,6 +16,7 @@ export function SortSelect({ basePath = "/shop" }: { basePath?: string }) {
 
   return (
     <select
+      aria-label="Sort products"
       value={currentSort}
       onChange={(e) => {
         const params = new URLSearchParams(searchParams.toString());

@@ -82,19 +82,66 @@ function sanitizeFilters(raw: ProductFilters): ProductFilters {
 export async function getProducts(rawFilters: ProductFilters = {}): Promise<ProductListItem[]> {
   const filters = sanitizeFilters(rawFilters);
 
+  // F2 — SQL pushdown. Anything decidable from the row (or its variations)
+  // now narrows the result set in the database instead of pulling every
+  // product and filtering in JS. Each predicate is its own AND element so the
+  // several `OR` blocks (search, maxPrice, inStockOnly) never collide on the
+  // same key.
+  const conditions: Prisma.ProductWhereInput[] = [];
+
+  if (filters.categorySlug) conditions.push({ category: { slug: filters.categorySlug } });
+
+  if (filters.search) {
+    conditions.push({
+      OR: [
+        { name: { contains: filters.search, mode: "insensitive" } },
+        { description: { contains: filters.search, mode: "insensitive" } },
+        { category: { name: { contains: filters.search, mode: "insensitive" } } },
+      ],
+    });
+  }
+
+  // minPrice — a card's startingPrice is the LOWEST ENABLED variation price
+  // (0 when nothing is enabled), so the predicate is "no enabled variation
+  // sits below the floor" AND "there is at least one enabled variation to
+  // measure". A plain `some: { price: { gte } }` would be wrong: a product
+  // priced [100, 500] must NOT match minPrice=400 just because 500 does.
+  // minPrice === 0 is a no-op — startingPrice is never negative.
+  if (filters.minPrice !== undefined && filters.minPrice > 0) {
+    conditions.push({
+      variations: {
+        some: { isEnabled: true },
+        none: { isEnabled: true, price: { lt: filters.minPrice } },
+      },
+    });
+  }
+
+  // maxPrice — startingPrice <= max holds when the product has no enabled
+  // variation at all (startingPrice 0, and 0 <= max always) OR when its
+  // cheapest enabled price fits the ceiling.
+  if (filters.maxPrice !== undefined) {
+    conditions.push({
+      OR: [
+        { variations: { none: { isEnabled: true } } },
+        { variations: { some: { isEnabled: true, price: { lte: filters.maxPrice } } } },
+      ],
+    });
+  }
+
+  // inStockOnly — out of stock means "has variations and none of them is
+  // both enabled and stocked", so a product with no variations yet
+  // (createProduct writes the row before variations exist) stays visible.
+  if (filters.inStockOnly) {
+    conditions.push({
+      OR: [
+        { variations: { none: {} } },
+        { variations: { some: { isEnabled: true, stock: { gt: 0 } } } },
+      ],
+    });
+  }
+
   const products = await db.product.findMany({
-    where: {
-      ...(filters.categorySlug ? { category: { slug: filters.categorySlug } } : {}),
-      ...(filters.search
-        ? {
-            OR: [
-              { name: { contains: filters.search, mode: "insensitive" } },
-              { description: { contains: filters.search, mode: "insensitive" } },
-              { category: { name: { contains: filters.search, mode: "insensitive" } } },
-            ],
-          }
-        : {}),
-    },
+    where: conditions.length > 0 ? { AND: conditions } : undefined,
     include: CARD_PRODUCT_INCLUDE,
     orderBy:
       filters.sort === "newest"
@@ -104,15 +151,9 @@ export async function getProducts(rawFilters: ProductFilters = {}): Promise<Prod
 
   let items: ProductListItem[] = products.map(toProductListItem);
 
-  if (filters.minPrice !== undefined) {
-    items = items.filter((i) => i.startingPrice >= filters.minPrice!);
-  }
-  if (filters.maxPrice !== undefined) {
-    items = items.filter((i) => i.startingPrice <= filters.maxPrice!);
-  }
-  if (filters.inStockOnly) {
-    items = items.filter((i) => !i.isOutOfStock);
-  }
+  // Price ORDER still sorts in memory: Prisma cannot orderBy a relation
+  // aggregate (the cheapest enabled variation), and raw SQL needs a sign-off
+  // first — so price-asc / price-desc deliberately stay here.
   if (filters.sort === "price-asc") {
     items = items.sort((a, b) => a.startingPrice - b.startingPrice);
   }

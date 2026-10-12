@@ -99,6 +99,47 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             <SortSelect />
           </div>
 
+          {/* Result count + active-filter chips (all real query state — every
+              chip deep-links to the same list minus itself). */}
+          <div className="flex flex-wrap items-center gap-2 mt-4" aria-live="polite">
+            <span className="font-body text-small text-muted">
+              {products.length === 0
+                ? "No pieces"
+                : `${allProducts.length} ${allProducts.length === 1 ? "piece" : "pieces"}`}
+            </span>
+            {(() => {
+              const chips: { label: string; href: string }[] = [];
+              const without = (drop: string[]) => {
+                const p = new URLSearchParams();
+                if (params.category && !drop.includes("category")) p.set("category", params.category);
+                if (params.search && !drop.includes("search")) p.set("search", params.search);
+                if (params.sort && !drop.includes("sort")) p.set("sort", params.sort);
+                if (params.minPrice && !drop.includes("minPrice")) p.set("minPrice", params.minPrice);
+                if (params.maxPrice && !drop.includes("maxPrice")) p.set("maxPrice", params.maxPrice);
+                if (params.inStockOnly && !drop.includes("inStockOnly")) p.set("inStockOnly", params.inStockOnly);
+                const qs = p.toString();
+                return `/shop${qs ? `?${qs}` : ""}`;
+              };
+              const activeCategory = categories.find((c) => c.slug === params.category);
+              if (activeCategory) chips.push({ label: activeCategory.name, href: without(["category"]) });
+              if (params.search) chips.push({ label: `“${params.search}”`, href: without(["search"]) });
+              if (params.minPrice) chips.push({ label: `Rs. ${params.minPrice}+`, href: without(["minPrice"]) });
+              if (params.maxPrice) chips.push({ label: `Up to Rs. ${params.maxPrice}`, href: without(["maxPrice"]) });
+              if (params.inStockOnly === "true") chips.push({ label: "In stock", href: without(["inStockOnly"]) });
+              return chips.map((chip) => (
+                <Link
+                  key={chip.label}
+                  href={chip.href}
+                  aria-label={`Remove filter ${chip.label}`}
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-sage-light font-body text-small text-charcoal hover:bg-border transition-colors"
+                >
+                  {chip.label}
+                  <span aria-hidden="true">×</span>
+                </Link>
+              ));
+            })()}
+          </div>
+
           {products.length === 0 ? (
             <div className="text-center py-24">
               <h2 className="font-[family-name:var(--font-display)] text-h3 text-charcoal uppercase tracking-[0.04em]">
@@ -120,8 +161,8 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
-              {products.map((product) => (
-                <ProductCard key={product.id} product={product} wishlisted={wished.has(product.id)} />
+              {products.map((product, i) => (
+                <ProductCard key={product.id} product={product} wishlisted={wished.has(product.id)} priority={i === 0} />
               ))}
             </div>
           )}

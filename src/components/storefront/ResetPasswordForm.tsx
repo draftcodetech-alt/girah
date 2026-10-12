@@ -58,11 +58,11 @@ export function ResetPasswordForm({ token }: { token?: string }) {
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="password">
             New Password
           </label>
           <input
-            name="password"
+            id="password" name="password"
             type="password"
             required
             minLength={8}
@@ -70,11 +70,11 @@ export function ResetPasswordForm({ token }: { token?: string }) {
           />
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="confirmPassword">
             Confirm Password
           </label>
           <input
-            name="confirmPassword"
+            id="confirmPassword" name="confirmPassword"
             type="password"
             required
             minLength={8}

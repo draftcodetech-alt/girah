@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { subscribeNewsletter } from "@/modules/newsletter";
 
 // Client-side-only newsletter (per product decision): validates and
 // acknowledges in place — no backend, no fake network round-trip.
@@ -8,6 +9,7 @@ export function FooterNewsletter() {
   const [email, setEmail] = useState("");
   const [agree, setAgree] = useState(false);
   const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -21,9 +23,21 @@ export function FooterNewsletter() {
       setMsg("Please tick the box to agree to updates.");
       return;
     }
-    setMsg("Thank you! You’re in the loop 🌻");
-    setEmail("");
-    setAgree(false);
+    setBusy(true);
+    subscribeNewsletter(email).then((result) => {
+      setBusy(false);
+      if (result.success) {
+        setMsg(
+          result.alreadySubscribed
+            ? "You're already in the loop 🌻"
+            : "Thank you! You’re in the loop 🌻"
+        );
+        setEmail("");
+        setAgree(false);
+      } else {
+        setMsg(result.error);
+      }
+    });
   }
 
   return (
@@ -38,7 +52,7 @@ export function FooterNewsletter() {
           aria-label="Email address"
           required
         />
-        <button type="submit" aria-label="Subscribe">
+        <button type="submit" aria-label="Subscribe" disabled={busy}>
           <svg
             viewBox="0 0 24 24"
             fill="none"

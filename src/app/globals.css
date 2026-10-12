@@ -1769,7 +1769,7 @@ body {
   margin: 0 auto;
   color: var(--ft-thread);
 }
-.ft-col h4 {
+.ft-col h2 {
   margin-top: 0.7em;
   font-family: var(--font-cormorant), serif;
   font-weight: 700;

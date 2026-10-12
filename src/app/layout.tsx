@@ -26,7 +26,7 @@ const dmSans = DM_Sans({
 const newsreader = Newsreader({
   variable: "--font-newsreader",
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
+  weight: ["500", "600"],
 });
 
 // Gallery-only serif + sans (reference design fidelity); scoped to
@@ -35,14 +35,14 @@ const newsreader = Newsreader({
 const cormorant = Cormorant_Garamond({
   variable: "--font-cormorant",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["300", "400", "500", "700"],
   style: ["normal", "italic"],
 });
 
 const jost = Jost({
   variable: "--font-jost",
   subsets: ["latin"],
-  weight: ["300", "400", "500"],
+  weight: ["300", "400"],
 });
 
 // Footer newsletter script heading (reference footer design); scoped to
@@ -72,13 +72,13 @@ export const metadata: Metadata = {
     url: siteUrl,
     siteName: "Girah",
     locale: "en_PK",
-    // Real brand asset from /public (portrait source crops acceptably in
-    // link unfurlers); relative URL resolves via metadataBase.
-    images: [{ url: "/florals/sunflower.png", width: 1031, height: 1318, alt: "Crochet sunflower bouquet" }],
+    // Landscape brand asset (3:2 unfurls correctly); relative URL resolves
+    // via metadataBase. Replaces the portrait sunflower (cropped badly).
+    images: [{ url: "/footer/footer-sunflower.png", width: 1536, height: 1024, alt: "Handmade crochet sunflower bouquet" }],
   },
   twitter: {
     card: "summary_large_image",
-    images: ["/florals/sunflower.png"],
+    images: ["/footer/footer-sunflower.png"],
   },
   robots: { index: true, follow: true },
 };

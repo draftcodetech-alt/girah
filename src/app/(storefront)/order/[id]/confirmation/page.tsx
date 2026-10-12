@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getOrderById, getConfirmationView, startSafepayRetry } from "@/modules/orders";
+import { OrderTimeline } from "@/components/storefront/OrderTimeline";
 import { formatPrice } from "@/lib/format";
 
 // Per-order page (order number + total in the DOM): never indexed.
@@ -66,6 +67,8 @@ export default async function OrderConfirmationPage({
         #{order.orderNumber}
       </p>
       <p className="font-body text-card-title text-charcoal mt-1">Total: {formatPrice(order.total)}</p>
+
+      <OrderTimeline status={order.orderStatus} />
 
       <div className="bg-sage-light rounded-[var(--radius-surface)] p-6 mt-8 text-left">
         <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-charcoal mb-4">

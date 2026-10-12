@@ -40,10 +40,11 @@ export function InstagramShowcase() {
         </p>
 
         <ul className="mt-10 grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
-          {tiles.map((tile) => (
+          {tiles.map((tile, i) => (
             <li key={tile}>
               <Link
                 href={profileUrl}
+                aria-label={`Girah on Instagram — photo ${i + 1}`}
                 className="group block relative aspect-square overflow-hidden rounded-[var(--radius-surface)] bg-sage-light transition-transform duration-[250ms] ease-media hover:-translate-y-1"
               >
                 <Image

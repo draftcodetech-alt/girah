@@ -33,11 +33,11 @@ export function CategoryTabs({ categories, activeSlug, searchParams }: CategoryT
 
   return (
     <div className="flex gap-6 overflow-x-auto">
-      <Link href={buildHref(undefined)} className={tabClass(!activeSlug)}>
+      <Link href={buildHref(undefined)} aria-current={!activeSlug ? "page" : undefined} className={tabClass(!activeSlug)}>
         All
       </Link>
       {categories.map((cat) => (
-        <Link key={cat.slug} href={buildHref(cat.slug)} className={tabClass(activeSlug === cat.slug)}>
+        <Link key={cat.slug} href={buildHref(cat.slug)} aria-current={activeSlug === cat.slug ? "page" : undefined} className={tabClass(activeSlug === cat.slug)}>
           {cat.name}
         </Link>
       ))}

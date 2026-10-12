@@ -74,16 +74,21 @@ export function VariationForm({
       fieldErrors[field] ? "border-error" : "border-border"
     }`;
 
+  // This form renders once per row in edit mode — prefix ids so simultaneous
+  // editors never share an id.
+  const idPrefix = variation?.id ?? "new-variation";
+
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-wrap items-end gap-3 bg-sage-light p-4 rounded-[var(--radius-control)]">
       <div>
-        <label className="font-body text-small text-charcoal block mb-1">Name</label>
-        <input name="name" defaultValue={variation?.name} required className={`${inputClass("name")} w-44`} />
+        <label htmlFor={`${idPrefix}-name`} className="font-body text-small text-charcoal block mb-1">Name</label>
+        <input id={`${idPrefix}-name`} name="name" defaultValue={variation?.name} required className={`${inputClass("name")} w-44`} />
         {fieldErrors.name && <p role="alert" className="text-small text-error mt-1">{fieldErrors.name}</p>}
       </div>
       <div>
-        <label className="font-body text-small text-charcoal block mb-1">Price (Rs.)</label>
+        <label htmlFor={`${idPrefix}-price`} className="font-body text-small text-charcoal block mb-1">Price (Rs.)</label>
         <input
+          id={`${idPrefix}-price`}
           name="price"
           type="number"
           step="0.01"
@@ -96,8 +101,9 @@ export function VariationForm({
       </div>
       {isCreate && (
         <div>
-          <label className="font-body text-small text-charcoal block mb-1">Stock</label>
+          <label htmlFor={`${idPrefix}-stock`} className="font-body text-small text-charcoal block mb-1">Stock</label>
           <input
+            id={`${idPrefix}-stock`}
             name="stock"
             type="number"
             min={0}

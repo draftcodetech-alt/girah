@@ -2,7 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getCart } from "@/modules/cart";
+import { getProducts } from "@/modules/catalog";
+import { getWishlistProductIds } from "@/modules/wishlist";
 import { CartLineControls } from "@/components/storefront/CartLineControls";
+import { ProductCard } from "@/components/storefront/ProductCard";
 import { formatPrice } from "@/lib/format";
 
 // Phase 17: session-specific page — never indexed.
@@ -12,8 +15,14 @@ export default async function CartPage() {
   const cart = await getCart();
 
   if (cart.items.length === 0) {
+    // Real suggestions (not placeholders): first products from the live catalog.
+    const [suggestions, wishedIds] = await Promise.all([
+      getProducts({ sort: "featured" }),
+      getWishlistProductIds(),
+    ]);
+    const wished = new Set(wishedIds);
     return (
-      <div className="max-w-[1280px] mx-auto px-4 py-24 text-center">
+      <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-24 text-center">
         <h1 className="font-[family-name:var(--font-display)] text-[32px] leading-[1.2] text-charcoal">
           Your cart is empty.
         </h1>
@@ -26,6 +35,27 @@ export default async function CartPage() {
         >
           Shop Handmade
         </Link>
+
+        {suggestions.length > 0 && (
+          <section aria-labelledby="cart-suggestions" className="mt-16 text-left">
+            <h2
+              id="cart-suggestions"
+              className="font-[family-name:var(--font-display)] text-h2 text-charcoal text-center"
+            >
+              You may also like
+            </h2>
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {suggestions.slice(0, 3).map((product, i) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  wishlisted={wished.has(product.id)}
+                  priority={i === 0}
+                />
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     );
   }
@@ -37,14 +67,14 @@ export default async function CartPage() {
       <div className="flex flex-col lg:flex-row gap-12 mt-8 items-start">
         <div className="flex-1 w-full divide-y divide-border">
           {cart.items.map((item) => (
-              <div key={item.id} className="flex gap-4 py-6">
+              <div key={item.id} className="flex flex-wrap gap-4 py-6">
                 <div className="relative w-[120px] aspect-4/5 shrink-0 rounded-[var(--radius-control)] overflow-hidden bg-sage-light">
                   {item.imageUrl && (
                     <Image src={item.imageUrl} alt={item.productName} fill className="object-cover" sizes="120px" />
                   )}
                 </div>
-                <div className="flex-1">
-                  <h3 className="font-body text-card-title text-charcoal">
+                <div className="min-w-0 flex-1">
+                  <h2 className="font-body text-card-title text-charcoal">
                     {item.productName}
                     {/* Phase 5 disabled-line UX — visible before checkout, not as a surprise failure there */}
                     {!item.isEnabled && (
@@ -52,7 +82,7 @@ export default async function CartPage() {
                         Unavailable
                       </span>
                     )}
-                  </h3>
+                  </h2>
                   <p className="font-body text-small text-muted mt-1">{item.variationName}</p>
                   <p className="font-body text-body text-sage mt-2">{formatPrice(item.unitPrice)}</p>
 
@@ -64,7 +94,7 @@ export default async function CartPage() {
                     isEnabled={item.isEnabled}
                   />
                 </div>
-                <p className="font-body text-body font-medium text-charcoal">{formatPrice(item.subtotal)}</p>
+                <p className="ml-auto font-body text-body font-medium text-charcoal">{formatPrice(item.subtotal)}</p>
               </div>
             ))}
         </div>

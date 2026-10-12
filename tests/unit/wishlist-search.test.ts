@@ -164,7 +164,7 @@ describe("pages", () => {
     expect(source).toContain('redirect("/login?callbackUrl=/wishlist")');
     expect(source).toContain("getWishlistProducts()");
     expect(source).toContain("No saved items yet");
-    expect(source).toContain("wishlisted />");
+    expect(source).toContain("wishlisted priority={i === 0}");
     expect(source).toMatch(/<ProductCard/);
   });
 

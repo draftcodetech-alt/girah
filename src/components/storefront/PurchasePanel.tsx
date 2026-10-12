@@ -86,9 +86,9 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
       </p>
 
       <div className="mt-8">
-        <h3 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
+        <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
           Variation
-        </h3>
+        </h2>
         <div className="flex flex-wrap gap-2 mt-3">
           {product.variations.map((v) => {
             const isOutOfStock = !v.isEnabled || v.stock <= 0;
@@ -115,9 +115,15 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
       </div>
 
       <div className="mt-8">
-        <h3 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
+        <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
           Quantity
-        </h3>
+        </h2>
+        {/* Live stock hint for the selected variation — real counts only. */}
+        {selected && (
+          <p role="status" className={`font-body text-small mt-2 ${selected.stock <= 3 ? "text-warning font-medium" : "text-muted"}`}>
+            {selected.stock <= 3 ? `Only ${selected.stock} left in stock` : "In stock"}
+          </p>
+        )}
         <div className="flex items-center h-12 w-[144px] mt-3 rounded-[var(--radius-control)] border border-border">
           <button
             aria-label="Decrease quantity"

@@ -58,6 +58,7 @@ export function FilterPanel({ onApply }: { onApply?: () => void }) {
           <input
             type="number"
             placeholder="Min"
+            aria-label="Minimum price in rupees"
             value={minPrice}
             onChange={(e) => setMinPrice(e.target.value)}
             className="w-full h-12 rounded-[var(--radius-control)] border border-border bg-cream px-3 font-body text-body"
@@ -66,6 +67,7 @@ export function FilterPanel({ onApply }: { onApply?: () => void }) {
           <input
             type="number"
             placeholder="Max"
+            aria-label="Maximum price in rupees"
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
             className="w-full h-12 rounded-[var(--radius-control)] border border-border bg-cream px-3 font-body text-body"

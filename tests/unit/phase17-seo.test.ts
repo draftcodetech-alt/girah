@@ -85,7 +85,8 @@ describe("Phase 17: root metadata", () => {
     expect(layout).toContain('siteName: "Girah"');
     expect(layout).toContain("twitter:");
     expect(layout).toContain('card: "summary_large_image"');
-    expect(layout).toContain("/florals/sunflower.png");
+    // Landscape 3:2 footer asset (portrait sunflower cropped badly in unfurls).
+    expect(layout).toContain("/footer/footer-sunflower.png");
   });
 
   it("indexes by default (per-page noindex is opt-in)", () => {
