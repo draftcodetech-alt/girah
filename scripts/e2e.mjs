@@ -2052,7 +2052,14 @@ const p13Orders = [];
     "the immersive bouquet section is gone",
     !home.html.includes("--bouquet-scale") && !home.html.includes("with care in every stitch.")
   );
-  check("Instagram showcase stays gated without real assets", !home.html.includes("FOLLOW GIRAH"));
+  // Instagram assets are real and configured in dev (.env + public/instagram/),
+  // absent in CI — assert parity with the environment instead of either state.
+  check(
+    "Instagram showcase matches its configuration",
+    process.env.NEXT_PUBLIC_INSTAGRAM_URL
+      ? home.html.includes("FOLLOW GIRAH")
+      : !home.html.includes("FOLLOW GIRAH")
+  );
   check(
     "home ships WebSite/Organization structured data",
     home.html.includes("application/ld+json") && home.html.includes('"@type":"WebSite"'),
@@ -2060,11 +2067,12 @@ const p13Orders = [];
   );
   check("footer carries the brand sentence", home.html.includes("Handmade pieces, made to be cherished."));
   check(
-    "footer links the six built content pages, never /faq",
+    "footer links the two surviving content pages, never removed ones or /faq",
     home.html.includes('href="/about"') &&
       home.html.includes('href="/contact"') &&
-      home.html.includes('href="/privacy"') &&
-      home.html.includes('href="/terms"') &&
+      !home.html.includes('href="/shipping"') &&
+      !home.html.includes('href="/privacy"') &&
+      !home.html.includes('href="/terms"') &&
       !home.html.includes('href="/faq"')
   );
   check("header links Home", home.html.includes(">Home</a>"));
@@ -2233,11 +2241,14 @@ const paginatedProducts = [];
   );
   const sitemap = await get("/sitemap.xml");
   check(
-    "sitemap lists shop, live products, and content pages",
+    "sitemap lists shop, live products, and surviving content pages",
     sitemap.status === 200 &&
       sitemap.html.includes("/shop") &&
       sitemap.html.includes(`/product/${fixtureProduct.slug}`) &&
-      sitemap.html.includes("/terms") &&
+      sitemap.html.includes("/about") &&
+      sitemap.html.includes("/contact") &&
+      !sitemap.html.includes("/terms") &&
+      !sitemap.html.includes("/shipping") &&
       !sitemap.html.includes("/search"),
     `${sitemap.status}`
   );

@@ -196,6 +196,29 @@ describe("approved adds (real data only)", () => {
     );
   });
 });
+describe("overlay dialog behavior (shared hook)", () => {
+  it("menu, cart drawer, and filter sheet share useDialog", () => {
+    const hook = readSource("src/components/shared/use-dialog.ts");
+    expect(hook).toContain('"Escape"');
+    expect(hook).toContain('overflow = "hidden"');
+    expect(hook).toContain("querySelectorAll");
+    for (const user of [
+      "src/components/shared/MobileMenu.tsx",
+      "src/components/storefront/MiniCartDrawer.tsx",
+      "src/components/storefront/ShopFilters.tsx",
+    ]) {
+      expect(readSource(user)).toContain("useDialog(");
+    }
+  });
+
+  it("filter sheet panel is focusable and labelled", () => {
+    const source = readSource("src/components/storefront/ShopFilters.tsx");
+    expect(source).toContain('id="shop-filters-panel"');
+    expect(source).toContain("tabIndex={-1}");
+    expect(source).toContain('role="dialog"');
+  });
+});
+
 describe("card LCP wiring", () => {
   it("first card in each grid carries priority", () => {
     for (const page of [

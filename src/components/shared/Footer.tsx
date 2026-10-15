@@ -15,14 +15,11 @@ const ACCOUNT_LINKS = [
   { label: "Create account", href: "/register" },
 ];
 
-// Phase 17: the six content pages — every href resolves to a real route.
+// Phase 17: content pages — every href resolves to a real route.
+// (Shipping/Returns/Privacy/Terms were removed by owner decision.)
 const INFO_LINKS = [
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
-  { label: "Shipping & Delivery", href: "/shipping" },
-  { label: "Returns & Refunds", href: "/returns" },
-  { label: "Privacy Policy", href: "/privacy" },
-  { label: "Terms of Service", href: "/terms" },
 ];
 
 // Social row is gated — real links only, rendered when configured

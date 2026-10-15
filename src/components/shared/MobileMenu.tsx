@@ -1,43 +1,29 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/Input";
+import { useDialog } from "./use-dialog";
 
 type MenuLink = { label: string; href: string };
 
 /**
  * Mobile navigation — full-screen overlay per the design spec: cream sheet,
  * × close (also Escape), links close on click, background blocked/scroll
- * locked while open.
+ * locked while open. Dialog behavior (Escape, lock, focus trap + return)
+ * comes from the shared useDialog hook.
  */
 export function MobileMenu({ primary, secondary }: { primary: MenuLink[]; secondary: MenuLink[] }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    const trigger = triggerRef.current;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
-    panelRef.current?.focus();
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
-      // Keyboard users land back on the trigger they opened the menu from.
-      trigger?.focus();
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useDialog(open, close, panelRef);
 
   return (
     <div className="md:hidden relative">
       <button
         type="button"
-        ref={triggerRef}
         aria-expanded={open}
         aria-controls="mobile-menu"
         aria-label={open ? "Close menu" : "Open menu"}

@@ -48,14 +48,21 @@ export function toProductListItem(p: CardProduct): ProductListItem {
 const ALLOWED_SORTS: SortOption[] = ["featured", "price-asc", "price-desc", "newest"];
 
 // Whitelists and clamps every incoming filter value — never trusts raw query-string
-// input directly into a database query.
-function sanitizeFilters(raw: ProductFilters): ProductFilters {
+// input directly into a database query. Exported for unit tests (pure).
+export function sanitizeFilters(raw: ProductFilters): ProductFilters {
   const sort: SortOption = ALLOWED_SORTS.includes(raw.sort as SortOption)
     ? (raw.sort as SortOption)
     : "featured";
 
   const search =
     typeof raw.search === "string" ? raw.search.trim().slice(0, 100) : undefined;
+
+  // LIKE-special escape: Prisma passes % and _ through to LIKE unescaped
+  // (live-verified: "%" matched every row), so a symbol-only query would
+  // return the whole catalog instead of nothing. Escaped at this single
+  // choke point every search passes through; Postgres LIKE treats the
+  // backslash as the pattern escape by default.
+  const likeSafe = search?.replace(/[\\%_]/g, "\\$&");
 
   // Phase 5 float-price fix: callers do `Number(param) * 100`, which for
   // values like 8.3 yields 830.0000000000001 — a float paisa that silently
@@ -71,7 +78,7 @@ function sanitizeFilters(raw: ProductFilters): ProductFilters {
 
   return {
     categorySlug: typeof raw.categorySlug === "string" ? raw.categorySlug : undefined,
-    search,
+    search: likeSafe,
     minPrice,
     maxPrice,
     inStockOnly: raw.inStockOnly === true,

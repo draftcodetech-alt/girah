@@ -46,17 +46,12 @@ describe("Phase 17: sitemap.ts", () => {
     expect(sitemap).toContain("db.product.findMany");
   });
 
-  it("ships the six content pages and the shop", () => {
-    for (const path of [
-      '"/shop"',
-      '"/about"',
-      '"/contact"',
-      '"/shipping"',
-      '"/returns"',
-      '"/privacy"',
-      '"/terms"',
-    ]) {
+  it("ships the content pages and the shop", () => {
+    for (const path of ['"/shop"', '"/about"', '"/contact"']) {
       expect(sitemap).toContain(path);
+    }
+    for (const gone of ['"/shipping"', '"/returns"', '"/privacy"', '"/terms"']) {
+      expect(sitemap).not.toContain(gone);
     }
   });
 
