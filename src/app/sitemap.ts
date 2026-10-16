@@ -6,16 +6,7 @@ import { db } from "@/lib/db";
 // on a reachable database).
 export const dynamic = "force-dynamic";
 
-const staticPaths = [
-  "",
-  "/shop",
-  "/about",
-  "/contact",
-  "/shipping",
-  "/returns",
-  "/privacy",
-  "/terms",
-];
+const staticPaths = ["", "/shop", "/about", "/contact"];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";

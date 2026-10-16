@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/customers", label: "Customers" },
   { href: "/admin/reviews", label: "Reviews" },
+  { href: "/admin/newsletter", label: "Newsletter" },
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -25,11 +26,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <div className="min-h-screen bg-cream">
       <div className="border-b border-border bg-sage-light">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 h-16 flex items-center gap-8">
+        <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 min-h-16 py-3 flex flex-wrap items-center gap-x-8 gap-y-3">
           <span className="font-[family-name:var(--font-display)] text-h3 text-charcoal">
             Girah Admin
           </span>
-          <nav className="flex gap-6">
+          <nav className="flex flex-wrap gap-x-6 gap-y-2" aria-label="Admin">
             {NAV_ITEMS.map((item) => (
               <Link key={item.href} href={item.href} className="font-body text-body text-charcoal">
                 {item.label}
@@ -38,7 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </nav>
         </div>
       </div>
-      <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">{children}</div>
+      <main id="main-content" className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">{children}</main>
     </div>
   );
 }

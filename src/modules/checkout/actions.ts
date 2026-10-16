@@ -44,7 +44,8 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
     try {
       await upsertSavedShippingForUser(session.user.id, data);
     } catch (saveError) {
-      console.error("Failed to save shipping address:", saveError);
+      // Address fields are PII: log the failure message, never the payload.
+      console.error("Failed to save shipping address:", saveError instanceof Error ? saveError.message : "unknown error");
     }
   }
 

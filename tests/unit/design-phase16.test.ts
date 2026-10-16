@@ -19,12 +19,10 @@ function exists(relativePath: string): boolean {
 describe("Phase 16: floral assets (rembg cutouts)", () => {
   it("ships every transparent cutout the homepage references", () => {
     for (const name of [
+      "bouquet-hero.webp",
       "sunflower.png",
-      "sunflower-02.png",
-      "sunflower-03.png",
       "lily.png",
       "duck.png",
-      "duck-01.png",
     ]) {
       expect(exists(`public/florals/${name}`)).toBe(true);
     }
@@ -214,9 +212,10 @@ describe("Phase 16: header, menu, footer", () => {
   it("links only content routes that exist", () => {
     // FAQ has no page — never linked.
     expect(footer).not.toContain('href: "/faq"');
-    // Phase 17 shipped these six as real routes, all linked from the footer
+    // About + Contact are the surviving content routes (shipping/returns/
+    // privacy/terms removed by owner decision), both linked from the footer
     // (INFO_LINKS uses object-literal `href: "/…"` syntax).
-    for (const route of ["/about", "/contact", "/shipping", "/returns", "/privacy", "/terms"]) {
+    for (const route of ["/about", "/contact"]) {
       expect(footer).toContain(`href: "${route}"`);
     }
   });

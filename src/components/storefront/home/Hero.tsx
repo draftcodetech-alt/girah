@@ -237,11 +237,12 @@ export function Hero() {
         </svg>
 
         <Image
-          src="/florals/bouquet-hero.png"
+          src="/florals/bouquet-hero.webp"
           alt="Handmade crochet sunflower bouquet wrapped in kraft paper with a Girah tag"
           width={1291}
           height={1218}
           priority
+          sizes="(min-width: 900px) 50vw, 100vw"
           className="hero__bouquet"
         />
 

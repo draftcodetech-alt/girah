@@ -36,7 +36,8 @@ function uploadBuffer(buffer: Buffer): Promise<string> {
   ensureCloudinary();
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
-      { folder: "girah", resource_type: "image" },
+      // Bounded: a stalled upload must fail the action, never hang it.
+      { folder: "girah", resource_type: "image", timeout: 60000 },
       (error, result) => {
         if (error || !result) reject(error ?? new Error("Upload failed."));
         else resolve(result.secure_url);
@@ -159,7 +160,7 @@ export async function moveImageCore(
     for (const [index, id] of orderedIds.entries()) {
       await tx.productImage.update({ where: { id }, data: { sortOrder: index } });
     }
-  });
+  }, { maxWait: 5000, timeout: 10000 });
 
   return { success: true, productId: image.product.id, slug: image.product.slug };
 }

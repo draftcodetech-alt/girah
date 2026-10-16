@@ -10,9 +10,11 @@ type ManagedImage = { id: string; url: string; sortOrder: number };
 
 export function ImageManager({
   productId,
+  productName,
   images,
 }: {
   productId: string;
+  productName?: string;
   images: ManagedImage[];
 }) {
   const router = useRouter();
@@ -95,7 +97,7 @@ export function ImageManager({
               {isOptimizableImageUrl(image.url) ? (
                 <Image
                   src={image.url}
-                  alt={`Product image ${index + 1}`}
+                  alt={productName ? `${productName} — image ${index + 1}` : `Product image ${index + 1}`}
                   width={160}
                   height={160}
                   className="w-full h-32 object-cover rounded-[var(--radius-control)] bg-sage-light"

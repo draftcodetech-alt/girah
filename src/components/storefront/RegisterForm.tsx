@@ -47,23 +47,23 @@ export function RegisterForm() {
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-4">
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Name</label>
-          <input name="name" required className={inputClass("name")} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="name">Name</label>
+          <input id="name" name="name" required className={inputClass("name")} />
           {fieldErrors.name && <p role="alert" className="text-small text-error mt-1">{fieldErrors.name}</p>}
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Email</label>
-          <input name="email" type="email" required className={inputClass("email")} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="email">Email</label>
+          <input id="email" name="email" type="email" required className={inputClass("email")} />
           {fieldErrors.email && <p role="alert" className="text-small text-error mt-1">{fieldErrors.email}</p>}
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Password</label>
-          <input name="password" type="password" required className={inputClass("password")} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="password">Password</label>
+          <input id="password" name="password" type="password" required className={inputClass("password")} />
           {fieldErrors.password && <p role="alert" className="text-small text-error mt-1">{fieldErrors.password}</p>}
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Confirm Password</label>
-          <input name="confirmPassword" type="password" required className={inputClass("confirmPassword")} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="confirmPassword">Confirm Password</label>
+          <input id="confirmPassword" name="confirmPassword" type="password" required className={inputClass("confirmPassword")} />
           {fieldErrors.confirmPassword && (
             <p role="alert" className="text-small text-error mt-1">{fieldErrors.confirmPassword}</p>
           )}

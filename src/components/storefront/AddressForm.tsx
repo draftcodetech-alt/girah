@@ -62,28 +62,28 @@ export function AddressForm({ address }: { address: SavedShippingView | null }) 
     <div className="bg-sage-light rounded-[var(--radius-surface)] p-6 mt-8">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Full Name *</label>
-          <input name="fullName" required defaultValue={address?.fullName ?? ""} className={inputClass("fullName")} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="fullName">Full Name *</label>
+          <input id="fullName" name="fullName" required defaultValue={address?.fullName ?? ""} className={inputClass("fullName")} />
           {fieldErrors.fullName && <p role="alert" className="text-small text-error mt-1">{fieldErrors.fullName}</p>}
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Phone Number *</label>
-          <input name="phone" required defaultValue={address?.phone ?? ""} className={inputClass("phone")} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="phone">Phone Number *</label>
+          <input id="phone" name="phone" required defaultValue={address?.phone ?? ""} className={inputClass("phone")} />
           {fieldErrors.phone && <p role="alert" className="text-small text-error mt-1">{fieldErrors.phone}</p>}
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Address *</label>
-          <input name="address" required defaultValue={address?.address ?? ""} className={inputClass("address")} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="address">Address *</label>
+          <input id="address" name="address" required defaultValue={address?.address ?? ""} className={inputClass("address")} />
           {fieldErrors.address && <p role="alert" className="text-small text-error mt-1">{fieldErrors.address}</p>}
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">City *</label>
-          <input name="city" required defaultValue={address?.city ?? ""} className={inputClass("city")} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="city">City *</label>
+          <input id="city" name="city" required defaultValue={address?.city ?? ""} className={inputClass("city")} />
           {fieldErrors.city && <p role="alert" className="text-small text-error mt-1">{fieldErrors.city}</p>}
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Postal Code</label>
-          <input name="postalCode" defaultValue={address?.postalCode ?? ""} className={inputClass("postalCode")} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="postalCode">Postal Code</label>
+          <input id="postalCode" name="postalCode" defaultValue={address?.postalCode ?? ""} className={inputClass("postalCode")} />
         </div>
 
         {error && <p role="alert" className="font-body text-small text-error">{error}</p>}

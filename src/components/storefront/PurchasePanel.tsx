@@ -86,9 +86,9 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
       </p>
 
       <div className="mt-8">
-        <h3 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
+        <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
           Variation
-        </h3>
+        </h2>
         <div className="flex flex-wrap gap-2 mt-3">
           {product.variations.map((v) => {
             const isOutOfStock = !v.isEnabled || v.stock <= 0;
@@ -115,9 +115,15 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
       </div>
 
       <div className="mt-8">
-        <h3 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
+        <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
           Quantity
-        </h3>
+        </h2>
+        {/* Live stock hint for the selected variation — real counts only. */}
+        {selected && (
+          <p role="status" className={`font-body text-small mt-2 ${selected.stock <= 3 ? "text-warning font-medium" : "text-muted"}`}>
+            {selected.stock <= 3 ? `Only ${selected.stock} left in stock` : "In stock"}
+          </p>
+        )}
         <div className="flex items-center h-12 w-[144px] mt-3 rounded-[var(--radius-control)] border border-border">
           <button
             aria-label="Decrease quantity"
@@ -190,7 +196,7 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
       {/* Mobile sticky add-to-cart — research: keeps the buy action reachable
           past the fold on long product pages. Hidden on lg (panel is sticky). */}
       {atcOutOfView && (
-        <div className="fixed bottom-0 inset-x-0 z-30 lg:hidden border-t border-border bg-cream px-4 py-3 shadow-[var(--shadow-subtle)]">
+        <div className="fixed bottom-0 inset-x-0 z-30 lg:hidden border-t border-border bg-cream px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[var(--shadow-subtle)]">
           <div className="flex items-center gap-4">
             <div className="min-w-0 flex-1">
               <p className="font-body text-small font-medium text-charcoal truncate">

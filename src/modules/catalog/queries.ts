@@ -48,14 +48,21 @@ export function toProductListItem(p: CardProduct): ProductListItem {
 const ALLOWED_SORTS: SortOption[] = ["featured", "price-asc", "price-desc", "newest"];
 
 // Whitelists and clamps every incoming filter value — never trusts raw query-string
-// input directly into a database query.
-function sanitizeFilters(raw: ProductFilters): ProductFilters {
+// input directly into a database query. Exported for unit tests (pure).
+export function sanitizeFilters(raw: ProductFilters): ProductFilters {
   const sort: SortOption = ALLOWED_SORTS.includes(raw.sort as SortOption)
     ? (raw.sort as SortOption)
     : "featured";
 
   const search =
     typeof raw.search === "string" ? raw.search.trim().slice(0, 100) : undefined;
+
+  // LIKE-special escape: Prisma passes % and _ through to LIKE unescaped
+  // (live-verified: "%" matched every row), so a symbol-only query would
+  // return the whole catalog instead of nothing. Escaped at this single
+  // choke point every search passes through; Postgres LIKE treats the
+  // backslash as the pattern escape by default.
+  const likeSafe = search?.replace(/[\\%_]/g, "\\$&");
 
   // Phase 5 float-price fix: callers do `Number(param) * 100`, which for
   // values like 8.3 yields 830.0000000000001 — a float paisa that silently
@@ -71,7 +78,7 @@ function sanitizeFilters(raw: ProductFilters): ProductFilters {
 
   return {
     categorySlug: typeof raw.categorySlug === "string" ? raw.categorySlug : undefined,
-    search,
+    search: likeSafe,
     minPrice,
     maxPrice,
     inStockOnly: raw.inStockOnly === true,
@@ -82,19 +89,66 @@ function sanitizeFilters(raw: ProductFilters): ProductFilters {
 export async function getProducts(rawFilters: ProductFilters = {}): Promise<ProductListItem[]> {
   const filters = sanitizeFilters(rawFilters);
 
+  // F2 — SQL pushdown. Anything decidable from the row (or its variations)
+  // now narrows the result set in the database instead of pulling every
+  // product and filtering in JS. Each predicate is its own AND element so the
+  // several `OR` blocks (search, maxPrice, inStockOnly) never collide on the
+  // same key.
+  const conditions: Prisma.ProductWhereInput[] = [];
+
+  if (filters.categorySlug) conditions.push({ category: { slug: filters.categorySlug } });
+
+  if (filters.search) {
+    conditions.push({
+      OR: [
+        { name: { contains: filters.search, mode: "insensitive" } },
+        { description: { contains: filters.search, mode: "insensitive" } },
+        { category: { name: { contains: filters.search, mode: "insensitive" } } },
+      ],
+    });
+  }
+
+  // minPrice — a card's startingPrice is the LOWEST ENABLED variation price
+  // (0 when nothing is enabled), so the predicate is "no enabled variation
+  // sits below the floor" AND "there is at least one enabled variation to
+  // measure". A plain `some: { price: { gte } }` would be wrong: a product
+  // priced [100, 500] must NOT match minPrice=400 just because 500 does.
+  // minPrice === 0 is a no-op — startingPrice is never negative.
+  if (filters.minPrice !== undefined && filters.minPrice > 0) {
+    conditions.push({
+      variations: {
+        some: { isEnabled: true },
+        none: { isEnabled: true, price: { lt: filters.minPrice } },
+      },
+    });
+  }
+
+  // maxPrice — startingPrice <= max holds when the product has no enabled
+  // variation at all (startingPrice 0, and 0 <= max always) OR when its
+  // cheapest enabled price fits the ceiling.
+  if (filters.maxPrice !== undefined) {
+    conditions.push({
+      OR: [
+        { variations: { none: { isEnabled: true } } },
+        { variations: { some: { isEnabled: true, price: { lte: filters.maxPrice } } } },
+      ],
+    });
+  }
+
+  // inStockOnly — out of stock means "has variations and none of them is
+  // both enabled and stocked", so a product with no variations yet
+  // (createProduct writes the row before variations exist) stays visible.
+  if (filters.inStockOnly) {
+    conditions.push({
+      OR: [
+        { variations: { none: {} } },
+        { variations: { some: { isEnabled: true, stock: { gt: 0 } } } },
+      ],
+    });
+  }
+
   const products = await db.product.findMany({
-    where: {
-      ...(filters.categorySlug ? { category: { slug: filters.categorySlug } } : {}),
-      ...(filters.search
-        ? {
-            OR: [
-              { name: { contains: filters.search, mode: "insensitive" } },
-              { description: { contains: filters.search, mode: "insensitive" } },
-              { category: { name: { contains: filters.search, mode: "insensitive" } } },
-            ],
-          }
-        : {}),
-    },
+    where: conditions.length > 0 ? { AND: conditions } : undefined,
     include: CARD_PRODUCT_INCLUDE,
     orderBy:
       filters.sort === "newest"
@@ -104,15 +158,9 @@ export async function getProducts(rawFilters: ProductFilters = {}): Promise<Prod
 
   let items: ProductListItem[] = products.map(toProductListItem);
 
-  if (filters.minPrice !== undefined) {
-    items = items.filter((i) => i.startingPrice >= filters.minPrice!);
-  }
-  if (filters.maxPrice !== undefined) {
-    items = items.filter((i) => i.startingPrice <= filters.maxPrice!);
-  }
-  if (filters.inStockOnly) {
-    items = items.filter((i) => !i.isOutOfStock);
-  }
+  // Price ORDER still sorts in memory: Prisma cannot orderBy a relation
+  // aggregate (the cheapest enabled variation), and raw SQL needs a sign-off
+  // first — so price-asc / price-desc deliberately stay here.
   if (filters.sort === "price-asc") {
     items = items.sort((a, b) => a.startingPrice - b.startingPrice);
   }

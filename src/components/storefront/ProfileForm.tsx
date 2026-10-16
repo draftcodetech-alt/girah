@@ -72,18 +72,18 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       </h2>
       <form onSubmit={handleProfileSubmit} className="space-y-4">
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Name</label>
-          <input name="name" defaultValue={profile.name} required className={inputClass("name", profileFieldErrors)} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="name">Name</label>
+          <input id="name" name="name" defaultValue={profile.name} required className={inputClass("name", profileFieldErrors)} />
           {profileFieldErrors.name && <p role="alert" className="text-small text-error mt-1">{profileFieldErrors.name}</p>}
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Email</label>
-          <input name="email" type="email" defaultValue={profile.email} required className={inputClass("email", profileFieldErrors)} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="email">Email</label>
+          <input id="email" name="email" type="email" defaultValue={profile.email} required className={inputClass("email", profileFieldErrors)} />
           {profileFieldErrors.email && <p role="alert" className="text-small text-error mt-1">{profileFieldErrors.email}</p>}
         </div>
         <div>
-          <label className="font-body text-small text-charcoal block mb-1.5">Phone Number</label>
-          <input name="phone" defaultValue={profile.phone ?? ""} className={inputClass("phone", profileFieldErrors)} />
+          <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="phone">Phone Number</label>
+          <input id="phone" name="phone" defaultValue={profile.phone ?? ""} className={inputClass("phone", profileFieldErrors)} />
         </div>
 
         {profileError && <p role="alert" className="font-body text-small text-error">{profileError}</p>}
@@ -102,22 +102,22 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-4">Security</h2>
         <form ref={passwordFormRef} onSubmit={handlePasswordSubmit} className="space-y-4">
           <div>
-            <label className="font-body text-small text-charcoal block mb-1.5">Current Password</label>
-            <input name="currentPassword" type="password" required className={inputClass("currentPassword", passwordFieldErrors)} />
+            <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="currentPassword">Current Password</label>
+            <input id="currentPassword" name="currentPassword" type="password" required className={inputClass("currentPassword", passwordFieldErrors)} />
             {passwordFieldErrors.currentPassword && (
               <p role="alert" className="text-small text-error mt-1">{passwordFieldErrors.currentPassword}</p>
             )}
           </div>
           <div>
-            <label className="font-body text-small text-charcoal block mb-1.5">New Password</label>
-            <input name="newPassword" type="password" required className={inputClass("newPassword", passwordFieldErrors)} />
+            <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="newPassword">New Password</label>
+            <input id="newPassword" name="newPassword" type="password" required className={inputClass("newPassword", passwordFieldErrors)} />
             {passwordFieldErrors.newPassword && (
               <p role="alert" className="text-small text-error mt-1">{passwordFieldErrors.newPassword}</p>
             )}
           </div>
           <div>
-            <label className="font-body text-small text-charcoal block mb-1.5">Confirm New Password</label>
-            <input name="confirmNewPassword" type="password" required className={inputClass("confirmNewPassword", passwordFieldErrors)} />
+            <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="confirmNewPassword">Confirm New Password</label>
+            <input id="confirmNewPassword" name="confirmNewPassword" type="password" required className={inputClass("confirmNewPassword", passwordFieldErrors)} />
             {passwordFieldErrors.confirmNewPassword && (
               <p role="alert" className="text-small text-error mt-1">{passwordFieldErrors.confirmNewPassword}</p>
             )}

@@ -1,33 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { Input } from "@/components/ui/Input";
+import { useDialog } from "./use-dialog";
 
 type MenuLink = { label: string; href: string };
 
 /**
  * Mobile navigation — full-screen overlay per the design spec: cream sheet,
  * × close (also Escape), links close on click, background blocked/scroll
- * locked while open.
+ * locked while open. Dialog behavior (Escape, lock, focus trap + return)
+ * comes from the shared useDialog hook.
  */
 export function MobileMenu({ primary, secondary }: { primary: MenuLink[]; secondary: MenuLink[] }) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
-    panelRef.current?.focus();
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useDialog(open, close, panelRef);
 
   return (
     <div className="md:hidden relative">

@@ -46,11 +46,11 @@ export function ForgotPasswordForm() {
       ) : (
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
           <div>
-            <label className="font-body text-small text-charcoal block mb-1.5">
+            <label className="font-body text-small text-charcoal block mb-1.5" htmlFor="email">
               Email
             </label>
             <input
-              name="email"
+              id="email" name="email"
               type="email"
               required
               className="w-full h-12 rounded-[var(--radius-control)] border border-border bg-cream px-4 font-body text-body focus:outline-none focus-visible:ring-2 focus-visible:ring-sage"

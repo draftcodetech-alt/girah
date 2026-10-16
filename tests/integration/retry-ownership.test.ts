@@ -47,6 +47,13 @@ vi.mock("axios", () => ({
   default: { post: vi.fn(async () => ({ data: { data: "sec_test_passport" } })) },
 }));
 
+// The passport token call is a direct fetch (axios was removed) — stub it at
+// the same seam the old axios mock covered, so no test ever hits Safepay.
+vi.stubGlobal(
+  "fetch",
+  vi.fn(async () => ({ ok: true, json: async () => ({ data: "sec_test_passport" }) }))
+);
+
 vi.mock("@/lib/auth", () => ({ auth: authMock }));
 
 process.env.NEXT_PUBLIC_APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3100";

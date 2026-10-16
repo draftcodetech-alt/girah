@@ -102,8 +102,9 @@ export function VariationRow({ variation }: { variation: Variation }) {
       {showAdjust && (
         <form onSubmit={handleAdjust} className="mt-4 flex items-end gap-3 bg-sage-light p-4 rounded-[var(--radius-control)]">
           <div>
-            <label className="font-body text-small text-charcoal block mb-1">Adjustment</label>
+            <label htmlFor={`adjust-${variation.id}`} className="font-body text-small text-charcoal block mb-1">Adjustment</label>
             <input
+              id={`adjust-${variation.id}`}
               name="adjustment"
               type="number"
               placeholder="e.g. 5 or -3"
@@ -112,8 +113,9 @@ export function VariationRow({ variation }: { variation: Variation }) {
             />
           </div>
           <div className="flex-1">
-            <label className="font-body text-small text-charcoal block mb-1">Reason</label>
+            <label htmlFor={`reason-${variation.id}`} className="font-body text-small text-charcoal block mb-1">Reason</label>
             <input
+              id={`reason-${variation.id}`}
               name="reason"
               placeholder="e.g. Restock"
               required

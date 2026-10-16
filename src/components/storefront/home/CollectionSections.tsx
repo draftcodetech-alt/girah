@@ -113,11 +113,11 @@ function VineArt() {
 
 /* ── shared pieces ── */
 
-function Grid({ products, wished }: { products: ProductListItem[]; wished: Set<string> }) {
+function Grid({ products, wished, priorityFirst }: { products: ProductListItem[]; wished: Set<string>; priorityFirst?: boolean }) {
   return (
     <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
-      {products.map((product) => (
-        <ProductCard key={product.id} product={product} wishlisted={wished.has(product.id)} />
+      {products.map((product, i) => (
+        <ProductCard key={product.id} product={product} wishlisted={wished.has(product.id)} priority={priorityFirst === true && i === 0} />
       ))}
     </div>
   );
@@ -158,7 +158,7 @@ export function CollectionSections({ newest, botanical, gifts, wished }: Props) 
               </h2>
               <p className="collect-lede">Fresh little pieces, made with love.</p>
             </div>
-            <Grid products={newest} wished={wished} />
+            <Grid products={newest} wished={wished} priorityFirst />
             <Cta href="/shop?sort=newest" label="EXPLORE NEW PIECES" />
           </div>
         </section>

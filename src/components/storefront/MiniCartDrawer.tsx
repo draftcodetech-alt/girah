@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { formatPrice } from "@/lib/format";
+import { useDialog } from "../shared/use-dialog";
 
 export type MiniCartItem = {
   name: string;
@@ -22,25 +23,13 @@ type MiniCartDrawerProps = {
 /**
  * Success = mini-cart drawer, no navigation away (design spec): right-side
  * drawer on desktop, bottom sheet on mobile, with View Cart /
- * Continue Shopping actions. Focus is trapped in the dialog (close button
- * receives focus; Escape closes; backdrop click closes).
+ * Continue Shopping actions. Dialog behavior (Escape, lock, focus trap +
+ * return) comes from the shared useDialog hook.
  */
 export function MiniCartDrawer({ open, item, onClose }: MiniCartDrawerProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKeyDown);
-    document.body.style.overflow = "hidden";
-    panelRef.current?.focus();
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = "";
-    };
-  }, [open, onClose]);
+  const close = useCallback(() => onClose(), [onClose]);
+  useDialog(open, close, panelRef);
 
   if (!open || !item) return null;
 

@@ -1630,8 +1630,8 @@ body {
   opacity: 0.35;
 }
 .ft-sprig-tr {
-  right: -0.6em;
-  top: 0.9em;
+  right: -1.8em;
+  top: 0;
   width: 17em;
   transform: scaleX(-1) rotate(-12deg) scaleY(-1);
 }
@@ -1769,7 +1769,7 @@ body {
   margin: 0 auto;
   color: var(--ft-thread);
 }
-.ft-col h4 {
+.ft-col h2 {
   margin-top: 0.7em;
   font-family: var(--font-cormorant), serif;
   font-weight: 700;

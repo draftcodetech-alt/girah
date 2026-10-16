@@ -211,8 +211,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
             You may also like
           </h2>
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {related.map((item) => (
-              <ProductCard key={item.id} product={item} wishlisted={wished.has(item.id)} />
+            {related.map((item, i) => (
+              <ProductCard key={item.id} product={item} wishlisted={wished.has(item.id)} priority={i === 0} />
             ))}
           </div>
         </section>

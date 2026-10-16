@@ -79,7 +79,7 @@ describe("Phase 9: Footer", () => {
 
   it.each(HEADER_LAYOUTS)("%s renders the Footer", (relativePath) => {
     expect(readSource(relativePath)).toMatch(/<Footer\s*\/>/);
-    expect(readSource(relativePath)).toMatch(/<main className="flex-1">/);
+    expect(readSource(relativePath)).toMatch(/<main[^>]*className="flex-1">/);
   });
 
   it("admin ships no storefront Footer", () => {
@@ -98,13 +98,10 @@ describe("Phase 9: Footer", () => {
       "/account/orders",
       "/account/profile",
       "/account/addresses",
-      // Phase 17 content pages
+      // Phase 17 content pages (shipping/returns/privacy/terms removed by
+      // owner decision — only survivors stay in the allowed set).
       "/about",
       "/contact",
-      "/shipping",
-      "/returns",
-      "/privacy",
-      "/terms",
     ]);
     const literalHrefs = [
       ...[...footer.matchAll(/href="([^"]+)"/g)].map((match) => match[1]), // JSX href="…"

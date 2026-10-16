@@ -32,6 +32,8 @@ export function ProductGallery({ images, alt }: { images: { url: string }[]; alt
             <button
               key={img.url}
               onClick={() => setCurrent(i)}
+              aria-label={`View image ${i + 1}`}
+              aria-current={i === current ? true : undefined}
               className={`relative aspect-4/5 rounded-[var(--radius-control)] overflow-hidden ${
                 i === current ? "ring-2 ring-sage" : "opacity-70"
               }`}

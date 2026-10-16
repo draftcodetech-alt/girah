@@ -2,8 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 
-// Phase 17: six content pages + the footer Information column. Pages ship as
-// skeletons with VISIBLE [placeholder] markers — never invented business facts.
+// Phase 17: content pages. About ships the full reference design; Contact
+// is ported from the approved eb mockup (real address, prefilled mailtos,
+// Islamabad base). Shipping/Returns/Privacy/Terms were removed by owner
+// decision — their routes, links, and sitemap entries are asserted GONE.
 
 const ROOT = new URL("../..", import.meta.url).pathname;
 const readSource = (p: string) => readFileSync(join(ROOT, p), "utf8");
@@ -11,57 +13,55 @@ const readSource = (p: string) => readFileSync(join(ROOT, p), "utf8");
 const PAGES = [
   { slug: "about", file: "src/app/(storefront)/about/page.tsx", title: "About" },
   { slug: "contact", file: "src/app/(storefront)/contact/page.tsx", title: "Contact" },
-  { slug: "shipping", file: "src/app/(storefront)/shipping/page.tsx", title: "Shipping & Delivery" },
-  { slug: "returns", file: "src/app/(storefront)/returns/page.tsx", title: "Returns & Refunds" },
-  { slug: "privacy", file: "src/app/(storefront)/privacy/page.tsx", title: "Privacy Policy" },
-  { slug: "terms", file: "src/app/(storefront)/terms/page.tsx", title: "Terms of Service" },
 ];
 
-describe("Phase 17: six content pages exist", () => {
+const REMOVED = [
+  "src/app/(storefront)/shipping/page.tsx",
+  "src/app/(storefront)/returns/page.tsx",
+  "src/app/(storefront)/privacy/page.tsx",
+  "src/app/(storefront)/terms/page.tsx",
+];
+
+describe("Phase 17: content pages exist", () => {
   for (const page of PAGES) {
     it(`/${page.slug} is a real route with metadata + the shared shell`, () => {
       expect(existsSync(join(ROOT, page.file))).toBe(true);
       const source = readSource(page.file);
       expect(source).toContain("export const metadata");
       expect(source).toContain(`title: "${page.title}"`);
-      // About ships the full reference design (AboutSections) instead of the
-      // 720px text shell; the other five keep ContentPage.
+      // About ships the full reference design (AboutSections); Contact is the
+      // eb mockup port (ContactSections) — neither uses the 720px text shell.
       if (page.slug === "about") {
         expect(source).toContain("AboutSections");
       } else {
-        expect(source).toContain("ContentPage");
+        expect(source).toContain("ContactSections");
       }
       // Inside the (storefront) segment → inherits header/footer.
       expect(page.file).toContain("(storefront)");
     });
   }
+
+  it("removed pages are fully gone (no route files)", () => {
+    for (const file of REMOVED) {
+      expect(existsSync(join(ROOT, file))).toBe(false);
+    }
+  });
 });
 
-describe("Phase 17: skeletons carry visible placeholders, no invented facts", () => {
-  it("returns defers the policy window + refund timing to the owner", () => {
-    const source = readSource("src/app/(storefront)/returns/page.tsx");
-    expect((source.match(/\[placeholder/g) ?? []).length).toBeGreaterThanOrEqual(3);
-    expect(source).toContain("order number");
+describe("Phase 17: contact carries the real eb-mockup facts", () => {
+  it("shows the real address, prefilled mailtos, and Islamabad base", () => {
+    const source =
+      readSource("src/app/(storefront)/contact/page.tsx") +
+      readSource("src/components/storefront/contact/ContactSections.tsx");
+    expect(source).toContain("syedareebkareem@gmail.com");
+    expect(source).toContain("Question about my order");
+    expect(source).toContain("A custom crochet idea");
+    expect(source).toContain("Islamabad");
+    expect(source).toContain("/contact/boquet_contact_us.webp");
+    expect(source).not.toContain("[placeholder");
   });
-
-  it("privacy marks retention + business details as undecided", () => {
-    const source = readSource("src/app/(storefront)/privacy/page.tsx");
-    expect(source).toContain("last updated");
-    expect(source).toContain("retention periods");
-    expect(source).toContain("legal entity");
-    // Real app facts it MAY state:
-    expect(source).toContain("salted hash");
-    expect(source).toContain("No third-party analytics");
-  });
-
-  it("terms defers liability + governing law", () => {
-    const source = readSource("src/app/(storefront)/terms/page.tsx");
-    expect(source).toContain("Governing law");
-    expect(source).toContain("limit-of-liability");
-    // Links the real returns page rather than restating policy.
-    expect(source).toContain('href="/returns"');
-  });
-
+});
+describe("Phase 17: about reference page (untouched by removals)", () => {
   it("about ships the reference copy and links the shop", () => {
     const source = readSource("src/app/(storefront)/about/page.tsx");
     const sections = readSource("src/components/storefront/about/AboutSections.tsx");
@@ -80,28 +80,22 @@ describe("Phase 17: skeletons carry visible placeholders, no invented facts", ()
     expect(all).toContain("/about/make-how.webp");
   });
 
-  it("contact renders only configured channels", () => {
-    const source = readSource("src/app/(storefront)/contact/page.tsx");
-    expect(source).toContain("NEXT_PUBLIC_CONTACT_EMAIL");
-    expect(source).toContain("NEXT_PUBLIC_WHATSAPP_URL");
-    expect(source).toContain("channels.length > 0");
-  });
-
-  it("shipping states the known storefront facts (free, COD, Safepay)", () => {
-    const source = readSource("src/app/(storefront)/shipping/page.tsx");
-    expect(source).toContain("Shipping is free");
-    expect(source).toContain("Cash on delivery");
-    expect(source).toContain("JazzCash");
-    expect(source).toContain("[placeholder");
+  it("contact imagery ships from /public/contact", () => {
+    for (const img of ["boquet_contact_us.webp", "email_with_leaf.webp", "flower_with_leaves.webp", "leaf.webp"]) {
+      expect(existsSync(join(ROOT, `public/contact/${img}`))).toBe(true);
+    }
   });
 });
 
 describe("Phase 17: footer Information column", () => {
   const footer = readSource("src/components/shared/Footer.tsx");
 
-  it("links exactly the six pages", () => {
+  it("links exactly the two surviving pages", () => {
     for (const page of PAGES) {
       expect(footer).toContain(`href: "/${page.slug}"`);
+    }
+    for (const gone of ["shipping", "returns", "privacy", "terms"]) {
+      expect(footer).not.toContain(`href: "/${gone}"`);
     }
     expect(footer).not.toContain('href: "/faq"');
     expect(footer).toContain('aria-label="Information links"');

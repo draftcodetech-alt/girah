@@ -22,7 +22,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         >
           Images
         </h2>
-        <ImageManager productId={product.id} images={product.images} />
+        <ImageManager productId={product.id} productName={product.name} images={product.images} />
       </section>
 
       <section aria-labelledby="variations-heading" className="mt-10 border-t border-border pt-8">
@@ -55,9 +55,9 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
         )}
 
         <div className="mt-6">
-          <h3 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-3">
+          <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-3">
             Add variation
-          </h3>
+          </h2>
           <VariationForm productId={product.id} />
         </div>
       </section>

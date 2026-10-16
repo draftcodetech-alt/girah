@@ -48,6 +48,15 @@ export async function getCart(): Promise<CartView> {
 }
 
 export async function getCartItemCount(): Promise<number> {
-  const cart = await getCart();
-  return cart.items.reduce((sum, i) => sum + i.quantity, 0);
+  // Header badge: runs on EVERY page, so this must stay cheap — an id-only
+  // lookup plus a SUM, never the full nested cart view with images.
+  const identity = await resolveCartIdentityReadOnly();
+  if (!identity) return 0;
+  const cart = await db.cart.findFirst({ where: identity, select: { id: true } });
+  if (!cart) return 0;
+  const result = await db.cartItem.aggregate({
+    _sum: { quantity: true },
+    where: { cartId: cart.id },
+  });
+  return result._sum.quantity ?? 0;
 }

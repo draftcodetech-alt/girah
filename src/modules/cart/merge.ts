@@ -59,7 +59,7 @@ export async function mergeGuestCartCore(guestId: string, userId: string): Promi
     // Cascade deletes the guest lines — the guest cart must not survive the
     // move or the same items would re-merge on a later login.
     await tx.cart.delete({ where: { id: guestCart.id } });
-  });
+  }, { maxWait: 5000, timeout: 10000 });
 }
 
 // Request-scoped wrapper: reads the guest cookie, merges, clears it.

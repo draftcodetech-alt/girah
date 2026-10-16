@@ -29,8 +29,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         // Phase 4 M3: key by email+IP so one attacker IP can't spray accounts
         // and a single account can't absorb unlimited guesses. Rejected before
-        // any DB work; success clears the budget below.
+        // any DB work; success clears the budget below. IP prefers
+        // Cloudflare's cf-connecting-ip (authoritative behind the proxy),
+        // x-forwarded-for otherwise — same chain as registration.
         const ip =
+          request.headers.get("cf-connecting-ip")?.trim() ||
           request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
           request.headers.get("x-real-ip") ||
           "unknown";

@@ -5,17 +5,12 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/require-admin";
 import { categorySchema, type CategoryInput } from "./schema";
 import { isForeignKeyRestriction, isRecordNotFound } from "./db-errors";
+import { fieldErrorsFrom } from "./field-errors";
 import type { AdminActionResult } from "./products";
 
 export type CategoryActionResult =
   | { success: true; id?: string }
   | { success: false; error: string; fieldErrors?: Record<string, string> };
-
-function fieldErrorsFrom(issues: { path: readonly PropertyKey[]; message: string }[]) {
-  const fieldErrors: Record<string, string> = {};
-  for (const issue of issues) fieldErrors[String(issue.path[0])] = issue.message;
-  return fieldErrors;
-}
 
 function revalidateCategoryTargets() {
   revalidatePath("/admin/categories");

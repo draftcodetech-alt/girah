@@ -112,6 +112,7 @@ export function AboutSections() {
             width={1362}
             height={1155}
             priority
+            sizes="(min-width: 861px) 50vw, 100vw"
             alt="A handmade crochet sunflower bouquet wrapped in kraft paper with a Handmade with love tag"
           />
           <span className="ap-note ap-note-bl ap-wipe">knot by knot</span>
@@ -222,6 +223,8 @@ export function AboutSections() {
             src="/about/sunflower.webp"
             width={1362}
             height={1155}
+            loading="lazy"
+            sizes="(min-width: 861px) 50vw, 100vw"
             alt="Crochet sunflowers and daisies in kraft paper wrapping, tied with twine"
           />
         </div>

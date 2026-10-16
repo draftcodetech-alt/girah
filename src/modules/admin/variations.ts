@@ -12,6 +12,7 @@ import {
   type StockAdjustmentInput,
 } from "./schema";
 import { adjustStockCore } from "./variation-ops";
+import { fieldErrorsFrom } from "./field-errors";
 
 export async function getAdminVariations() {
   await requireAdmin();
@@ -32,8 +33,7 @@ export async function createVariation(
 
   const parsed = createVariationSchema.safeParse(input);
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
+    const fieldErrors = fieldErrorsFrom(parsed.error.issues);
     return { success: false, error: "Please check the highlighted fields.", fieldErrors };
   }
 
@@ -68,8 +68,7 @@ export async function updateVariation(id: string, input: VariationInput): Promis
 
   const parsed = variationSchema.safeParse(input);
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) fieldErrors[String(issue.path[0])] = issue.message;
+    const fieldErrors = fieldErrorsFrom(parsed.error.issues);
     return { success: false, error: "Please check the highlighted fields.", fieldErrors };
   }
 

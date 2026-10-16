@@ -1,8 +1,8 @@
-import type { CSSProperties } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { getCategories } from "@/modules/catalog";
 import { FooterNewsletter } from "./FooterNewsletter";
+import { Sprig, LeafIcon, YellowLeaf, YELLOW_LEAVES } from "./FooterArt";
 
 const SHOP_LINKS = [{ label: "All Products", href: "/shop" }];
 
@@ -15,14 +15,11 @@ const ACCOUNT_LINKS = [
   { label: "Create account", href: "/register" },
 ];
 
-// Phase 17: the six content pages — every href resolves to a real route.
+// Phase 17: content pages — every href resolves to a real route.
+// (Shipping/Returns/Privacy/Terms were removed by owner decision.)
 const INFO_LINKS = [
   { label: "About", href: "/about" },
   { label: "Contact", href: "/contact" },
-  { label: "Shipping & Delivery", href: "/shipping" },
-  { label: "Returns & Refunds", href: "/returns" },
-  { label: "Privacy Policy", href: "/privacy" },
-  { label: "Terms of Service", href: "/terms" },
 ];
 
 // Social row is gated — real links only, rendered when configured
@@ -41,122 +38,6 @@ function socialLinks() {
   return links;
 }
 
-// ── Line-art decorations (ported from the reference footer) ─────────────
-// Drawn as plain components rather than <defs>+<use> so the footer owns
-// no fragment ids (Hero already defines #lf on the homepage).
-
-const LEAF_SPRIG_PLACEMENTS = [
-  [28, 126, -72, 1.15],
-  [50, 117, 18, 1.05],
-  [72, 107, -62, 1],
-  [96, 93, 14, 1.1],
-  [116, 79, -66, 1.05],
-  [138, 62, 8, 1],
-  [152, 51, -70, 0.95],
-  [176, 32, -48, 0.9],
-  [192, 18, -58, 0.8],
-] as const;
-
-function LeafGlyph() {
-  return (
-    <>
-      <path
-        d="M0 0C6-12 26-16 44-8C34 6 14 10 0 0Z"
-        fill="rgba(125,155,112,.2)"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
-      <path d="M2 0L38-7" stroke="currentColor" strokeWidth=".8" fill="none" />
-      <path
-        d="M12-3L18-10M20-4L27-11M12 1L19 6M21-3L29 4"
-        stroke="currentColor"
-        strokeWidth=".5"
-        fill="none"
-        opacity=".7"
-      />
-    </>
-  );
-}
-
-function Sprig({ className }: { className: string }) {
-  return (
-    <svg className={className} viewBox="0 0 200 140" aria-hidden="true">
-      <path
-        d="M8 132C60 112 112 78 192 18"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-      <g fill="none">
-        {LEAF_SPRIG_PLACEMENTS.map(([x, y, rotate, scale]) => (
-          <g
-            key={`${x}-${y}`}
-            transform={`translate(${x} ${y}) rotate(${rotate}) scale(${scale})`}
-          >
-            <LeafGlyph />
-          </g>
-        ))}
-      </g>
-    </svg>
-  );
-}
-
-function LeafIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 32 32" aria-hidden="true">
-      <path
-        d="M16 29V14"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path d="M16 18C8 18 5 12 5 6c7 0 11 4 11 12Z" fill="currentColor" opacity=".9" />
-      <path d="M16 15C16 8 19 4 26 3c0 7-3 11-10 12Z" fill="currentColor" opacity=".9" />
-    </svg>
-  );
-}
-
-// Each yellow leaf carries its own gradient (unique id) — no shared defs.
-function YellowLeaf({
-  gid,
-  className,
-  style,
-}: {
-  gid: string;
-  className?: string;
-  style?: CSSProperties;
-}) {
-  return (
-    <svg className={className} style={style} viewBox="0 0 70 34" aria-hidden="true">
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#f7cd6b" />
-          <stop offset="1" stopColor="#e8a93a" />
-        </linearGradient>
-      </defs>
-      <path d="M2 22C16 4 44 0 68 16C50 34 22 36 2 22Z" fill={`url(#${gid})`} />
-      <path
-        d="M2 22C24 20 46 18 68 16"
-        stroke="#c98a22"
-        strokeWidth="1"
-        fill="none"
-        opacity=".7"
-      />
-    </svg>
-  );
-}
-
-const YELLOW_LEAVES: { gid: string; style: CSSProperties }[] = [
-  { gid: "ft-yg-1", style: { left: "9.3em", top: "4.3em", width: "3.7em", transform: "rotate(-12deg)" } },
-  { gid: "ft-yg-2", style: { left: "28.2em", top: "25.2em", width: "3.2em", transform: "rotate(28deg)" } },
-  { gid: "ft-yg-3", style: { left: "93.6em", top: "26.2em", width: "3.1em", transform: "rotate(-8deg)" } },
-  { gid: "ft-yg-4", style: { left: "107.5em", top: "27.6em", width: "3.1em", transform: "rotate(-32deg)" } },
-  { gid: "ft-yg-5", style: { left: "93em", top: "35em", width: "3.4em", transform: "rotate(22deg)" } },
-  { gid: "ft-yg-6", style: { left: "10.2em", top: "35.6em", width: "3.4em", transform: "rotate(20deg)" } },
-];
 
 function SocialIcon({ label }: { label: string }) {
   if (label === "Instagram") {
@@ -183,10 +64,6 @@ function SocialIcon({ label }: { label: string }) {
   );
 }
 
-function FooterLink({ href, label }: { href: string; label: string }) {
-  return <Link href={href}>{label}</Link>;
-}
-
 export async function Footer() {
   const categories = await getCategories();
   const year = new Date().getFullYear();
@@ -206,9 +83,24 @@ export async function Footer() {
 
       <div className="ft-inner">
         {/* photos (product-grid cut-outs from the reference) */}
-        <Image className="ft-photo-left" src="/footer/footer-flowers.png" alt="" width={612} height={408} />
+        <Image
+          className="ft-photo-left"
+          src="/footer/footer-flowers.png"
+          alt=""
+          width={612}
+          height={408}
+          loading="lazy"
+          sizes="(min-width: 1100px) 40vw, 100vw"
+        />
         <div className="ft-photo-right">
-          <Image src="/footer/footer-sunflower.png" alt="" width={1536} height={1024} />
+          <Image
+            src="/footer/footer-sunflower.png"
+            alt=""
+            width={1536}
+            height={1024}
+            loading="lazy"
+            sizes="(min-width: 1100px) 45vw, 100vw"
+          />
         </div>
 
         {/* decorations */}
@@ -265,16 +157,16 @@ export async function Footer() {
           <div className="ft-cols grid grid-cols-1 sm:grid-cols-3">
             <nav className="ft-col" aria-label="Shop links">
               <LeafIcon className="ft-leaf" />
-              <h4>Shop</h4>
+              <h2>Shop</h2>
               <ul>
                 {SHOP_LINKS.map((link) => (
                   <li key={link.href}>
-                    <FooterLink href={link.href} label={link.label} />
+                    <Link href={link.href}>{link.label}</Link>
                   </li>
                 ))}
                 {categories.map((category) => (
                   <li key={category.id}>
-                    <FooterLink href={`/shop?category=${category.slug}`} label={category.name} />
+                    <Link href={`/shop?category=${category.slug}`}>{category.name}</Link>
                   </li>
                 ))}
               </ul>
@@ -282,11 +174,11 @@ export async function Footer() {
 
             <nav className="ft-col" aria-label="Account links">
               <LeafIcon className="ft-leaf" />
-              <h4>Account</h4>
+              <h2>Account</h2>
               <ul>
                 {ACCOUNT_LINKS.map((link) => (
                   <li key={link.href}>
-                    <FooterLink href={link.href} label={link.label} />
+                    <Link href={link.href}>{link.label}</Link>
                   </li>
                 ))}
               </ul>
@@ -294,11 +186,11 @@ export async function Footer() {
 
             <nav className="ft-col" aria-label="Information links">
               <LeafIcon className="ft-leaf" />
-              <h4>Information</h4>
+              <h2>Information</h2>
               <ul>
                 {INFO_LINKS.map((link) => (
                   <li key={link.href}>
-                    <FooterLink href={link.href} label={link.label} />
+                    <Link href={link.href}>{link.label}</Link>
                   </li>
                 ))}
               </ul>

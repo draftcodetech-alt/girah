@@ -219,6 +219,9 @@ model Order {
 
   @@index([userId])
   @@index([orderStatus])
+  // Webhook tracker fallback (findFirst by safepayTracker) — indexed so a
+  // delivery never scans the orders table.
+  @@index([safepayTracker])
 }
 
 model OrderItem {
@@ -282,4 +285,17 @@ model StockAdjustment {
 
   @@index([variationId])
   @@index([adminId])
+}
+
+// ────────────────────────────────
+// NEWSLETTER
+// ────────────────────────────────
+
+// Phase 19: footer newsletter persistence (was client-only acknowledgement).
+// One row per address — resubmits collapse into P2002, reported honestly as
+// "already in the loop". No user relation: guests subscribe too.
+model NewsletterSubscriber {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
 }

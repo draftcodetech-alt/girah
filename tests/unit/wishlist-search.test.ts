@@ -164,14 +164,18 @@ describe("pages", () => {
     expect(source).toContain('redirect("/login?callbackUrl=/wishlist")');
     expect(source).toContain("getWishlistProducts()");
     expect(source).toContain("No saved items yet");
-    expect(source).toContain("wishlisted />");
+    expect(source).toContain("wishlisted priority={i === 0}");
     expect(source).toMatch(/<ProductCard/);
   });
 
   it("every ProductCard page passes heart state", () => {
     const home = readSource("src/app/(storefront)/page.tsx");
     expect(home).toContain("getWishlistProductIds");
-    expect(home).toContain("wishlisted={wished.has(product.id)}");
+    // Homepage drills the id set into CollectionSections, which passes the
+    // per-card boolean (curated-sections refactor).
+    expect(home).toContain("wished={wished}");
+    const sections = readSource("src/components/storefront/home/CollectionSections.tsx");
+    expect(sections).toContain("wishlisted={wished.has(product.id)}");
     const detail = readSource("src/app/(storefront)/product/[slug]/page.tsx");
     expect(detail).toContain("getWishlistProductIds");
     expect(detail).toContain("wishlisted={wished.has(product.id)}");
