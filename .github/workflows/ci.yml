@@ -32,11 +32,17 @@ jobs:
       NEXT_PUBLIC_APP_URL: http://localhost:3100
       SAFEPAY_API_KEY: ci-placeholder
       SAFEPAY_API_SECRET: ci-placeholder
-      SAFEPAY_WEBHOOK_SECRET: ci-placeholder
+      # Dummy base64 (the boot guard rejects non-base64 secrets, and the
+      # webhook suites sign with their own test secret — never the real one).
+      SAFEPAY_WEBHOOK_SECRET: ZTJlLXdlYmhvb2stc2VjcmV0LTAxMjM0NTY3ODlhYmNkZWY=
       CLOUDINARY_CLOUD_NAME: ci
       CLOUDINARY_API_KEY: "0"
       CLOUDINARY_API_SECRET: ci-placeholder
       RESEND_API_KEY: ci-placeholder
+      # The production boot guard refuses to serve without a sender — CI
+      # supplies a dummy (mail still only dev-logs: RESEND_API_KEY above is
+      # a placeholder, so no real email can ever leave the suite).
+      EMAIL_FROM: "Girah <ci@girah.test>"
 
     steps:
       - uses: actions/checkout@v7

@@ -122,9 +122,13 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
               };
               const activeCategory = categories.find((c) => c.slug === params.category);
               if (activeCategory) chips.push({ label: activeCategory.name, href: without(["category"]) });
+              // Chips echo raw params — only finite numbers (garbage like
+              // ?minPrice=Infinity must never render "Rs. Infinity").
               if (params.search) chips.push({ label: `“${params.search}”`, href: without(["search"]) });
-              if (params.minPrice) chips.push({ label: `Rs. ${params.minPrice}+`, href: without(["minPrice"]) });
-              if (params.maxPrice) chips.push({ label: `Up to Rs. ${params.maxPrice}`, href: without(["maxPrice"]) });
+              if (params.minPrice && Number.isFinite(Number(params.minPrice)))
+                chips.push({ label: `Rs. ${params.minPrice}+`, href: without(["minPrice"]) });
+              if (params.maxPrice && Number.isFinite(Number(params.maxPrice)))
+                chips.push({ label: `Up to Rs. ${params.maxPrice}`, href: without(["maxPrice"]) });
               if (params.inStockOnly === "true") chips.push({ label: "In stock", href: without(["inStockOnly"]) });
               return chips.map((chip) => (
                 <Link

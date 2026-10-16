@@ -409,6 +409,33 @@ const unavailableProduct = await db.product.create({
   },
 });
 
+// Homepage curation fixtures — the curated sections auto-hide on empty pools,
+// so on a bare test database their headings could never be asserted. Real
+// slugs the pools query (tracked for cleanup; categories this run creates are
+// dropped once empty, pre-existing ones are left alone). FOUR per slug: the
+// newest section eats the 3 most recent into its exclusion set, so fewer
+// would still leave a sibling section empty (verified by arithmetic, not luck).
+const curatedCreatedCatIds = [];
+const curatedProducts = [];
+for (const [slug, name] of [["bouquets", "Bouquets"], ["home-decor", "Home Decor"], ["keychains", "Keychains"]]) {
+  const existing = await db.category.findUnique({ where: { slug } });
+  const cat = existing ?? (await db.category.create({ data: { name, slug } }));
+  if (!existing) curatedCreatedCatIds.push(cat.id);
+  for (let i = 1; i <= 4; i++) {
+    curatedProducts.push(
+      await db.product.create({
+        data: {
+          name: `E2E Curated ${slug} ${i} ${TS}`,
+          slug: `e2e-curated-${slug}-${i}-${TS}`,
+          description: "E2E homepage curation fixture.",
+          categoryId: cat.id,
+          variations: { create: [{ name: "Standard", price: 99900, stock: 5, isEnabled: true }] },
+        },
+      })
+    );
+  }
+}
+
 // ── 1. page regressions ─────────────────────────────────────────────────────
 for (const path of ["/", "/shop", "/cart", "/login", "/register", `/product/${fixtureProduct.slug}`]) {
   const res = await get(path);
@@ -2012,7 +2039,10 @@ const p13Orders = [];
     "homepage hero subtext is the spec line",
     homeText.includes("From lasting blooms to little keepsakes, every piece is made with care.")
   );
-  check("the old hero copy is gone", !home.html.includes("one stitch at a time"));
+  // "one stitch at a time" belongs to the FOOTER brand blurb (approved copy),
+  // not the hero — the hero headline/subtext asserts above already prove the
+  // old hero is gone. Pin ownership so a future edit can't silently move it.
+  check("footer owns the keepsake line", home.html.includes("one stitch at a time") && home.html.includes("ft-brand"));
   check(
     "homepage renders exactly one h1",
     (home.html.match(/<h1/g) ?? []).length === 1,
@@ -2193,15 +2223,12 @@ const paginatedProducts = [];
       !noMatch.html.includes('aria-label="Pagination"')
   );
 
-  // --- six content pages + footer ----------------------------------------
+  // --- content pages: about + contact live; the removed four 404 ---------
   const contentSpecs = [
     ["about", "About"],
     ["contact", "Contact"],
-    ["shipping", "Shipping &amp; Delivery"],
-    ["returns", "Returns &amp; Refunds"],
-    ["privacy", "Privacy Policy"],
-    ["terms", "Terms of Service"],
   ];
+  const removedSpecs = ["shipping", "returns", "privacy", "terms"];
   const contentHtml = {};
   for (const [slug, title] of contentSpecs) {
     const res = await get(`/${slug}`);
@@ -2212,21 +2239,27 @@ const paginatedProducts = [];
       `${res.status}`
     );
   }
+  for (const slug of removedSpecs) {
+    const res = await get(`/${slug}`);
+    check(`/${slug} is gone (404)`, res.status === 404, `${res.status}`);
+  }
+  check(
+    "contact carries the real address + Islamabad base",
+    contentHtml.contact.includes("syedareebkareem@gmail.com") &&
+      contentHtml.contact.includes("Islamabad")
+  );
   const home21 = await get("/");
   check(
-    "home footer links every content page",
+    "home footer links the surviving content pages, never removed ones",
     contentSpecs.every(([slug]) => home21.html.includes(`href="/${slug}"`)) &&
+      removedSpecs.every((slug) => !home21.html.includes(`href="/${slug}"`)) &&
       !home21.html.includes('href="/faq"')
   );
   check(
-    "legal skeletons carry visible [placeholder] markers",
-    ["returns", "privacy", "terms"].every((slug) => contentHtml[slug].includes("placeholder"))
-  );
-  check(
-    "contact only lists configured channels",
-    contentHtml.contact.includes("NEXT_PUBLIC_CONTACT_EMAIL") ||
-      contentHtml.contact.includes("mailto:") ||
-      contentHtml.contact.includes("placeholder")
+    "contact offers the prefilled order + idea mailtos",
+    contentHtml.contact.includes("Email about an order") &&
+      contentHtml.contact.includes("Discuss your idea") &&
+      contentHtml.contact.includes("mailto:")
   );
 
   // --- robots + sitemap ---------------------------------------------------
@@ -2612,7 +2645,7 @@ for (const orderId of p22Orders) await db.order.delete({ where: { id: orderId } 
 await db.stockAdjustment.deleteMany({ where: { reason: { contains: "E2E P13 stock" } } });
 if (p11Order) await db.order.delete({ where: { id: p11Order.id } }).catch(() => {});
 if (p11Product) await db.product.delete({ where: { id: p11Product.id } }).catch(() => {});
-for (const product of [...Object.values(floatProducts), unavailableProduct, fixtureProduct]) {
+for (const product of [...Object.values(floatProducts), unavailableProduct, fixtureProduct, ...curatedProducts]) {
   await db.product.delete({ where: { id: product.id } }).catch(() => {});
 }
 for (const product of paginatedProducts) {
@@ -2622,6 +2655,11 @@ for (const product of paginatedProducts) {
 if (category.slug === "e2e-fixtures") {
   const remaining = await db.product.count({ where: { categoryId: category.id } });
   if (remaining === 0) await db.category.delete({ where: { id: category.id } }).catch(() => {});
+}
+// Same for curation categories this run created (pre-existing ones stay).
+for (const catId of curatedCreatedCatIds) {
+  const remaining = await db.product.count({ where: { categoryId: catId } });
+  if (remaining === 0) await db.category.delete({ where: { id: catId } }).catch(() => {});
 }
 await db.$disconnect();
 

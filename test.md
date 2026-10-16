@@ -5,10 +5,11 @@ admin back-office. Everything is done in a browser against the **local dev
 server**, plus a few light technical checks (view-source, DevTools Network,
 the dev terminal for emails).
 
-- Tick each box `- [ ]` as you verify it; jot down anything that deviates.
-- "Expected" lines tell you what success looks like.
+- Tick each box `- [ ]` → `- [x]` as you verify it.
+- Every item has an **Expected** line (success) and an **Actual** line —
+  paste what you really saw (text, screenshot name, console output).
 - Estimated full pass: **2–3 hours**.
-- Sections 1–9 can be done as a guest/customer; §10+ needs the admin account.
+- Sections 1–9 work as guest/customer; §10+ needs the admin account.
 
 ---
 
@@ -19,11 +20,13 @@ the dev terminal for emails).
   ```bash
   npm run dev          # → http://localhost:3000
   ```
+  Actual:
 
 - [ ] Keep the **terminal visible** while testing. There is no email provider
       configured locally, so every email prints there as
       `[email] dev-log → to=… subject=…` — including the **password-reset link**
       you'll need in §6.
+  Actual:
 
 - [ ] Sign-in accounts (seeded):
 
@@ -32,283 +35,437 @@ the dev terminal for emails).
   | Customer | `dev-customer@girah.test` | `DevCustomer123!` |
   | Admin | `dev-admin@girah.test` | `DevAdmin123!` |
 
-  You'll also register a brand-new customer in §6 — use an address you control
-  or something like `test-<timestamp>@example.com`.
+  You'll also register brand-new customers in §6 — use something like
+  `test-<timestamp>@example.com`.
+  Actual:
 
 - [ ] Read these **expected local behaviours** first so you don't report them
   as bugs (full list in §13):
   - Safepay's hosted checkout opens, but its **webhook can't reach localhost** —
-    an online-paid order stays `PENDING` here. Cash-on-delivery (COD) is the
+    an online-paid order stays `PENDING`. Cash-on-delivery (COD) is the
     complete local loop.
-  - Legal pages (`/about`, `/returns`, …) intentionally show `[placeholder]`
-    markers — no real policy copy yet.
-  - Instagram/WhatsApp/social links are hidden (env vars unset, by design).
-  - Registration is throttled: **10 attempts / 15 minutes per IP** — don't spam
-    the register form; you'll get a "too many attempts" error.
+  - Content pages are just **About + Contact** (Shipping/Returns/Privacy/Terms
+    were removed by owner decision — they 404).
+  - Contact page is real (mockup port): `syedareebkareem@gmail.com`, Islamabad.
+  - Instagram section renders (real URL + real photos configured).
+  - Registration is throttled: **10 attempts / 15 minutes per IP**.
+  Actual:
 
 ---
 
 ## 1. Home & site shell
 
 - [ ] Open http://localhost:3000 — page loads with **exactly one `<h1>`**.
+  Expected: `Handmade Pieces, Made to Be Cherished.`
+  Actual:
+- [ ] Announcement bar sits above the header.
+  Expected: `Free shipping on all orders · Cash on delivery available`.
+  Actual:
 - [ ] Hero: headline + "Shop Handmade" CTA → lands on `/shop`.
-- [ ] Magazine grid, featured trio (01/02/03), trust strip, closing CTA all render.
-- [ ] Scroll through the immersive bouquet section — it scrubs with scroll
-      (with OS "reduce motion" enabled it should stay still).
-- [ ] Header: wordmark, nav (Home / Shop / account), search field, cart icon
-      with count badge; **Wishlist** appears only when signed in.
-- [ ] Search in the header for `sunflower` → results page (§3).
-- [ ] Footer has three columns — SHOP, ACCOUNT, **Information** — and every
-      Information link (About, Contact, Shipping, Returns, Privacy, Terms)
-      opens a real page (§11). **No dead links** (e.g. no `/faq`).
-- [ ] `© {year} Girah` + trust line present.
-- [ ] Mobile (or narrow window ~360px): hamburger opens a full-screen menu;
-      **Escape** closes it, backdrop click closes it, page behind doesn't
-      scroll while open; the menu has its own search box.
+  Expected: one hero CTA only.
+  Actual:
+- [ ] Gallery collage ("A little world"), curated collections
+  (JUST OFF THE HOOK / FLOWERS THAT STAY / MADE TO MAKE SOMEONE SMILE),
+  promise strip, closing CTA, Instagram section (FOLLOW GIRAH + 5 tiles →
+  real profile) all render.
+  Expected: 3 collection sections with 3 cards each (hidden only if a pool is empty).
+  Actual:
+- [ ] Header: wordmark, nav (Home / Shop / About / Contact), search field,
+  account link, cart badge; **Wishlist** appears only when signed in.
+  Expected: signed out → "Sign In", no Wishlist link.
+  Actual:
+- [ ] Search in the header for `sunflower` → `/search` results page (§3).
+  Expected: count label + grid.
+  Actual:
+- [ ] Footer has SHOP, ACCOUNT, **Information (About, Contact only)** columns,
+  newsletter form, social icons (Instagram + Email), payment badges.
+  Expected: no dead links (no `/faq`, no `/shipping|/returns|/privacy|/terms`).
+  Actual:
+- [ ] `© {year} Girah` + handmade line present.
+  Actual:
+- [ ] Mobile (~360px): hamburger opens a full-screen menu.
+  Expected: Escape closes it, focus returns to the trigger, page behind
+  doesn't scroll while open, menu has its own search box.
+  Actual:
+- [ ] Scroll far down → back-to-top button appears → click → smooth return
+  to top.
+  Expected: appears after ~600px, `aria-label="Back to top"`.
+  Actual:
 - [ ] Visit a nonsense URL (`/does-not-exist`) → branded 404 with a way back.
+  Expected: `Page not found` + Home/Shop links.
+  Actual:
 
 ## 2. Shop, filters & pagination
 
 - [ ] `/shop` renders the product grid; intro line reads
-      "Discover handmade pieces, made with care."
-- [ ] Product cards show image, name, **Rs. price with 2 decimals**, and the
-      star-rating line ("No reviews yet" or a rating).
-- [ ] Click a **category tab** → grid filters; the URL carries `?category=…`.
-- [ ] Change **sort** order → order changes, URL updates.
-- [ ] Set a **price range** and tick **in-stock only** → results narrow; the
-      panel keeps your values after the page reloads.
-- [ ] Combine filter + category: both stay applied together; a category tab
-      link keeps the price filters.
-- [ ] **Pagination**: 12 products per page, Prev/Next + numbered links,
-      current page highlighted. Append `?page=999` to the URL → it clamps to
-      the last real page (no endless empty screen).
-- [ ] Change a filter or category **from page 2** → pagination resets to page 1
-      (URL has no stale `page=`).
-- [ ] Use an impossible filter combo → empty state with **Clear Search /
-      Clear Filters** buttons that recover the full catalogue.
-- [ ] Click the **heart** on a card → toggles (toast/aria state); sign in if
-      prompted (§6) and confirm the heart persists after reload.
+  "Discover handmade pieces, made with care."
+  Expected: grid + `N pieces` count.
+  Actual:
+- [ ] Product cards show image, name, **Rs. price with 2 decimals**, star line.
+  Expected: no `From Rs. 0`, no `Rs. NaN` anywhere.
+  Actual:
+- [ ] Click a **category tab** → grid filters; URL carries `?category=…`;
+  active tab underlined + `aria-current="page"`.
+  Expected:
+  Actual:
+- [ ] Change **sort** → order changes, URL updates (has `aria-label`).
+  Expected:
+  Actual:
+- [ ] Set **price range** + **In Stock** → results narrow; panel keeps values
+  after reload; removable **filter chips** appear next to the count.
+  Expected: e.g. `2 pieces [Bouquets ×] [In stock ×]`; × removes one filter.
+  Actual:
+- [ ] Garbage params (`?minPrice=Infinity&maxPrice=NaN`) → page 200, no
+  `Rs. NaN`/`Rs. Infinity` chips or prices.
+  Expected: full catalogue, no chips.
+  Actual:
+- [ ] Combine filter + category: both stay applied; category tab links keep
+  price filters.
+  Expected:
+  Actual:
+- [ ] **Pagination**: 12 per page, Prev/Next + numbers, current highlighted;
+  `?page=999` clamps to the last real page; changing filters from page 2
+  resets to page 1.
+  Expected:
+  Actual:
+- [ ] Impossible combo → empty state with **Clear Search / Clear Filters**.
+  Expected:
+  Actual:
+- [ ] Click a **heart** → fills (signed in); persists after reload; signed-out
+  click asks to sign in.
+  Expected:
+  Actual:
+- [ ] Mobile: Filters button opens a bottom sheet; Escape closes it, focus
+  returns, background locked.
+  Expected:
+  Actual:
 
 ## 3. Search
 
-- [ ] Header search for `E2E` (or any term you know exists) → `/search` with
-      results and a count label like `N products matching "…"`.
-- [ ] A term with matches across two pages shows pagination; the count label
-      shows the **total**, not just page 1.
-- [ ] Search `zzz-no-such-thing-zzz` → "No matches" empty state, no pagination.
+- [ ] Search `sunflower` → `/search` with results + count like
+  `N products matching "…"`.
+  Expected:
+  Actual:
+- [ ] Search `%_%` → "No matches" (symbols are literal, never wildcards).
+  Expected: 0 cards, empty state.
+  Actual:
+- [ ] Search `zzz-no-such-thing-zzz` → "No matches", no pagination.
+  Expected:
+  Actual:
 - [ ] Clearing the field + searching again returns everything.
-- [ ] (Light) View-source of the search page → `<meta name="robots" content="noindex…">`.
+  Expected:
+  Actual:
+- [ ] (Light) View-source → `<meta name="robots" content="noindex…">`.
+  Expected:
+  Actual:
 
 ## 4. Product page
 
-- [ ] Open any product from the shop — gallery images, name, 2-decimal price,
-      description accordion **open** by default, details accordion closed.
+- [ ] Open any product — gallery images (+ counter + thumbs), name,
+  `From Rs. X` price, description accordion **open** by default.
+  Expected:
+  Actual:
 - [ ] Toggle accordions (±, `aria-expanded` flips).
-- [ ] If the product has **variations**: select each — button shows a pressed
-      state and price/stock update; a disabled variation can't be added.
-- [ ] Quantity stepper: can't go below 1 or above available stock (friendly
-      error on attempt).
-- [ ] **Add to cart** → success → **mini-cart drawer** slides in (right on
-      desktop, bottom sheet on mobile) with correct line + total; Escape or
-      backdrop closes it; "View Cart" → `/cart`.
-- [ ] On mobile width, a sticky add-to-cart bar appears once the main button
-      scrolls off-screen.
-- [ ] Wishlist toggle on the product page works and matches the card heart.
-- [ ] (Light) View-source → JSON-LD `@type: "Product"` with a price and
-      `priceCurrency`.
-- [ ] Breadcrumb (or logo) navigates back cleanly.
+  Expected:
+  Actual:
+- [ ] Select each variation — pressed state, price updates; disabled ones
+  show struck-through and can't be added.
+  Expected:
+  Actual:
+- [ ] Selecting a variation shows a stock hint under Quantity.
+  Expected: `In stock` normally, `Only N left in stock` when N ≤ 3.
+  Actual:
+- [ ] Stepper: can't go below 1 or above stock.
+  Expected:
+  Actual:
+- [ ] **Add to cart** → **mini-cart drawer** (right on desktop, bottom sheet
+  on mobile) with correct line + total; Tab stays trapped inside; Escape or
+  backdrop closes it; focus returns; "View Cart" → `/cart`.
+  Expected:
+  Actual:
+- [ ] Mobile: sticky add-to-cart bar appears once the main button scrolls away.
+  Expected: name + price + working button, respects safe area.
+  Actual:
+- [ ] Wishlist toggle works and matches the card heart.
+  Expected:
+  Actual:
+- [ ] (Light) View-source → JSON-LD `@type: "Product"` with price +
+  `priceCurrency`.
+  Expected:
+  Actual:
 
 ## 5. Cart
 
-- [ ] `/cart` lists lines with images, variations, steppers, line totals,
-      and a **2-decimal** Total; shipping shows as FREE.
+- [ ] `/cart` lists lines (images, variations, steppers, line totals) + Total;
+  shipping FREE; empty state shows **"You may also like"** suggestions.
+  Expected:
+  Actual:
 - [ ] Raise quantity above stock → inline refusal, quantity unchanged.
-- [ ] Remove a line → disappears; removing the last line → empty-cart state
-      with a link back to the shop.
-- [ ] **Guest merge test**: open an **incognito window**, add 1–2 items as a
-      guest, then log in (§6 credentials) → the guest items are still in the
-      cart (they merged into the account cart).
-- [ ] Header cart badge matches the cart contents.
-- [ ] **Checkout** button → `/checkout` (works signed-out too — see the guest
-      flow in §7); an empty cart redirects to `/cart`.
+  Expected:
+  Actual:
+- [ ] Remove a line → disappears; last line → empty state + shop link.
+  Expected:
+  Actual:
+- [ ] **Guest merge**: incognito, add items as guest, log in → items merged
+  into the account cart.
+  Expected:
+  Actual:
+- [ ] Header cart badge matches contents.
+  Expected:
+  Actual:
+- [ ] **Checkout** button → `/checkout`; empty cart → bounced to `/cart`.
+  Expected:
+  Actual:
+- [ ] Mobile (360px): no horizontal scrolling with items in the cart.
+  Expected:
+  Actual:
 
 ## 6. Auth: register, login, password reset
 
-- [ ] Signed out, visit `/account` → redirected to
-      `/login?callbackUrl=…`; after login you return to `/account`.
-- [ ] `/register`: submit an empty form → field-level validation errors.
-- [ ] Register with a **mismatched password/confirm** → error, no account.
-- [ ] Register a fresh account (name, unique email, ≥8-char password) →
-      signed in automatically, header now shows Wishlist/account.
-- [ ] Register the **same email again** → "already registered"-style error.
-- [ ] Log out, then log back in with the new account; also log in as
-      `dev-customer@girah.test`.
-- [ ] On the login/register pages, **Continue as Guest** returns you to
-      shopping without an account.
-- [ ] **Password reset**: `/forgot-password` → enter the customer email →
-      **copy the reset link from the dev terminal** → open it → set a new
-      password → log in with the **new** password. (Repeated requests for the
-      same email are throttled too — "Too many reset requests".)
-- [ ] The **old** password no longer works after the reset.
-- [ ] Wrong password at login → generic "Invalid email or password" (never
-      reveals whether the email exists).
-- [ ] Registration flood test: after ~10 rapid attempts expect a rate-limit
-      error (then wait 15 min or switch IPs — see §13).
+- [ ] Signed out, visit `/account` → `/login?callbackUrl=…`; after login you
+  return to `/account`.
+  Expected:
+  Actual:
+- [ ] `/register`: empty submit → field-level errors; mismatched
+  password/confirm → error, no account.
+  Expected:
+  Actual:
+- [ ] Register fresh (name, unique email, ≥8-char password) → auto signed in,
+  header shows Wishlist/account.
+  Expected:
+  Actual:
+- [ ] Same email again → "already associated" error.
+  Expected:
+  Actual:
+- [ ] Log out (account page button) → `/account` bounces to login (session
+  dead everywhere).
+  Expected:
+  Actual:
+- [ ] Log back in; also try `dev-customer@girah.test`.
+  Expected:
+  Actual:
+- [ ] **Password reset**: `/forgot-password` → customer email →
+  **copy the reset link from the dev terminal** → set new password → log in
+  with it; old password fails.
+  Expected: generic "if that address has an account…" message (never reveals).
+  Actual (paste the terminal line redacted):
+- [ ] Wrong password → generic "Invalid email or password".
+  Expected:
+  Actual:
+- [ ] Flood register (~10 rapid) → rate-limit error.
+  Expected:
+  Actual:
 
 ## 7. Checkout — COD full loop
 
-- [ ] With an **empty cart**, visiting `/checkout` bounces you to `/cart`
-      (add an item first).
-- [ ] **Guest checkout**: from an incognito window with a filled cart,
-      `/checkout` opens without login — no prefill and no "save address"
-      option (those are for signed-in users). Place a COD order here too if
-      you like; it completes like §7's main flow.
-- [ ] Signed in with a saved address (§8): the form **prefills** it and the
-      save-address option is offered.
-- [ ] Submit checkout with missing/invalid fields (bad phone/postal) →
-      inline errors, no order created.
-- [ ] Payment options: **Cash on delivery** (select it) and **Online Payment
-      (Cards, JazzCash, EasyPaisa)** — both radios visible (Safepay is
-      configured). **Only complete COD locally** (see §13 for Safepay).
-- [ ] Place the order → **confirmation page** with an order number
-      (`GIR-…`), items, and totals.
-- [ ] Dev terminal shows the confirmation email (`[email] dev-log → …`).
-- [ ] Header cart is now empty; the account's order list shows the new order
-      as `PENDING` / payment `PENDING`.
-- [ ] Money math: Total = subtotal + Rs. 0 shipping, formatted with 2 decimals
-      everywhere.
+- [ ] Empty cart → `/checkout` bounces to `/cart`.
+  Expected:
+  Actual:
+- [ ] **Guest checkout** (incognito, filled cart): opens without login, no
+  prefill, no save-address option.
+  Expected:
+  Actual:
+- [ ] Signed in with saved address (§8): form **prefills**, save option shown.
+  Expected:
+  Actual:
+- [ ] Missing/invalid fields → inline errors, no order created.
+  Expected:
+  Actual:
+- [ ] Both radios visible (COD + Online Payment); **complete COD only**.
+  Expected:
+  Actual:
+- [ ] Order summary lines show **thumbnails**.
+  Expected: 48px thumbs next to each line.
+  Actual:
+- [ ] Place order → **confirmation**: `Order Confirmed`, `GIR-…` number,
+  items, total, **5-step progress timeline** (Placed ✓ → Confirmed current).
+  Expected:
+  Actual:
+- [ ] Dev terminal shows the order-received email.
+  Expected: `[email] dev-log → to=<your email> subject="Order received — #…"`.
+  Actual (paste terminal line):
+- [ ] Header cart empty; account orders show the new order
+  (`CONFIRMED` / payment `PENDING`).
+  Expected:
+  Actual:
+- [ ] Total = subtotal + Rs. 0 shipping, 2 decimals everywhere.
+  Expected:
+  Actual:
 
 ## 8. Customer account area
 
-- [ ] `/account` dashboard shows the four blocks: Orders, Profile, Saved
-      Shipping, **Wishlist**.
-- [ ] **Orders**: list renders newest-first; open your new order — items,
-      status timeline, total.
-- [ ] **Cancel order**: offered only while payment is `PENDING` **and** status
-      is `PENDING`/`CONFIRMED` — cancel your fresh order → status becomes
-      `CANCELLED` (stock returns). An already-shipped/delivered order shows
-      no cancel button.
-- [ ] **Reorder** on a past order → the cart fills with those lines.
-- [ ] **Receipt**: open it; the print button opens the print dialog.
-- [ ] **Shipping address**: save an address (all fields) → reload → it's
-      persisted; checkout pre-fills it (§7).
-- [ ] **Profile**: edit name/phone → save → values persist after reload.
-- [ ] **Wishlist**: open from the header → wishlisted products show as cards;
-      tapping the heart again removes one; opening a card → its product page;
-      emptying it shows "Nothing saved yet" + "Browse the shop"; signed-out
-      visit to `/wishlist` bounces to login.
-- [ ] **Review**: on a product you've ordered (even `PENDING` — any
-      non-cancelled order qualifies), the review form appears; submit a rating
-      + text → saved as **PENDING** (not yet visible on the product page).
-      (Full loop completed in §9.)
+- [ ] `/account` dashboard blocks: Orders, Profile, Saved Shipping, Wishlist.
+  Expected:
+  Actual:
+- [ ] **Orders**: newest-first; open the new order — items, **status
+  timeline**, total, payment label.
+  Expected:
+  Actual:
+- [ ] **Cancel order**: offered while cancellable → two-step confirm →
+  `CANCELLED` (stock returns). Shipped/delivered orders show no button.
+  Expected:
+  Actual:
+- [ ] **Reorder** ("Buy again") → cart refills + inline confirmation.
+  Expected:
+  Actual:
+- [ ] **Receipt**: opens; print button opens the print dialog.
+  Expected:
+  Actual:
+- [ ] **Shipping address**: save → reload persists; checkout pre-fills it.
+  Expected:
+  Actual:
+- [ ] **Profile**: edit name/phone → persists after reload.
+  Expected:
+  Actual:
+- [ ] **Wishlist**: cards render; heart removes one; card → product page;
+  empty → "Nothing saved yet"; signed-out visit bounces to login.
+  Expected:
+  Actual:
+- [ ] **Review**: on an ordered (non-cancelled) product the form appears;
+  submit → saved **PENDING**, invisible publicly (completed in §9).
+  Expected:
+  Actual:
 
 ## 9. Reviews loop (customer + admin)
 
-- [ ] As the customer: submit the review (§8 last step); reload the product
-      page as a guest → the review is **not** visible yet.
-- [ ] As **admin** (§10 login): `/admin/reviews` → the pending review is in
-      the moderation queue.
-- [ ] **Approve** it → reload the product page → the review and the card
-      star-rating now show publicly.
-- [ ] Submit another review, then **Reject** it → it never appears publicly.
-- [ ] A non-buyer account: product page shows the "verified buyers only"
-      message instead of the form.
+- [ ] As customer submit review → guest view still shows nothing.
+  Expected:
+  Actual:
+- [ ] As **admin**: `/admin/reviews` → pending item in queue (filter by status).
+  Expected:
+  Actual:
+- [ ] **Approve** → public review + card stars appear.
+  Expected:
+  Actual:
+- [ ] Submit another → **Reject** → never public.
+  Expected:
+  Actual:
+- [ ] Non-buyer account sees "verified buyers only" instead of the form.
+  Expected:
+  Actual:
 
 ## 10. Admin back-office
 
-Log in as `dev-admin@girah.test` / `DevAdmin123!` and open `/admin`.
+Log in as `dev-admin@girah.test` / `DevAdmin123!` → `/admin`.
 
-- [ ] **Authz spot-checks first**: signed out → `/admin` bounces to login;
-      logged in as the customer → bounced (not an admin).
-- [ ] **Dashboard**: metric cards (revenue/orders/customers etc.) and the
-      14-day revenue SVG chart render with today's activity reflected.
-- [ ] **Products**:
-  - Create a product: name, description, category, **real image upload**
-    (Cloudinary — confirm the image appears), price in rupees, stock.
-  - Edit it (price/stock change persists; image management works).
-  - Toggle availability off → it disappears from `/shop`; back on → reappears.
-  - Delete an unreferenced product → gone; a product with order history is
-    protected (refusal message, product intact).
-- [ ] **Categories**: rename existing, create new; deleting a category that
-      still has products is **refused** with a clear error.
-- [ ] **Variations**: enable/disable a variation, edit its price/stock; a
-      disabled variation can't be bought (product page blocks it).
-- [ ] **Stock**: record an adjustment → the **Stock history** table shows the
-      change with reason and timestamp; product stock updates.
-- [ ] **Orders**:
-  - Filter/search the list; open an order detail (customer, address, items,
-    subtotal/shipping/total, payment state).
-  - Walk the status select: `PENDING → CONFIRMED → PROCESSING → SHIPPED →
-    DELIVERED` — each change persists and a status email hits the terminal.
-  - **Mark Paid** appears for COD orders with payment `PENDING` → payment
-    becomes `PAID` (an invalid transition is refused inline).
-  - **Refund** (detail page, while `PAID`) → two-step confirm
-    ("Yes, refund Rs X" / "Keep payment") → payment `REFUNDED`.
-  - Cancel a still-cancellable order → `CANCELLED`.
-- [ ] **Customers**: list shows roles and "(Disabled)" flags; open a detail →
-      the activate/deactivate toggle works (a deactivated account can't log
-      in).
-- [ ] **Reviews**: approve/reject from §9; queue filters by status.
-- [ ] Every admin action gives **inline success or error feedback** — no
-      silent failures, no full-page crashes.
+- [ ] **Authz first**: signed out → login bounce; customer → bounced home.
+  Expected:
+  Actual:
+- [ ] Left nav wraps on mobile (no horizontal scroll); **Newsletter** item
+  present.
+  Expected:
+  Actual:
+- [ ] **Dashboard**: metric cards + 14-day revenue SVG reflect today's activity.
+  Expected:
+  Actual:
+- [ ] **Products**: create (name, description, category, **real image upload**,
+  rupees price, stock) → edit persists → toggle off hides from `/shop` →
+  on reappears → delete unreferenced works; order-referenced delete refused
+  with message.
+  Expected (paste image URL):
+  Actual:
+- [ ] **Categories**: rename, create; deleting a used one is refused clearly.
+  Expected:
+  Actual:
+- [ ] **Variations**: enable/disable, edit price/stock; disabled can't be bought.
+  Expected:
+  Actual:
+- [ ] **Stock**: adjustment → history row with reason + timestamp + admin.
+  Expected:
+  Actual:
+- [ ] **Orders**: filter/search; detail (customer, address, items, totals,
+  payment); walk `CONFIRMED → PROCESSING → SHIPPED → DELIVERED` (status
+  email per step in terminal); **Mark Paid** on COD `PENDING` → `PAID`;
+  invalid jumps refused; **Refund** while `PAID` → two-step → `REFUNDED`;
+  cancel a cancellable order → `CANCELLED`.
+  Expected:
+  Actual:
+- [ ] **Customers**: roles + Disabled flags; toggle works; deactivated account
+  can't log in.
+  Expected:
+  Actual:
+- [ ] **Reviews**: §9 queue approve/reject.
+  Expected:
+  Actual:
+- [ ] **Newsletter**: footer signup lands here (email + date); resubscribe →
+  honest "already in the loop"; Remove → two-step → row gone, count updates.
+  Expected:
+  Actual:
+- [ ] Every admin action gives inline feedback — no silent fails, no crashes.
+  Expected:
+  Actual:
 
-## 11. SEO, content pages & security headers (light technical)
+## 11. Contact, SEO & security headers (light technical)
 
-- [ ] Each content page opens with the right `<title>` (ends in `· Girah`):
-      `/about`, `/contact`, `/shipping`, `/returns`, `/privacy`, `/terms`.
-- [ ] Legal pages contain visible `[placeholder]` markers (expected) and
-      `/terms` links to `/returns` (works).
-- [ ] `/contact` lists only configured channels (or placeholder note when
-      none are set).
-- [ ] View-source of `/shop`, `/cart`, `/checkout`, `/search`:
-      `og:title`, `og:image`, Twitter card present on the home/product pages;
-      **noindex** on cart/checkout/search; indexable on home/shop/product.
-- [ ] `http://localhost:3000/robots.txt` → `Allow: /`, private routes
-      (`/admin`, `/account`, `/checkout`, …) disallowed, `Sitemap:` present.
-- [ ] `http://localhost:3000/sitemap.xml` → home, shop, the six content pages
-      and live product URLs; **no** `/search` or order URLs.
-- [ ] DevTools → Network → any document request → response headers include
-      `Content-Security-Policy`, `X-Content-Type-Options: nosniff`,
-      `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`.
-      (`Strict-Transport-Security` is **production-only** — absent here is
-      expected, see §13.)
-- [ ] `/api/auth/csrf` sets exactly **one** `authjs.csrf-token` cookie
-      (Network tab).
+- [ ] `/about` + `/contact` render with `<title>… · Girah`.
+  Expected:
+  Actual:
+- [ ] `/contact` shows the real email, prefilled order/idea mailtos,
+  Islamabad line, 5 working images; `/shipping|/returns|/privacy|/terms`
+  all 404.
+  Expected:
+  Actual:
+- [ ] View-source home/product: `og:title`, landscape `og:image`
+  (1536×1024), Twitter card; **noindex** on cart/checkout/search/confirmation.
+  Expected:
+  Actual:
+- [ ] `/robots.txt` → private routes disallowed + `Sitemap:` pointer.
+  Expected (paste the file):
+  Actual:
+- [ ] `/sitemap.xml` → home, shop, about, contact + live product URLs; **no**
+  search/order/removed URLs.
+  Expected (paste count):
+  Actual:
+- [ ] Document request headers: `Content-Security-Policy` (img pinned to
+  Cloudinary), `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Referrer-Policy`, `Permissions-Policy`; `Cache-Control: private, no-store`
+  on `/account`; no HSTS in dev (production-only, expected).
+  Expected (paste CSP line):
+  Actual:
+- [ ] `/api/auth/csrf` sets exactly **one** `authjs.csrf-token` cookie.
+  Expected:
+  Actual:
 
 ## 12. Responsive & accessibility pass
 
-- [ ] Check key pages at ~360px, ~768px, and ~1440px wide: home, shop, product,
-      cart, checkout, account, admin dashboard — no overlap or horizontal
-      scrolling (admin tables may scroll deliberately).
-- [ ] **Keyboard-only walk**: Tab through home → shop → product → cart;
-      focus is always visible (sage outline), no keyboard traps; Enter/Space
-      activate buttons; Escape closes the mobile menu and mini-cart drawer.
-- [ ] Headings make sense (one h1 per page, ordered headings below it).
-- [ ] Images have meaningful alt text; form inputs have labels.
-- [ ] OS "reduce motion" on → immersive scroll/marquee animations stop.
-- [ ] Money is never shown as `1234` or `Rs. NaN` anywhere.
+- [ ] 360 / 768 / 1440px on home, shop, product, cart, checkout, account,
+  admin — no overlap, no horizontal scroll.
+  Expected:
+  Actual:
+- [ ] **Keyboard-only walk** home → shop → product → cart: visible sage focus
+  everywhere, no traps; Enter/Space activate; Escape closes menu, drawer,
+  filter sheet; Tab cycles inside dialogs; focus returns to triggers.
+  Expected:
+  Actual:
+- [ ] One h1 per page, ordered headings; images have alt; inputs have labels
+  (clicking a label focuses its field).
+  Expected:
+  Actual:
+- [ ] OS "reduce motion" on → hero/gallery animations stop; back-to-top jumps.
+  Expected:
+  Actual:
+- [ ] Money never `1234`, `Rs. NaN`, or `Rs. Infinity` anywhere.
+  Expected:
+  Actual:
 
 ## 13. Expected local caveats (not bugs)
 
 | Observed | Why it's expected |
 |----------|-------------------|
-| Online (Safepay) order stays `PENDING` after paying in sandbox | Safepay's webhook can't reach `localhost` — needs a public tunnel in production |
-| Emails only in the terminal | No `RESEND_API_KEY` locally — the dev-log fallback is by design |
-| `[placeholder]` text on legal/contact pages | Real copy not written yet — deliberate, nothing fake ships |
-| No Instagram/WhatsApp/social links | Their env vars are unset — sections are gated, not broken |
-| No `Strict-Transport-Security` header in dev | HSTS is enabled only for production builds |
+| Online (Safepay) order stays `PENDING` after paying in sandbox | Webhook can't reach `localhost` — needs a public tunnel in production |
+| Emails only in the terminal | No `RESEND_API_KEY` locally — dev-log fallback by design |
+| `/shipping|/returns|/privacy|/terms` are 404 | Removed by owner decision |
 | Register says "too many attempts" | 10-per-15-minutes per IP throttle (skipped only in tests) |
-| Safepay radio visible but you can't finish an online payment | Correct — only COD completes locally |
+| Safepay radio visible but online payment can't finish | Correct — only COD completes locally |
 
 ## 14. Optional: automated backup for everything above
 
-The HTTP suites cover most of §1–§11 without a browser:
-
 ```bash
-npm run test:smoke                            # 21 pages render clean
-E2E_BASE_URL=http://localhost:3000 npm run test:e2e   # 310 checks
+npm run test:unit          # fast, no DB
+npm run test:smoke         # 21 pages render clean (needs :3100 prod server)
+E2E_BASE_URL=http://localhost:3100 npm run test:e2e   # ~350 checks
 ```
 
 They create and clean up their own data. Anything these miss is by definition
 in the manual sections above (visuals, responsiveness, print dialog, real
-Cloudinary upload feel).
+upload feel, motion).

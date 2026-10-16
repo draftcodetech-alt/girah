@@ -67,6 +67,13 @@ describe("assertProdConfig", () => {
     expect(() => assertProdConfig()).toThrow(/SAFEPAY_WEBHOOK_SECRET/);
   });
 
+  it("fails on EVERY prod request until fixed (never serves after one loud error)", async () => {
+    prodEnv({ EMAIL_FROM: "" });
+    const assertProdConfig = await loadGuard();
+    expect(() => assertProdConfig()).toThrow(/EMAIL_FROM/);
+    expect(() => assertProdConfig()).toThrow(/EMAIL_FROM/);
+  });
+
   it("passes a fully configured production env, and only checks once", async () => {
     prodEnv();
     const assertProdConfig = await loadGuard();

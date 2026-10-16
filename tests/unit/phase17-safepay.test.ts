@@ -77,3 +77,15 @@ describe("Phase 17: .env.example documents the switch", () => {
     expect(example).toContain('SAFEPAY_ENV=""');
   });
 });
+
+describe("Phase 19: outbound calls are time-bounded", () => {
+  it("Safepay passport fetch aborts on stall", () => {
+    const source = readFileSync(join(ROOT, "src/modules/payments/safepay.ts"), "utf8");
+    expect(source).toContain("AbortSignal.timeout(15000)");
+  });
+
+  it("Cloudinary upload stream carries a timeout", () => {
+    const source = readFileSync(join(ROOT, "src/modules/admin/image-ops.ts"), "utf8");
+    expect(source).toContain("timeout: 60000");
+  });
+});

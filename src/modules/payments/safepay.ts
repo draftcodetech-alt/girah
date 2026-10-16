@@ -63,6 +63,7 @@ export async function createSafepayCheckoutUrl(params: SafepayCheckoutParams): P
 
   // Step B: create a short-lived auth token — DIRECT HTTP CALL, bypassing a
   // confirmed bug in @sfpy/node-core's client.passport.create() method.
+  // Bounded: a stalled Safepay API must fail the attempt, never hang checkout.
   const passportResponse = await fetch(`${SAFEPAY_HOST}/client/passport/v1/token`, {
     method: "POST",
     headers: {
@@ -70,6 +71,7 @@ export async function createSafepayCheckoutUrl(params: SafepayCheckoutParams): P
       "x-sfpy-merchant-secret": process.env.SAFEPAY_API_SECRET!,
     },
     body: "{}",
+    signal: AbortSignal.timeout(15000),
   });
   if (!passportResponse.ok) {
     throw new Error(`Safepay passport token request failed: ${passportResponse.status}`);

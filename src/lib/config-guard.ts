@@ -13,7 +13,6 @@ function isPlausibleBase64(secret: string): boolean {
 
 export function assertProdConfig(): void {
   if (checked || process.env.NODE_ENV !== "production") return;
-  checked = true;
   const problems: string[] = [];
   if (!process.env.NEXT_PUBLIC_APP_URL) {
     problems.push("NEXT_PUBLIC_APP_URL is not set (trustHost + absolute links depend on it)");
@@ -26,6 +25,9 @@ export function assertProdConfig(): void {
     problems.push("SAFEPAY_WEBHOOK_SECRET is not base64 — the v1 webhook path can never verify");
   }
   if (problems.length > 0) {
+    // Deliberately NOT cached: a broken deploy must fail every request
+    // until it is fixed, never serve traffic after one loud error.
     throw new Error(`Invalid production config:\n- ${problems.join("\n- ")}`);
   }
+  checked = true;
 }
