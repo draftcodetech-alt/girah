@@ -310,13 +310,14 @@ export async function requestPasswordReset(input: ForgotPasswordInput): Promise<
       });
     }, { maxWait: 5000, timeout: 10000 });
     const base = process.env.NEXT_PUBLIC_APP_URL ?? "";
-    await sendEmailSafe(
-      passwordResetEmail({
-        to: user.email,
-        name: user.name,
-        link: `${base}/reset-password?token=${token}`,
-      })
-    );
+    const link = `${base}/reset-password?token=${token}`;
+    // Dev-only: the raw token can't be read from a bounced test-domain
+    // inbox, so `next dev` prints the link for the manual test guide.
+    // Production never logs tokens.
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[email] reset link (dev) → ${link}`);
+    }
+    await sendEmailSafe(passwordResetEmail({ to: user.email, name: user.name, link }));
   }
   return { success: true };
 }

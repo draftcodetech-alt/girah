@@ -148,6 +148,9 @@ describe("newsletter persistence (real table, honest states)", () => {
     expect(actions).toContain("alreadySubscribed");
     expect(actions).toContain('code === "P2002"');
     expect(actions).toContain("requireAdmin");
+    // Welcome mail fires through the never-throws transport, so a mail
+    // failure can never fail the signup itself.
+    expect(actions).toContain("sendEmailSafe(newsletterWelcomeEmail({ to: email }))");
   });
 
   it("footer form persists (no fake success) and admin page exists", () => {

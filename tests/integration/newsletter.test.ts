@@ -5,17 +5,27 @@ import {
   getNewsletterSubscribers,
   deleteNewsletterSubscriber,
 } from "@/modules/newsletter";
+import { sendEmailSafe } from "@/lib/email";
 import { resetDb } from "../setup/helpers";
 
 // Newsletter persistence: subscribe is idempotent (unique index collapses
 // resubmits), validation rejects junk before any DB write, and the admin
 // list/delete pair is requireAdmin-gated like every other admin read.
+// The transport is mocked — assertions are on WHO gets mail and WHEN.
 vi.mock("@/lib/require-admin", () => ({
   requireAdmin: vi.fn(async () => ({ user: { id: "admin-session-id", role: "ADMIN" } })),
 }));
+vi.mock("@/lib/email", () => ({
+  isEmailDevLogMode: vi.fn(() => true),
+  sendEmail: vi.fn(async () => {}),
+  sendEmailSafe: vi.fn(async () => {}),
+}));
+
+const send = vi.mocked(sendEmailSafe);
 
 beforeEach(async () => {
   await resetDb();
+  send.mockClear();
 });
 
 describe("subscribeNewsletter", () => {
@@ -25,6 +35,24 @@ describe("subscribeNewsletter", () => {
     const rows = await db.newsletterSubscriber.findMany();
     expect(rows).toHaveLength(1);
     expect(rows[0].email).toBe("reader@example.com");
+  });
+
+  it("welcomes a brand-new subscriber exactly once", async () => {
+    await subscribeNewsletter("fresh@girah.test");
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][0].to).toBe("fresh@girah.test");
+    expect(send.mock.calls[0][0].subject).toBe("Welcome to Girah — you're subscribed");
+
+    // Resubmit (any case) → already in the loop, no second welcome.
+    await subscribeNewsletter("FRESH@girah.test");
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("never mails junk or rejected addresses", async () => {
+    for (const bad of ["not-an-email", "a@b", ""]) {
+      await subscribeNewsletter(bad);
+    }
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("reports resubmits honestly without duplicating", async () => {

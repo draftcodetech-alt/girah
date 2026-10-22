@@ -1,9 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   orderReceivedEmail,
   paymentResultEmail,
   orderStatusEmail,
   welcomeEmail,
+  newsletterWelcomeEmail,
   passwordResetEmail,
   type OrderMailData,
 } from "@/lib/email-templates";
@@ -68,5 +69,17 @@ describe("email templates", () => {
     });
     expect(reset.html).toContain("token=abc");
     expect(reset.html).not.toMatch(/undefined/);
+  });
+
+  it("newsletter welcome thanks the subscriber and says why they got it", () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://girah.example");
+    const mail = newsletterWelcomeEmail({ to: "reader@example.com" });
+    expect(mail.to).toBe("reader@example.com");
+    expect(mail.subject).toBe("Welcome to Girah — you're subscribed");
+    expect(mail.html).toContain("https://girah.example/shop");
+    expect(mail.html).toContain("subscribed with this address on the Girah site");
+    expect(mail.html).not.toMatch(/undefined|NaN|\$\{/);
+    expect(mail.text).toContain("subscribed");
+    vi.unstubAllEnvs();
   });
 });

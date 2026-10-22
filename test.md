@@ -22,10 +22,11 @@ the dev terminal for emails).
   ```
   Actual:
 
-- [ ] Keep the **terminal visible** while testing. There is no email provider
-      configured locally, so every email prints there as
-      `[email] dev-log → to=… subject=…` — including the **password-reset link**
-      you'll need in §6.
+- [ ] Keep the **terminal visible** while testing. Your real Resend key is
+      set, so emails genuinely send — but `next dev` **mirrors every send to
+      the terminal** anyway as
+      `[email] dev-log → to=… subject=…` — including the **`[email] reset
+      link (dev) → …`** line you'll need in §6. (Production never logs this.)
   Actual:
 
 - [ ] Sign-in accounts (seeded):
@@ -245,9 +246,10 @@ the dev terminal for emails).
   Expected:
   Actual:
 - [ ] **Password reset**: `/forgot-password` → customer email →
-  **copy the reset link from the dev terminal** → set new password → log in
-  with it; old password fails.
-  Expected: generic "if that address has an account…" message (never reveals).
+  **copy the `[email] reset link (dev) → …` line from the dev terminal** →
+  set new password → log in with it; old password fails.
+  Expected: generic "if that address has an account…" message (never reveals);
+  terminal shows the reset-link line + `[email] dev-log` subject line.
   Actual (paste the terminal line redacted):
 - [ ] Wrong password → generic "Invalid email or password".
   Expected:
@@ -387,8 +389,12 @@ Log in as `dev-admin@girah.test` / `DevAdmin123!` → `/admin`.
 - [ ] **Reviews**: §9 queue approve/reject.
   Expected:
   Actual:
-- [ ] **Newsletter**: footer signup lands here (email + date); resubscribe →
-  honest "already in the loop"; Remove → two-step → row gone, count updates.
+- [ ] **Newsletter**: footer signup lands here (email + date); first-time
+  signup → **welcome email "Welcome to Girah — you're subscribed" arrives in
+  the inbox** (use `draftcode.tech@gmail.com` to receive it — Resend's
+  onboarding sender only delivers there) + `[email] dev-log` line in terminal;
+  resubscribe → honest "already in the loop" (no second email);
+  Remove → two-step → row gone, count updates.
   Expected:
   Actual:
 - [ ] Every admin action gives inline feedback — no silent fails, no crashes.
@@ -453,7 +459,7 @@ Log in as `dev-admin@girah.test` / `DevAdmin123!` → `/admin`.
 | Observed | Why it's expected |
 |----------|-------------------|
 | Online (Safepay) order stays `PENDING` after paying in sandbox | Webhook can't reach `localhost` — needs a public tunnel in production |
-| Emails only in the terminal | No `RESEND_API_KEY` locally — dev-log fallback by design |
+| Emails send for real + mirror to the terminal | Resend key is set; `next dev` prints `[email] dev-log` lines for visibility (production stays silent). Onboarding sender delivers **only to `draftcode.tech@gmail.com`** — other addresses are accepted but bounce |
 | `/shipping|/returns|/privacy|/terms` are 404 | Removed by owner decision |
 | Register says "too many attempts" | 10-per-15-minutes per IP throttle (skipped only in tests) |
 | Safepay radio visible but online payment can't finish | Correct — only COD completes locally |
