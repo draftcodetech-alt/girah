@@ -162,6 +162,23 @@ export function welcomeEmail(data: { to: string; name: string }): SendEmailInput
   };
 }
 
+export function newsletterWelcomeEmail(data: { to: string }): SendEmailInput {
+  const intro =
+    "Thanks for subscribing! We'll email you here when new handmade pieces, restocks and offers drop at Girah.";
+  const why = "You're receiving this because you subscribed with this address on the Girah site.";
+  return {
+    to: data.to,
+    subject: "Welcome to Girah — you're subscribed",
+    html: shell(
+      "You're in the loop",
+      paragraph(intro) +
+        (BASE() ? button(`${BASE()}/shop`, "Browse the shop") : "") +
+        paragraph(`<span style="font-size:12px;color:#7a7f78;">${why}</span>`)
+    ),
+    text: textBlock(["Welcome to Girah — you're subscribed", "", intro, "", why]),
+  };
+}
+
 export function passwordResetEmail(data: { to: string; name: string; link: string }): SendEmailInput {
   const intro = `Hi ${data.name}, we received a request to reset your password. The link below works once and expires in 1 hour.`;
   const safety = "If you didn't request this, you can safely ignore this email — your password stays unchanged.";

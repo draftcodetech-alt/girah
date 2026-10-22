@@ -2,6 +2,8 @@
 
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { sendEmailSafe } from "@/lib/email";
+import { newsletterWelcomeEmail } from "@/lib/email-templates";
 
 export type SubscribeResult =
   | { success: true; alreadySubscribed: boolean }
@@ -22,6 +24,10 @@ export async function subscribeNewsletter(rawEmail: string): Promise<SubscribeRe
 
   try {
     await db.newsletterSubscriber.create({ data: { email } });
+    // Welcome email — best-effort, after the row exists. sendEmailSafe never
+    // throws, so a transport problem can never fail the (already done) signup.
+    // Resubmits below skip it: one welcome per address, not per click.
+    await sendEmailSafe(newsletterWelcomeEmail({ to: email }));
     return { success: true, alreadySubscribed: false };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {

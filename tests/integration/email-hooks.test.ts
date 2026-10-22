@@ -209,10 +209,20 @@ describe("account emails", () => {
 
   it("sends a reset link for a known address and nothing for an unknown one", async () => {
     const user = await createTestUser({ email: `target-${Date.now()}@girah.test` });
+    vi.stubEnv("NODE_ENV", "development");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
     await requestPasswordReset({ email: user.email });
+    // Dev mirrors the raw link to the terminal so the manual pass can copy
+    // it from a test-domain address that never receives real mail.
+    const linkLine = log.mock.calls
+      .map((c) => String(c[0]))
+      .find((line) => line.includes("[email] reset link (dev)"));
+    expect(linkLine).toContain("/reset-password?token=");
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0].subject).toBe("Reset your Girah password");
     expect(send.mock.calls[0][0].html).toContain("/reset-password?token=");
+    vi.unstubAllEnvs();
+    log.mockRestore();
 
     await requestPasswordReset({ email: `ghost-${Date.now()}@girah.test` });
     expect(send).toHaveBeenCalledTimes(1); // unknown address sends no mail

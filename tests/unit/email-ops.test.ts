@@ -41,6 +41,7 @@ afterEach(() => {
   // worker never inherits a lingering real-key state from this file.
   process.env.RESEND_API_KEY = "ci-placeholder";
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe("dev-log mode selection", () => {
@@ -76,6 +77,27 @@ describe("sendEmail in dev-log mode", () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     await sendEmail({ to: "a@b.c", subject: "CI", html: "<p>hi</p>" });
     expect(log.mock.calls[0][0]).toContain("[email] dev-log");
+  });
+});
+
+describe("real transport still mirrors to the terminal in dev", () => {
+  it("logs every dispatch under NODE_ENV=development, silent in production", async () => {
+    process.env.RESEND_API_KEY = "re_real_key";
+    vi.stubEnv("NODE_ENV", "development");
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    // Mocked transport rejects below — the mirror line must print BEFORE
+    // the send attempt, exactly like the dev-log branch.
+    await sendEmailSafe({ to: "a@b.c", subject: "Order received", html: "<p>hi</p>" });
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(String(log.mock.calls[0][0])).toContain("[email] dev-log");
+    expect(String(log.mock.calls[0][0])).toContain('subject="Order received"');
+
+    // Deploy path: real key + production → no terminal line (PII quiet).
+    log.mockClear();
+    vi.stubEnv("NODE_ENV", "production");
+    await sendEmailSafe({ to: "a@b.c", subject: "Quiet", html: "<p>hi</p>" });
+    expect(log).not.toHaveBeenCalled();
   });
 });
 
@@ -270,6 +292,15 @@ describe("source guards — reset flow hardening", () => {
     expect(fn).toContain("sessionVersion: { increment: 1 }");
     expect(fn).toContain("deleteMany({ where: { userId: record.userId } })");
     expect(src).toContain("RESET_TOKEN_TTL_MS = 60 * 60 * 1000");
+  });
+
+  it("the raw reset link is logged for dev and gated off for production", () => {
+    const fn = src.slice(
+      src.indexOf("export async function requestPasswordReset"),
+      src.indexOf("export async function resetPassword")
+    );
+    expect(fn).toContain("[email] reset link (dev)");
+    expect(fn).toContain('process.env.NODE_ENV === "development"');
   });
 });
 

@@ -55,9 +55,17 @@ async function ensureResend(): Promise<ResendLike> {
  * directly in tests that want to observe the error.
  */
 export async function sendEmail(input: SendEmailInput): Promise<void> {
+  const devLogLine = `[email] dev-log → to=${input.to} subject="${input.subject}"`;
   if (isEmailDevLogMode()) {
-    console.log(`[email] dev-log → to=${input.to} subject="${input.subject}"`);
+    console.log(devLogLine);
     return;
+  }
+  // Dev observability: with a real key configured the send leaves the
+  // machine, but `next dev` still mirrors every dispatch to the terminal so
+  // the manual test guide can follow emails. NODE_ENV=production (deploy)
+  // never logs — recipients are PII and order/reset mail must stay quiet.
+  if (process.env.NODE_ENV === "development") {
+    console.log(devLogLine);
   }
   const client = await ensureResend();
   await client.emails.send({
