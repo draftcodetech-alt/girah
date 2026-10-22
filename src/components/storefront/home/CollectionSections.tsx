@@ -138,11 +138,6 @@ function Cta({ href, label, align = "center" }: { href: string; label: string; a
 export function CollectionSections({ newest, botanical, gifts, wished }: Props) {
   return (
     <>
-      {/* small botanical divider between 01 and 02 */}
-      <div className="collect-divider" aria-hidden="true">
-        <Sprig size={22} />
-      </div>
-
       {newest.length > 0 && (
         <section
           aria-labelledby="home-fresh"
