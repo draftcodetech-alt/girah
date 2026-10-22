@@ -168,7 +168,7 @@ export function CollectionSections({ newest, botanical, gifts, wished }: Props) 
             <VineArt />
           </span>
           <div className="relative mx-auto max-w-[1280px] px-4 md:px-6 lg:px-8">
-            <div className="max-w-[640px] col-reveal">
+            <div className="mx-auto max-w-[640px] text-center col-reveal">
               <span className="collect-mark">
                 <LeafGlyph />
               </span>
@@ -178,7 +178,7 @@ export function CollectionSections({ newest, botanical, gifts, wished }: Props) 
               <p className="collect-lede">Botanical beauty, stitched to last.</p>
             </div>
             <Grid products={botanical} wished={wished} />
-            <Cta href="/shop?category=home-decor" label="EXPLORE HOME & BOTANICALS" align="left" />
+            <Cta href="/shop?category=home-decor" label="EXPLORE HOME & BOTANICALS" />
           </div>
         </section>
       )}
