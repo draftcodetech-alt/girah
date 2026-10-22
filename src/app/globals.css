@@ -1591,23 +1591,27 @@ body {
   z-index: 1;
   pointer-events: none;
 }
+/* Right photo is a fully transparent cut-out (bouquet in the bottom-right
+   corner, alpha-0 elsewhere) — so it needs NO crop box: anchor the whole
+   image and let the empty areas blend into the footer background. A fixed
+   height + overflow:hidden here previously boxed it and sliced the petals. */
 .ft-photo-right {
   position: absolute;
-  right: 1em;
-  top: 14.1em;
-  width: 14em;
-  height: 17.1em;
-  overflow: hidden;
+  right: 0;
+  bottom: 5em;
+  width: 32em;
   z-index: 1;
   pointer-events: none;
 }
 .ft-photo-right img {
-  position: absolute;
-  width: 40em;
+  display: block;
+  width: 100%;
   height: auto;
-  left: -26em;
-  top: -9.6em;
   max-width: none;
+  /* The PNG's bottom canvas edge would leave a straight cut across the
+     kraft wrapping — fade it out so the bouquet melts into the footer. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 86%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 86%, transparent 100%);
 }
 
 /* line-art sprigs + yellow leaves */
