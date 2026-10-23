@@ -24,6 +24,7 @@ export type ProductDetail = {
     price: number;
     stock: number;
     isEnabled: boolean;
+    images: { url: string }[];
   }[];
   category: { name: string; slug: string };
 };

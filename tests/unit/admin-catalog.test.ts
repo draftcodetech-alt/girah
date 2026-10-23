@@ -93,6 +93,59 @@ describe("Phase 11: image actions are admin-gated", () => {
   });
 });
 
+describe("Phase 20: variation images", () => {
+  const images = readSource("src/modules/admin/images.ts");
+  const ops = readSource("src/modules/admin/image-ops.ts");
+  const page = readSource("src/app/admin/products/[id]/page.tsx");
+
+  it.each(["uploadVariationImage", "deleteVariationImage", "moveVariationImage"])(
+    "%s calls requireAdmin before touching the core",
+    (actionName) => {
+      const start = images.indexOf(`export async function ${actionName}`);
+      expect(start).toBeGreaterThan(0);
+      const body = images.slice(start, images.indexOf("}", start));
+      expect(body).toContain("await requireAdmin()");
+    }
+  );
+
+  it("validates existence, cap, type and size BEFORE any upload", () => {
+    const start = ops.indexOf("export async function uploadVariationImageCore");
+    expect(start).toBeGreaterThan(0);
+    const body = ops.slice(start, ops.indexOf("export async function deleteVariationImageCore"));
+    const uploadAt = body.indexOf("await uploadBuffer(");
+    expect(uploadAt).toBeGreaterThan(0);
+    expect(body.indexOf("db.productVariation.findUnique")).toBeLessThan(uploadAt);
+    expect(body.indexOf("db.productVariationImage.count")).toBeLessThan(uploadAt);
+    expect(body.indexOf("ALLOWED_IMAGE_TYPES.includes")).toBeLessThan(uploadAt);
+    expect(body.indexOf("file.size > MAX_IMAGE_BYTES")).toBeLessThan(uploadAt);
+  });
+
+  it("caps a variation's gallery at 4 images", () => {
+    expect(ops).toContain("MAX_IMAGES_PER_VARIATION = 4");
+  });
+
+  it("variation photos never revalidate the shop-card surfaces", () => {
+    const start = images.indexOf("function revalidateVariationImageTargets");
+    const end = images.indexOf("export async function uploadVariationImage");
+    expect(start).toBeGreaterThan(0);
+    const body = images.slice(start, end);
+    expect(body).toContain("revalidatePath(`/admin/products/${productId}`)");
+    expect(body).toContain("revalidatePath(`/product/${slug}`)");
+    expect(body).not.toContain("/shop");
+    expect(body).not.toContain('revalidatePath("/admin/products")');
+  });
+
+  it("each variation row on the product edit page manages its own images", () => {
+    expect(page).toContain("images: variation.images");
+    const row = readSource("src/components/admin/VariationRow.tsx");
+    expect(row).toContain("<ImageManager");
+    expect(row).toContain("variationId={variation.id}");
+    const manager = readSource("src/components/admin/ImageManager.tsx");
+    expect(manager).toContain("uploadVariationImage(formData)");
+    expect(manager).toContain('name="variationId"');
+  });
+});
+
 describe("Phase 11: variation create", () => {
   it("converts rupees to integer paisa with Math.round, server-side", () => {
     const source = readSource("src/modules/admin/variations.ts");

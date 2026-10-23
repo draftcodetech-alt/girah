@@ -12,7 +12,14 @@ import {
   updateVariation,
   deleteProduct,
 } from "@/modules/admin";
-import { uploadImageCore, deleteImageCore, moveImageCore } from "@/modules/admin/image-ops";
+import {
+  uploadImageCore,
+  deleteImageCore,
+  moveImageCore,
+  uploadVariationImageCore,
+  deleteVariationImageCore,
+  moveVariationImageCore,
+} from "@/modules/admin/image-ops";
 import { resetDb, createTestProduct } from "../setup/helpers";
 
 // Phase 11: admin catalog completeness — image upload gating (Cloudinary is
@@ -219,6 +226,115 @@ describe("deleteImageCore / moveImageCore", () => {
       orderBy: { sortOrder: "asc" },
     });
     expect(rows.map((row) => row.id)).toEqual([images[1].id, images[2].id, images[0].id]);
+    expect(rows.map((row) => row.sortOrder)).toEqual([0, 1, 2]);
+  });
+});
+
+describe("Phase 20: variation image cores", () => {
+  beforeEach(async () => {
+    await resetDb();
+    requireAdminMock.mockReset().mockResolvedValue({ user: { id: "admin-1", role: "ADMIN" } });
+    cloudinary.uploadStream.mockClear();
+    cloudinary.destroy.mockClear();
+    cloudinary.config.mockClear();
+  });
+
+  it("uploads store the URL at sortOrder 0 and append in order", async () => {
+    const { variation, product } = await createTestProduct();
+    const result = await uploadVariationImageCore(variation.id, imageFile());
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.variationId).toBe(variation.id);
+      expect(result.productId).toBe(product.id);
+      expect(result.slug).toBe(product.slug);
+    }
+    await uploadVariationImageCore(variation.id, imageFile());
+    const rows = await db.productVariationImage.findMany({
+      where: { variationId: variation.id },
+      orderBy: { sortOrder: "asc" },
+    });
+    expect(rows.map((row) => row.sortOrder)).toEqual([0, 1]);
+    expect(rows[0].url).toContain("res.cloudinary.com");
+  });
+
+  it("refuses non-image and oversize files before any upload", async () => {
+    const { variation } = await createTestProduct();
+    const badType = await uploadVariationImageCore(variation.id, imageFile("text/plain"));
+    expect(badType.success).toBe(false);
+    if (!badType.success) expect(badType.error).toMatch(/JPEG, PNG, WebP, AVIF or GIF/i);
+    const big = new File([new Uint8Array(4 * 1024 * 1024)], "big.jpg", { type: "image/jpeg" });
+    const oversize = await uploadVariationImageCore(variation.id, big);
+    expect(oversize.success).toBe(false);
+    if (!oversize.success) expect(oversize.error).toMatch(/3\.5 MB/i);
+    expect(firstUploadUrl()).toBe(0);
+    expect(await db.productVariationImage.count()).toBe(0);
+  });
+
+  it("refuses a missing file and an unknown variation", async () => {
+    const { variation } = await createTestProduct();
+    expect((await uploadVariationImageCore(variation.id, null)).success).toBe(false);
+    const unknown = await uploadVariationImageCore("no-such-variation", imageFile());
+    expect(unknown.success).toBe(false);
+    if (!unknown.success) expect(unknown.error).toMatch(/not found/i);
+    expect(firstUploadUrl()).toBe(0);
+  });
+
+  it("enforces the 4-image cap", async () => {
+    const { variation } = await createTestProduct();
+    await db.productVariationImage.createMany({
+      data: Array.from({ length: 4 }, (_, index) => ({
+        variationId: variation.id,
+        url: `https://res.cloudinary.com/demo/image/upload/v1/girah/v${index}.jpg`,
+        sortOrder: index,
+      })),
+    });
+    const result = await uploadVariationImageCore(variation.id, imageFile());
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toMatch(/at most 4 images/i);
+    expect(firstUploadUrl()).toBe(0);
+    expect(await db.productVariationImage.count()).toBe(4);
+  });
+
+  it("deletes the row, best-effort destroys remotely, and refuses unknown ids", async () => {
+    const { variation } = await createTestProduct();
+    const image = await db.productVariationImage.create({
+      data: {
+        variationId: variation.id,
+        url: "https://res.cloudinary.com/demo/image/upload/v1700000000/girah/vimg0.jpg",
+      },
+    });
+
+    const result = await deleteVariationImageCore(image.id);
+    expect(result.success).toBe(true);
+    expect(await db.productVariationImage.findUnique({ where: { id: image.id } })).toBeNull();
+    expect(cloudinary.destroy).toHaveBeenCalledWith("girah/vimg0", { resource_type: "image" });
+
+    const unknown = await deleteVariationImageCore("nope");
+    expect(unknown.success).toBe(false);
+    if (!unknown.success) expect(unknown.error).toMatch(/not found/i);
+  });
+
+  it("move first pins the variation image at sortOrder 0 and shifts the rest", async () => {
+    const { variation } = await createTestProduct();
+    const images = await Promise.all(
+      Array.from({ length: 3 }, (_, index) =>
+        db.productVariationImage.create({
+          data: {
+            variationId: variation.id,
+            url: `https://res.cloudinary.com/demo/image/upload/v1700000000/girah/vimg${index}.jpg`,
+            sortOrder: index,
+          },
+        })
+      )
+    );
+
+    const result = await moveVariationImageCore(images[2].id, "first");
+    expect(result.success).toBe(true);
+    const rows = await db.productVariationImage.findMany({
+      where: { variationId: variation.id },
+      orderBy: { sortOrder: "asc" },
+    });
+    expect(rows.map((row) => row.id)).toEqual([images[2].id, images[0].id, images[1].id]);
     expect(rows.map((row) => row.sortOrder)).toEqual([0, 1, 2]);
   });
 });

@@ -10,6 +10,11 @@ the dev terminal for emails).
   paste what you really saw (text, screenshot name, console output).
 - Estimated full pass: **2–3 hours**.
 - Sections 1–9 work as guest/customer; §10+ needs the admin account.
+  **Buying is account-only** (owner spec change, 2026-10-23): as a guest,
+  Add to Cart says "Sign in to Buy", and `/cart` / `/checkout` bounce to
+  `/login?callbackUrl=…` — sign in (or register) and you return there.
+  Spec locks in `tests/unit/guest-commerce.test.ts` were updated for this
+  spec change.
 
 ---
 
@@ -47,7 +52,7 @@ the dev terminal for emails).
     complete local loop.
   - Content pages are just **About + Contact** (Shipping/Returns/Privacy/Terms
     were removed by owner decision — they 404).
-  - Contact page is real (mockup port): `syedareebkareem@gmail.com`, Islamabad.
+  - Contact page is real (mockup port): `draftcode.tech@gmail.com`, Islamabad.
   - Instagram section renders (real URL + real photos configured).
   - Registration is throttled: **10 attempts / 15 minutes per IP**.
   Actual:
@@ -174,13 +179,29 @@ the dev terminal for emails).
   show struck-through and can't be added.
   Expected:
   Actual:
+- [ ] Details accordion lists variations as `Name (Rs. X)` — no dashes, no
+  stock counts.
+  Expected: e.g. `Small Bouquet (Rs. 1,800.00)`. The Quantity-section stock
+  hint is separate and remains.
+  Actual:
+- [ ] Picking a variation swaps the gallery to that variation's own photos
+  (falls back to the product photos while a variation has none).
+  Expected: main image = the variation's first image; picking another
+  variation resets the gallery to its first image.
+  Actual:
 - [ ] Selecting a variation shows a stock hint under Quantity.
   Expected: `In stock` normally, `Only N left in stock` when N ≤ 3.
   Actual:
 - [ ] Stepper: can't go below 1 or above stock.
   Expected:
   Actual:
-- [ ] **Add to cart** → **mini-cart drawer** (right on desktop, bottom sheet
+- [ ] **Guest gate**: incognito, the buy button reads **"Sign in to Buy"** and
+  clicking it (desktop or mobile sticky bar) goes to
+  `/login?callbackUrl=/product/…` — nothing is added; signing in returns you
+  to the product page.
+  Expected:
+  Actual:
+- [ ] **Add to cart** (signed in) → **mini-cart drawer** (right on desktop, bottom sheet
   on mobile) with correct line + total; Tab stays trapped inside; Escape or
   backdrop closes it; focus returns; "View Cart" → `/cart`.
   Expected:
@@ -208,8 +229,10 @@ the dev terminal for emails).
 - [ ] Remove a line → disappears; last line → empty state + shop link.
   Expected:
   Actual:
-- [ ] **Guest merge**: incognito, add items as guest, log in → items merged
-  into the account cart.
+- [ ] **Guest blocked**: incognito, header **Cart** link or direct `/cart` →
+  `/login?callbackUrl=%2Fcart`; `/checkout` →
+  `/login?callbackUrl=%2Fcheckout`; sign in and you land back on the page you
+  wanted (cart stays empty until a signed-in add).
   Expected:
   Actual:
 - [ ] Header cart badge matches contents.
@@ -264,8 +287,9 @@ the dev terminal for emails).
 - [ ] Empty cart → `/checkout` bounces to `/cart`.
   Expected:
   Actual:
-- [ ] **Guest checkout** (incognito, filled cart): opens without login, no
-  prefill, no save-address option.
+- [ ] **No guest checkout** (incognito): `/checkout` →
+  `/login?callbackUrl=%2Fcheckout` — sign in or create an account and you
+  return to checkout with the form ready (no order exists before then).
   Expected:
   Actual:
 - [ ] Signed in with saved address (§8): form **prefills**, save option shown.

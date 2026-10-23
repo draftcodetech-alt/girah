@@ -20,6 +20,15 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   }
   const data = parsed.data;
 
+  // Owner spec: no guest buying — checkout is account-only, end to end. The
+  // proxy already bounces /checkout; this holds the line against a direct
+  // POST to the action. Resolved once here and threaded into placeOrderCore
+  // and the saved-address step so there is a single session read.
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "You must be signed in." };
+  }
+
   // Phase 17: the checkout UI hides online payment when Safepay isn't
   // configured — this server-side check keeps the action honest for stale
   // clients and direct callers (before any order row is created).
@@ -31,16 +40,15 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
   }
 
   const identity = await resolveCartIdentity();
-  const session = await auth();
 
-  const result = await placeOrderCore(data, identity, session?.user?.id);
+  const result = await placeOrderCore(data, identity, session.user.id);
   if (!result.success) return result;
 
   revalidatePath("/", "layout");
 
   // Opt-in saved address (Phase 12): same swallow-and-log rule as Safepay —
   // the order is already committed, a storage hiccup must not fail it.
-  if (data.saveAddress && session?.user?.id) {
+  if (data.saveAddress) {
     try {
       await upsertSavedShippingForUser(session.user.id, data);
     } catch (saveError) {

@@ -3,20 +3,22 @@
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { uploadProductImage, deleteProductImage, moveProductImage } from "@/modules/admin";
+import { uploadProductImage, deleteProductImage, moveProductImage, uploadVariationImage, deleteVariationImage, moveVariationImage } from "@/modules/admin";
 import { isOptimizableImageUrl } from "@/lib/image";
 
 type ManagedImage = { id: string; url: string; sortOrder: number };
 
-export function ImageManager({
-  productId,
-  productName,
-  images,
-}: {
-  productId: string;
+type ImageManagerProps = {
   productName?: string;
   images: ManagedImage[];
-}) {
+} & (
+  /** Product mode: uploads become the product gallery (first = shop-card cover). */
+  | { productId: string; variationId?: undefined }
+  /** Variation mode: uploads target the variation's own gallery. */
+  | { productId?: undefined; variationId: string }
+);
+
+export function ImageManager({ productId, variationId, productName, images }: ImageManagerProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -30,7 +32,9 @@ export function ImageManager({
     const formData = new FormData(event.currentTarget);
     setError(null);
     startTransition(async () => {
-      const result = await uploadProductImage(formData);
+      const result = variationId
+        ? await uploadVariationImage(formData)
+        : await uploadProductImage(formData);
       if (result.success) {
         formRef.current?.reset();
         router.refresh();
@@ -44,7 +48,9 @@ export function ImageManager({
     setError(null);
     setConfirmId(null);
     startTransition(async () => {
-      const result = await deleteProductImage(imageId);
+      const result = variationId
+        ? await deleteVariationImage(imageId)
+        : await deleteProductImage(imageId);
       if (!result.success) setError(result.error);
       else router.refresh();
     });
@@ -53,7 +59,9 @@ export function ImageManager({
   function handleMove(imageId: string, position: "first" | "last") {
     setError(null);
     startTransition(async () => {
-      const result = await moveProductImage(imageId, position);
+      const result = variationId
+        ? await moveVariationImage(imageId, position)
+        : await moveProductImage(imageId, position);
       if (!result.success) setError(result.error);
       else router.refresh();
     });
@@ -62,7 +70,11 @@ export function ImageManager({
   return (
     <div>
       <form ref={formRef} onSubmit={handleUpload} className="flex flex-wrap items-center gap-3">
-        <input type="hidden" name="productId" value={productId} />
+        {variationId ? (
+          <input type="hidden" name="variationId" value={variationId} />
+        ) : (
+          <input type="hidden" name="productId" value={productId} />
+        )}
         <input
           type="file"
           name="file"
@@ -88,7 +100,9 @@ export function ImageManager({
 
       {sorted.length === 0 ? (
         <p className="font-body text-body text-muted mt-4">
-          No images yet — the first upload becomes the shop-card cover.
+          {variationId
+            ? "No images yet — the first upload becomes this variation's main image."
+            : "No images yet — the first upload becomes the shop-card cover."}
         </p>
       ) : (
         <ul className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -108,7 +122,11 @@ export function ImageManager({
                 </div>
               )}
               <p className="font-body text-small text-muted mt-2">
-                {index === 0 ? "Cover image" : `Position ${index + 1}`}
+                {index === 0
+                  ? variationId
+                    ? "Main image"
+                    : "Cover image"
+                  : `Position ${index + 1}`}
               </p>
               <div className="flex flex-wrap gap-2 mt-2">
                 <button

@@ -4,9 +4,11 @@ import { addToCart, removeCartItem, updateCartItemQuantity } from "@/modules/car
 import { resetDb, createTestProduct, createTestUser } from "../setup/helpers";
 
 // Phase 1 integration: the cart action WRAPPERS (not the cores) — the layer
-// that owns request context: session resolution, the guest cookie identity
-// and the stock re-check that runs on every add, regardless of what the
-// client claims it sent.
+// that owns request context: session resolution, the stock re-check that runs
+// on every add regardless of what the client claims it sent, and (since the
+// owner's no-guest-buying change) the refusal that keeps carts account-only.
+// The guest-cookie identity still exists for the merge path on login; it is
+// simply no longer reachable from addToCart.
 
 const state = vi.hoisted(() => ({
   jar: new Map<string, string>(),
@@ -46,6 +48,19 @@ async function lineFor(cartId: string, variationId: string) {
   return db.cartItem.findFirst({ where: { cartId, variationId } });
 }
 
+// Since the no-guest-buying change every add runs in a session; lookups are
+// by userId, never the guest cookie.
+async function signInAs(email: string) {
+  const user = await createTestUser({ email });
+  authMock.mockResolvedValue({ user: { id: user.id, role: "CUSTOMER" } });
+  return user;
+}
+
+async function lineForUser(userId: string, variationId: string) {
+  const cart = await db.cart.findUniqueOrThrow({ where: { userId } });
+  return lineFor(cart.id, variationId);
+}
+
 beforeEach(async () => {
   await resetDb();
   state.jar.clear();
@@ -56,19 +71,15 @@ beforeEach(async () => {
 describe("addToCart — server-side stock rules", () => {
   it("caps the quantity at the live stock, never above", async () => {
     const { variation } = await createTestProduct(); // stock 5
-    state.jar.set(GUEST, "guest-cap");
+    const user = await signInAs("cap@girah.test");
 
     expect(await addToCart(variation.id, 3)).toEqual({ success: true });
-    let line = await db.cartItem.findFirst({
-      where: { cart: { guestId: "guest-cap" }, variationId: variation.id },
-    });
+    let line = await lineForUser(user.id, variation.id);
     expect(line?.quantity).toBe(3);
 
     // 3 + 4 = 7 requested against stock 5 → clamped to 5, never 7.
     expect(await addToCart(variation.id, 4)).toEqual({ success: true });
-    line = await db.cartItem.findFirst({
-      where: { cart: { guestId: "guest-cap" }, variationId: variation.id },
-    });
+    line = await lineForUser(user.id, variation.id);
     expect(line?.quantity).toBe(5);
     expect(state.revalidated.length).toBe(2);
   });
@@ -76,7 +87,7 @@ describe("addToCart — server-side stock rules", () => {
   it("refuses a disabled variation without creating a line", async () => {
     const { variation } = await createTestProduct();
     await db.productVariation.update({ where: { id: variation.id }, data: { isEnabled: false } });
-    state.jar.set(GUEST, "guest-disabled");
+    await signInAs("disabled@girah.test");
 
     const result = await addToCart(variation.id, 1);
 
@@ -88,7 +99,7 @@ describe("addToCart — server-side stock rules", () => {
   it("refuses a variation with zero stock and one that does not exist", async () => {
     const { variation } = await createTestProduct();
     await db.productVariation.update({ where: { id: variation.id }, data: { stock: 0 } });
-    state.jar.set(GUEST, "guest-out");
+    await signInAs("out@girah.test");
 
     expect(await addToCart(variation.id, 1)).toEqual({
       success: false,
@@ -103,51 +114,64 @@ describe("addToCart — server-side stock rules", () => {
 
   it("rejects quantities the client should never have sent", async () => {
     const { variation } = await createTestProduct();
-    state.jar.set(GUEST, "guest-bad-qty");
+    const user = await signInAs("bad-qty@girah.test");
 
     for (const bad of [0, -3, 1.5, Number.NaN, 1_000]) {
       expect(await addToCart(variation.id, bad)).toEqual({ success: false, error: "Invalid quantity." });
     }
     expect(await db.cart.count()).toBe(0);
+    expect(user.id).toBeTruthy();
   });
 });
 
-describe("guest cart identity", () => {
-  it("resolves a signed-out caller to a guestId cart when the cookie exists", async () => {
+describe("no guest buying", () => {
+  it("refuses a signed-out addToCart outright, with no cookie minted", async () => {
     authMock.mockResolvedValue(null);
     const { variation } = await createTestProduct();
-    state.jar.set(GUEST, "guest-known");
-
-    expect(await addToCart(variation.id, 1)).toEqual({ success: true });
-
-    const cart = await db.cart.findUnique({
-      where: { guestId: "guest-known" },
-      include: { items: true },
-    });
-    expect(cart).not.toBeNull();
-    expect(cart!.userId).toBeNull();
-    expect(cart!.items.map((i) => i.variationId)).toEqual([variation.id]);
-  });
-
-  it("mints a guest cookie for a brand-new visitor and puts the line there", async () => {
-    authMock.mockResolvedValue(null);
-    const { variation } = await createTestProduct();
-
     expect(state.jar.has(GUEST)).toBe(false);
-    expect(await addToCart(variation.id, 2)).toEqual({ success: true });
 
-    const guestId = state.jar.get(GUEST);
-    expect(guestId).toBeTruthy();
-    const cart = await db.cart.findUnique({
-      where: { guestId: guestId as string },
-      include: { items: true },
+    expect(await addToCart(variation.id, 1)).toEqual({
+      success: false,
+      error: "You must be signed in.",
     });
-    expect(cart!.items[0].quantity).toBe(2);
+
+    // The refusal happens before identity resolution, so no girah_guest_id
+    // is set on the way to being turned away.
+    expect(state.jar.has(GUEST)).toBe(false);
+    expect(await db.cart.count()).toBe(0);
+    expect(await db.cartItem.count()).toBe(0);
   });
 
-  it("resolves a signed-in caller to their userId cart instead", async () => {
-    const user = await createTestUser();
-    authMock.mockResolvedValue({ user: { id: user.id, role: "CUSTOMER" } });
+  it("refuses even when a guest cookie is already present", async () => {
+    const { variation } = await createTestProduct();
+    authMock.mockResolvedValue(null);
+    state.jar.set(GUEST, "guest-preexisting");
+
+    expect(await addToCart(variation.id, 1)).toEqual({
+      success: false,
+      error: "You must be signed in.",
+    });
+    // The stale cookie is left alone but nothing lands in a guest cart.
+    expect(await db.cart.count()).toBe(0);
+    expect(await db.cartItem.count()).toBe(0);
+  });
+
+  it("refuses a stock-0 variation as signed-in, not as a guest", async () => {
+    const { variation } = await createTestProduct();
+    await db.productVariation.update({ where: { id: variation.id }, data: { stock: 0 } });
+    await signInAs("out-2@girah.test");
+
+    expect(await addToCart(variation.id, 1)).toEqual({
+      success: false,
+      error: "This item is no longer available.",
+    });
+    expect(await db.cartItem.count()).toBe(0);
+  });
+});
+
+describe("cart identity", () => {
+  it("resolves a signed-in caller to their userId cart, never a guest one", async () => {
+    const user = await signInAs("identity@girah.test");
     const { variation } = await createTestProduct();
     state.jar.set(GUEST, "guest-should-not-be-used");
 
@@ -156,6 +180,7 @@ describe("guest cart identity", () => {
     const cart = await db.cart.findUnique({ where: { userId: user.id }, include: { items: true } });
     expect(cart).not.toBeNull();
     expect(cart!.guestId).toBeNull();
+    expect(cart!.items.map((i) => i.variationId)).toEqual([variation.id]);
     expect(await db.cart.count()).toBe(1); // no second, guest-owned cart
   });
 });
@@ -163,10 +188,9 @@ describe("guest cart identity", () => {
 describe("removeCartItem", () => {
   it("deletes the line outright (qty 0 → remove)", async () => {
     const { variation } = await createTestProduct();
-    state.jar.set(GUEST, "guest-remove");
+    const user = await signInAs("remove@girah.test");
     await addToCart(variation.id, 2);
-    const cart = await db.cart.findUniqueOrThrow({ where: { guestId: "guest-remove" } });
-    const item = await lineFor(cart.id, variation.id);
+    const item = await lineForUser(user.id, variation.id);
     expect(item).not.toBeNull();
 
     const result = await removeCartItem(item!.id);
@@ -177,18 +201,15 @@ describe("removeCartItem", () => {
   });
 
   it("returns the same generic refusal for someone else's line and for a missing id", async () => {
-    const victim = await createTestUser();
-    const stranger = await createTestUser();
+    const victim = await signInAs("victim@girah.test");
+    const stranger = await createTestUser({ email: "stranger@girah.test" });
     const { variation } = await createTestProduct();
-    state.jar.set(GUEST, "guest-owner");
     await addToCart(variation.id, 1);
-    const guestCart = await db.cart.findUniqueOrThrow({ where: { guestId: "guest-owner" } });
-    const guestLine = await lineFor(guestCart.id, variation.id);
-    await db.cart.update({ where: { id: guestCart.id }, data: { userId: victim.id, guestId: null } });
+    const victimLine = await lineForUser(victim.id, variation.id);
 
     // Signed in as someone else entirely.
     authMock.mockResolvedValue({ user: { id: stranger.id, role: "CUSTOMER" } });
-    const foreign = await removeCartItem(guestLine!.id);
+    const foreign = await removeCartItem(victimLine!.id);
     const missing = await removeCartItem("cart-item-that-never-existed");
 
     expect(foreign).toEqual(missing); // no existence oracle
@@ -199,10 +220,9 @@ describe("removeCartItem", () => {
 
   it("deletes a line through updateCartItemQuantity with an explicit 0", async () => {
     const { variation } = await createTestProduct();
-    state.jar.set(GUEST, "guest-qty-zero");
+    const user = await signInAs("qty-zero@girah.test");
     await addToCart(variation.id, 3);
-    const cart = await db.cart.findUniqueOrThrow({ where: { guestId: "guest-qty-zero" } });
-    const item = await lineFor(cart.id, variation.id);
+    const item = await lineForUser(user.id, variation.id);
 
     expect(await updateCartItemQuantity(item!.id, 0)).toEqual({ success: true });
     expect(await db.cartItem.count()).toBe(0);

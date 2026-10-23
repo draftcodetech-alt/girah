@@ -437,7 +437,7 @@ for (const [slug, name] of [["bouquets", "Bouquets"], ["home-decor", "Home Decor
 }
 
 // ── 1. page regressions ─────────────────────────────────────────────────────
-for (const path of ["/", "/shop", "/cart", "/login", "/register", `/product/${fixtureProduct.slug}`]) {
+for (const path of ["/", "/shop", "/login", "/register", `/product/${fixtureProduct.slug}`]) {
   const res = await get(path);
   check(`GET ${path} → 200`, res.status === 200, `got ${res.status}`);
 }
@@ -445,6 +445,48 @@ const anonAccount = await get("/account");
 check("anon GET /account → /login", anonAccount.status >= 300 && anonAccount.status < 400 && (anonAccount.location ?? "").includes("/login"), `${anonAccount.status} ${anonAccount.location}`);
 const anonAdmin = await get("/admin");
 check("anon GET /admin → login with callbackUrl", anonAdmin.status >= 300 && anonAdmin.status < 400 && (anonAdmin.location ?? "").includes("/login?callbackUrl=%2Fadmin"), `${anonAdmin.status} ${anonAdmin.location}`);
+// No guest buying: cart and checkout are session-only, same bounce as
+// /account — and the callback must round-trip back to the page they wanted.
+const anonCart = await get("/cart");
+check(
+  "anon GET /cart → login with callbackUrl",
+  anonCart.status >= 300 && anonCart.status < 400 && (anonCart.location ?? "").includes("/login?callbackUrl=%2Fcart"),
+  `${anonCart.status} ${anonCart.location}`
+);
+const anonCheckout = await get("/checkout");
+check(
+  "anon GET /checkout → login with callbackUrl",
+  anonCheckout.status >= 300 && anonCheckout.status < 400 && (anonCheckout.location ?? "").includes("/login?callbackUrl=%2Fcheckout"),
+  `${anonCheckout.status} ${anonCheckout.location}`
+);
+
+// No guest buying, action layer: the proxy bounces gated paths, but a server
+// action ID resolves on ANY path — so addToCart/placeOrder themselves must
+// refuse a signed-out caller. Posted to /shop (ungated) to reach the code.
+const guestAdd = await callAction("/shop", ids.addToCart, [V_SINGLE, 1], null);
+check(
+  "anon addToCart refused with the sign-in message",
+  guestAdd.status === 200 && guestAdd.json?.success === false && guestAdd.json?.error === "You must be signed in.",
+  JSON.stringify(guestAdd.json)
+);
+const guestOrderBefore = await db.order.count({ where: { customerEmail: CHECKOUT.email } });
+// placeOrder only dispatches on routes whose client graph owns it — the
+// checkout page — and that path is itself gated, so the wire proof is the
+// proxy bounce: even a crafted action POST from a guest never reaches the
+// action. (The action-level refusal itself is proven by
+// tests/integration/place-order-wrapper.test.ts → "no guest checkout".)
+const guestOrder = await callAction("/checkout", ids.placeOrder, [CHECKOUT], null);
+check(
+  "anon placeOrder POST to /checkout is bounced to /login by the proxy",
+  guestOrder.status >= 300 && guestOrder.status < 400 &&
+    (guestOrder.location ?? "").includes("/login?callbackUrl=%2Fcheckout"),
+  `${guestOrder.status} ${guestOrder.location}`
+);
+check(
+  "guest placeOrder wrote no order",
+  (await db.order.count({ where: { customerEmail: CHECKOUT.email } })) === guestOrderBefore,
+  "a guest order row exists"
+);
 
 // ── 2. two-decimal money everywhere ─────────────────────────────────────────
 const shop = await get("/shop");
@@ -2126,6 +2168,14 @@ const p13Orders = [];
   check("product accordions ship Description + Details", product.html.includes("Description") && product.html.includes("Details"));
   check("free shipping estimate sits near the buy action", product.html.includes("Free shipping on all orders."));
   check("variation buttons expose aria-pressed", product.html.includes('aria-pressed="false"'));
+  // Phase 20: the Details list reads "Name (Rs. X)" — no dashes, no stock.
+  const productPlain = product.html.replace(/<!-- -->/g, "");
+  check(
+    "Details lists variations as name (price) with no stock noise",
+    productPlain.includes("Small Bouquet (Rs. 1,800.00)") &&
+      !product.html.includes(" in stock)") &&
+      !product.html.includes("(Out of stock)")
+  );
   check(
     "product JSON-LD ships with offer data",
     product.html.includes('"@type":"Product"') && product.html.includes("priceCurrency")
@@ -2259,7 +2309,7 @@ const paginatedProducts = [];
   }
   check(
     "contact carries the real address + Islamabad base",
-    contentHtml.contact.includes("syedareebkareem@gmail.com") &&
+    contentHtml.contact.includes("draftcode.tech@gmail.com") &&
       contentHtml.contact.includes("Islamabad")
   );
   const home21 = await get("/");
@@ -2303,7 +2353,7 @@ const paginatedProducts = [];
   // --- noindex on thin/session pages --------------------------------------
   const searchThin = await get("/search?search=sun");
   check("search results are noindex", searchThin.html.includes('name="robots" content="noindex'));
-  const cartPage = await get("/cart");
+  const cartPage = await get("/cart", loginJar);
   check("cart is noindex", cartPage.html.includes('name="robots" content="noindex'));
 
   // Checkout: needs a filled cart (customer session) — the Safepay radio
@@ -2513,11 +2563,21 @@ const p22Orders = [];
   check("cart line seeded for the removal probe", Boolean(cartLine), "no CartItem row");
   if (cartLine) {
     const REFUSAL = "Item not found in your cart.";
+    // No guest buying: an anon POST to the gated /cart path never reaches the
+    // action — the proxy bounces it to /login first (same as adjustStock).
     const anonRemove = await callAction("/cart", ids.removeCartItem, [cartLine.id], null);
     check(
+      "anonymous removeCartItem POST to /cart is bounced to /login by the proxy",
+      anonRemove.status >= 300 && anonRemove.status < 400 && (anonRemove.location ?? "").includes("/login"),
+      `${anonRemove.status} ${anonRemove.location}`
+    );
+    // The action itself, reached through an UNGATED path (a crafted cross-path
+    // POST), still refuses a guest on the anti-oracle message.
+    const anonRemoveDirect = await callAction("/shop", ids.removeCartItem, [cartLine.id], null);
+    check(
       "anonymous removeCartItem refuses a foreign line",
-      anonRemove.json?.success === false && anonRemove.json?.error === REFUSAL,
-      JSON.stringify(anonRemove.json)
+      anonRemoveDirect.json?.success === false && anonRemoveDirect.json?.error === REFUSAL,
+      JSON.stringify(anonRemoveDirect.json)
     );
     const strangerRemove = await callAction("/cart", ids.removeCartItem, [cartLine.id], adminLogin.jar);
     check(

@@ -2650,17 +2650,20 @@ body {
   margin: 0 auto;
   padding: clamp(3.5rem, 8vw, 7rem) clamp(1.5rem, 5vw, 4.5rem);
 }
-/* ── section 2: full-height split, photo bleeds to the right edge ── */
+/* ── section 2: contained split (text left, photo right) on the page axis ── */
 .ap-make {
   position: relative;
   --ap-gutter: clamp(1.5rem, 5vw, 4.5rem);
 }
 .ap-make-split {
   display: grid;
-  grid-template-columns: minmax(0, 54fr) minmax(0, 46fr);
-  align-items: stretch;
-  /* left edge lands on the same axis as .ap-about (max 1320 centered + gutter) */
-  padding-left: calc(var(--ap-gutter) + max(0px, (100% - 1320px) / 2));
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  align-items: center;
+  gap: clamp(2.5rem, 5vw, 5rem);
+  /* same axis as .ap-about / .ap-how: max 1320 centered + gutter */
+  max-width: 1320px;
+  margin: 0 auto;
+  padding-inline: var(--ap-gutter);
 }
 
 /* ── media ── */
@@ -2674,22 +2677,17 @@ body {
   mix-blend-mode: multiply;
 }
 
-/* right-side photo — full-bleed to the viewport edge, drifts on scroll */
+/* right-side photo — contained column, drifts on scroll */
 .ap-make-media {
   position: relative;
   overflow: hidden;
-  min-height: clamp(420px, 58vw, 640px);
+  aspect-ratio: 4 / 5;
+  min-width: 0;
 }
 .ap-make-img {
   object-fit: cover;
-  object-position: 74% 50%;
+  object-position: 68% 50%;
   transform: scale(1.07);
-}
-.ap-make-fade {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(90deg, var(--ap-paper) 0%, transparent 14%);
 }
 
 /* handwritten script notes */
@@ -2775,10 +2773,10 @@ body {
   }
 }
 
-/* ── section 2 copy: display headline + chips (mockup) ── */
+/* ── section 2 copy: display headline + category cards ── */
 .ap-make-copy {
-  padding: clamp(3.5rem, 8vw, 7rem) var(--ap-gutter) clamp(2.5rem, 5vw, 4rem) 0;
-  align-self: center;
+  max-width: 680px;
+  min-width: 0;
 }
 .ap-make-copy p {
   font-size: 0.97rem;
@@ -2805,18 +2803,29 @@ body {
 /* category chips — pale sage circles, line icons, tracked-caps labels */
 .ap-chips {
   list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: clamp(1rem, 2.5vw, 1.8rem);
-  margin: 0;
-  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  max-width: 1320px;
+  margin: 0 auto clamp(0.5rem, 2vw, 1.5rem);
+  padding: 0 var(--ap-gutter);
 }
 .ap-chip {
+  min-width: 0;
+}
+.ap-chip-link {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.55rem;
-  width: 6.6rem;
+  height: 100%;
+  text-align: center;
+  text-decoration: none;
+  color: inherit;
+}
+.ap-chip-link:focus-visible {
+  outline: 2px solid var(--ap-olive);
+  outline-offset: 6px;
 }
 .ap-chip-ic {
   width: 64px;
@@ -2856,22 +2865,43 @@ body {
   color: var(--ap-ink);
   text-align: center;
 }
-
-/* ── mockup dividers ── */
-.ap-rule {
-  max-width: 300px;
-  margin: clamp(1.8rem, 4vw, 2.6rem) 0;
+.ap-chip-desc {
+  font-size: 0.85rem;
+  line-height: 1.65;
+  color: var(--ap-ink-soft);
+  max-width: 28ch;
 }
-.ap-rule svg {
-  display: block;
-  width: 100%;
-  height: auto;
+.ap-chip-cta {
+  margin-top: 0.3rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ap-olive);
+  transition: color var(--dur-fast) var(--ease-ui);
+}
+.ap-chip-link:hover .ap-chip-cta {
+  color: var(--ap-forest);
+}
+
+/* ── mockup divider: line · sprig · line (full container width) ── */
+.ap-rule {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  max-width: 1320px;
+  margin: clamp(2.5rem, 5vw, 3.5rem) auto;
+  padding-inline: var(--ap-gutter);
 }
 .ap-rule-line {
-  fill: none;
-  stroke: var(--ap-olive);
-  stroke-width: 1.3;
-  stroke-linecap: round;
+  flex: 1;
+  height: 1px;
+  background: var(--ap-olive);
+  opacity: 0.55;
+}
+.ap-rule-sprig {
+  flex: none;
+  width: 22px;
+  height: 19px;
 }
 .ap-rule-stem {
   fill: none;
@@ -3251,21 +3281,17 @@ body {
   .ap-sprig-slot {
     display: none;
   }
-  /* section 2 stacks: full-bleed photo on top, copy below */
+  /* section 2 stacks: contained photo on top, copy below, cards 2-up */
   .ap-make-split {
     grid-template-columns: 1fr;
-    padding-left: 0;
   }
   .ap-make-media {
     order: -1;
-    min-height: 0;
-    height: clamp(300px, 62vw, 440px);
+    aspect-ratio: 4 / 3;
+    max-height: 440px;
   }
-  .ap-make-fade {
-    background: linear-gradient(180deg, transparent 76%, var(--ap-paper));
-  }
-  .ap-make-copy {
-    padding: clamp(2.5rem, 7vw, 3.5rem) var(--ap-gutter) 0;
+  .ap-chips {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 480px) {

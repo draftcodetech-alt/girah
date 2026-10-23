@@ -24,7 +24,11 @@ export async function getAdminProductById(id: string) {
   await requireAdmin();
   return db.product.findUnique({
     where: { id },
-    include: { images: { orderBy: { sortOrder: "asc" } }, variations: true, category: true },
+    include: {
+      images: { orderBy: { sortOrder: "asc" } },
+      variations: { include: { images: { orderBy: { sortOrder: "asc" } } } },
+      category: true,
+    },
   });
 }
 

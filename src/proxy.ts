@@ -48,6 +48,10 @@ export default auth((req) => {
   const isAccountRoute = pathname.startsWith("/account");
   // Phase 15: the wishlist is personal data — same bounce as /account.
   const isWishlistRoute = pathname.startsWith("/wishlist");
+  // Owner spec: nobody browses a cart or checks out anonymously — a guest is
+  // bounced to sign in (or create an account) and returned here afterwards.
+  const isCartRoute = pathname.startsWith("/cart");
+  const isCheckoutRoute = pathname.startsWith("/checkout");
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user?.role;
 
@@ -82,6 +86,11 @@ export default auth((req) => {
   }
 
   if ((isAccountRoute || isWishlistRoute) && !isLoggedIn) {
+    return respond(loginUrl());
+  }
+  // No guest buying: an empty cart is still a cart — bounce before any
+  // guest identity is minted or a checkout form is rendered.
+  if ((isCartRoute || isCheckoutRoute) && !isLoggedIn) {
     return respond(loginUrl());
   }
 

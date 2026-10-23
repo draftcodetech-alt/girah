@@ -176,7 +176,7 @@ export async function getProductBySlug(slug: string): Promise<ProductDetail | nu
     where: { slug },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
-      variations: true,
+      variations: { include: { images: { orderBy: { sortOrder: "asc" } } } },
       category: true,
     },
   });
@@ -195,6 +195,7 @@ export async function getProductBySlug(slug: string): Promise<ProductDetail | nu
       price: v.price,
       stock: v.stock,
       isEnabled: v.isEnabled,
+      images: v.images.map((img) => ({ url: img.url })),
     })),
     category: { name: product.category.name, slug: product.category.slug },
   };

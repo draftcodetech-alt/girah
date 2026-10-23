@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { ProductDetail } from "@/modules/catalog";
 import { addToCart } from "@/modules/cart/actions";
 import { formatPrice } from "@/lib/format";
@@ -8,7 +9,18 @@ import { WishlistButton } from "./WishlistButton";
 import { Accordion } from "./Accordion";
 import { MiniCartDrawer, type MiniCartItem } from "./MiniCartDrawer";
 
-export function PurchasePanel({ product, wishlisted }: { product: ProductDetail; wishlisted?: boolean }) {
+export function PurchasePanel({
+  product,
+  wishlisted,
+  isLoggedIn,
+  onVariationChange,
+}: {
+  product: ProductDetail;
+  wishlisted?: boolean;
+  isLoggedIn?: boolean;
+  onVariationChange?: (variationId: string) => void;
+}) {
+  const router = useRouter();
   const purchasableVariations = product.variations.filter((v) => v.isEnabled);
   const allOutOfStock = product.variations.every((v) => !v.isEnabled || v.stock <= 0);
 
@@ -44,12 +56,21 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
     setSelectedId(id);
     setQuantity(1);
     setFeedback(null);
+    // Lets the gallery swap to this variation's own images (owner: the
+    // product-detail wrapper).
+    onVariationChange?.(id);
   }
 
   const canAddToCart = !!selected && selected.isEnabled && selected.stock > 0 && !isPending;
 
   function handleAddToCart() {
     if (!selected) return;
+    // No guest buying: send them to sign in (or create an account), then
+    // straight back to this product page afterwards.
+    if (!isLoggedIn) {
+      router.push(`/login?callbackUrl=/product/${product.slug}`);
+      return;
+    }
     setFeedback(null);
     startTransition(async () => {
       const result = await addToCart(selected.id, quantity);
@@ -60,7 +81,7 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
           variationName: selected.name,
           quantity,
           unitPrice: selected.price,
-          imageUrl: product.images[0]?.url,
+          imageUrl: selected.images[0]?.url ?? product.images[0]?.url,
         });
         setDrawerOpen(true);
       } else {
@@ -151,7 +172,13 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
         onClick={handleAddToCart}
         className="w-full h-12 mt-8 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage text-cream disabled:bg-sage-light disabled:text-muted disabled:cursor-not-allowed"
       >
-        {allOutOfStock ? "Out of Stock" : isPending ? "Adding..." : "Add to Cart"}
+        {allOutOfStock
+          ? "Out of Stock"
+          : !isLoggedIn
+          ? "Sign in to Buy"
+          : isPending
+          ? "Adding..."
+          : "Add to Cart"}
       </button>
 
       {/* Baymard: total-cost estimate near the buy action. Shipping is
@@ -180,10 +207,7 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
                 <ul className="mt-1 space-y-1">
                   {product.variations.map((v) => (
                     <li key={v.id}>
-                      {v.name} — {formatPrice(v.price)}
-                      {!v.isEnabled || v.stock <= 0
-                        ? " (Out of stock)"
-                        : ` (${v.stock} in stock)`}
+                      {v.name} ({formatPrice(v.price)})
                     </li>
                   ))}
                 </ul>
@@ -211,7 +235,13 @@ export function PurchasePanel({ product, wishlisted }: { product: ProductDetail;
               onClick={handleAddToCart}
               className="h-12 px-6 shrink-0 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage text-cream disabled:bg-sage-light disabled:text-muted disabled:cursor-not-allowed"
             >
-              {allOutOfStock ? "Out of Stock" : isPending ? "Adding..." : "Add to Cart"}
+              {allOutOfStock
+                ? "Out of Stock"
+                : !isLoggedIn
+                ? "Sign in to Buy"
+                : isPending
+                ? "Adding..."
+                : "Add to Cart"}
             </button>
           </div>
         </div>

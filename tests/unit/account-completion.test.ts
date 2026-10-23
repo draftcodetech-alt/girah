@@ -154,7 +154,9 @@ describe("Phase 12: checkout prefill + save", () => {
 
   it("the save-after-order is best-effort (logged, never failing the order)", () => {
     const action = readSource("src/modules/checkout/actions.ts");
-    expect(action).toMatch(/if \(data\.saveAddress && session\?\.user\?\.id\)/);
+    // Spec change (no guest buying): the session gate above guarantees a user
+    // here, so the old `&& session?.user?.id` guard was folded away.
+    expect(action).toMatch(/if \(data\.saveAddress\)/);
     expect(action).toMatch(/console\.error\("Failed to save shipping address:"/);
     expect(action).toMatch(/upsertSavedShippingForUser/);
   });

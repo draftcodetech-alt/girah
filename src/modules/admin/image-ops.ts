@@ -164,3 +164,138 @@ export async function moveImageCore(
 
   return { success: true, productId: image.product.id, slug: image.product.slug };
 }
+
+// ---------------------------------------------------------------------------
+// Phase 20: per-variation images. Same discipline as the product cores above
+// (cheap checks before any upload, lazy Cloudinary, best-effort remote
+// cleanup) one level down — a variation's photos never touch the shop-card
+// cover, so revalidation targets only the edit page and the product page.
+// ---------------------------------------------------------------------------
+
+export const MAX_IMAGES_PER_VARIATION = 4;
+
+export type VariationImageOpResult =
+  | { success: true; variationId: string; productId: string; slug: string }
+  | { success: false; error: string };
+
+export async function uploadVariationImageCore(
+  variationId: string,
+  file: File | null | undefined
+): Promise<VariationImageOpResult> {
+  if (!variationId) return { success: false, error: "Variation not found." };
+
+  const variation = await db.productVariation.findUnique({
+    where: { id: variationId },
+    select: { id: true, product: { select: { id: true, slug: true } } },
+  });
+  if (!variation) return { success: false, error: "Variation not found." };
+
+  const existingCount = await db.productVariationImage.count({ where: { variationId } });
+  if (existingCount >= MAX_IMAGES_PER_VARIATION) {
+    return {
+      success: false,
+      error: `A variation can have at most ${MAX_IMAGES_PER_VARIATION} images.`,
+    };
+  }
+
+  if (!file || typeof file.arrayBuffer !== "function") {
+    return { success: false, error: "Choose an image to upload." };
+  }
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return { success: false, error: "Only JPEG, PNG, WebP, AVIF or GIF images are allowed." };
+  }
+  if (file.size > MAX_IMAGE_BYTES) {
+    return { success: false, error: "Image must be smaller than 3.5 MB." };
+  }
+
+  try {
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const url = await uploadBuffer(buffer);
+    const maxRow = await db.productVariationImage.findFirst({
+      where: { variationId },
+      orderBy: { sortOrder: "desc" },
+      select: { sortOrder: true },
+    });
+    await db.productVariationImage.create({
+      data: { variationId, url, sortOrder: (maxRow?.sortOrder ?? -1) + 1 },
+    });
+    return {
+      success: true,
+      variationId: variation.id,
+      productId: variation.product.id,
+      slug: variation.product.slug,
+    };
+  } catch (error) {
+    console.error("uploadVariationImageCore failed:", error);
+    return {
+      success: false,
+      error: "Upload failed — check the Cloudinary configuration and try again.",
+    };
+  }
+}
+
+export async function deleteVariationImageCore(imageId: string): Promise<VariationImageOpResult> {
+  const image = await db.productVariationImage.findUnique({
+    where: { id: imageId },
+    include: { variation: { select: { id: true, product: { select: { id: true, slug: true } } } } },
+  });
+  if (!image) return { success: false, error: "Image not found." };
+
+  await db.productVariationImage.delete({ where: { id: imageId } });
+
+  // Best-effort remote cleanup — same contract as deleteImageCore.
+  const publicId = publicIdFromUrl(image.url);
+  if (publicId) {
+    try {
+      ensureCloudinary();
+      await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+    } catch (error) {
+      console.warn("Cloudinary destroy skipped:", error instanceof Error ? error.message : error);
+    }
+  }
+
+  return {
+    success: true,
+    variationId: image.variation.id,
+    productId: image.variation.product.id,
+    slug: image.variation.product.slug,
+  };
+}
+
+/**
+ * Rewrites sortOrder as 0..n-1 with this image pinned first/last — the
+ * variation-level twin of moveImageCore.
+ */
+export async function moveVariationImageCore(
+  imageId: string,
+  position: "first" | "last"
+): Promise<VariationImageOpResult> {
+  const image = await db.productVariationImage.findUnique({
+    where: { id: imageId },
+    include: { variation: { select: { id: true, product: { select: { id: true, slug: true } } } } },
+  });
+  if (!image) return { success: false, error: "Image not found." };
+
+  const others = await db.productVariationImage.findMany({
+    where: { variationId: image.variationId, id: { not: imageId } },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true },
+  });
+  const orderedIds =
+    position === "first"
+      ? [imageId, ...others.map((other) => other.id)]
+      : [...others.map((other) => other.id), imageId];
+
+  await db.$transaction(async (tx) => {
+    for (const [index, id] of orderedIds.entries()) {
+      await tx.productVariationImage.update({ where: { id }, data: { sortOrder: index } });
+    }
+  }, { maxWait: 5000, timeout: 10000 });
+
+  return {
+    success: true,
+    variationId: image.variation.id,
+    productId: image.variation.product.id,
+    slug: image.variation.product.slug,
+  };
+}

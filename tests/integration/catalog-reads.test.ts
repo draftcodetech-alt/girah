@@ -67,6 +67,29 @@ describe("getProductBySlug", () => {
       isEnabled: true,
     });
   });
+
+  it("includes each variation's own images in sortOrder (empty = product fallback)", async () => {
+    const { product, variation } = await createTestProduct();
+    const other = await db.productVariation.create({
+      data: { productId: product.id, name: "No Photos", price: 200_000, stock: 3 },
+    });
+    await db.productVariationImage.createMany({
+      data: [
+        { variationId: variation.id, url: "https://res.cloudinary.com/demo/v-main.jpg", sortOrder: 0 },
+        { variationId: variation.id, url: "https://res.cloudinary.com/demo/v-two.jpg", sortOrder: 1 },
+      ],
+    });
+
+    const detail = await getProductBySlug(product.slug);
+    const withPhotos = detail!.variations.find((v) => v.id === variation.id)!;
+    expect(withPhotos.images.map((img) => img.url)).toEqual([
+      "https://res.cloudinary.com/demo/v-main.jpg",
+      "https://res.cloudinary.com/demo/v-two.jpg",
+    ]);
+    // No rows yet = empty array; the storefront falls back to product images.
+    const without = detail!.variations.find((v) => v.id === other.id)!;
+    expect(without.images).toEqual([]);
+  });
 });
 
 describe("related products (same-category, self excluded)", () => {

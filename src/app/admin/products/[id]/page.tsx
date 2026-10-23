@@ -48,6 +48,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
                   stock: variation.stock,
                   isEnabled: variation.isEnabled,
                   product: { name: product.name },
+                  images: variation.images,
                 }}
               />
             ))}

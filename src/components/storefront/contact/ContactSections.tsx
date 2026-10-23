@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
-const EMAIL = "syedareebkareem@gmail.com";
+const EMAIL = "draftcode.tech@gmail.com";
 
 const orderMailto =
   `mailto:${EMAIL}?subject=${encodeURIComponent("Question about my order")}` +

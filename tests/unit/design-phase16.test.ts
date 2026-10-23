@@ -267,6 +267,42 @@ describe("Phase 16: product page interactions", () => {
   });
 });
 
+describe("Phase 20: variation galleries", () => {
+  const panel = readSource("src/components/storefront/PurchasePanel.tsx");
+  const columns = readSource("src/components/storefront/ProductDetailColumns.tsx");
+  const page = readSource("src/app/(storefront)/product/[slug]/page.tsx");
+  const queries = readSource("src/modules/catalog/queries.ts");
+  const types = readSource("src/modules/catalog/types.ts");
+
+  it("the Details list shows name (price) — no dashes, no stock counts", () => {
+    expect(panel).toContain("{v.name} ({formatPrice(v.price)})");
+    // The old "Name — Rs. X (8 in stock)" list is gone for good.
+    expect(panel).not.toContain("in stock)");
+    expect(panel).not.toContain("(Out of stock)");
+    // The Quantity-section stock hint is a different feature and stays.
+    expect(panel).toContain("left in stock");
+  });
+
+  it("the product page shares the selection between panel and gallery", () => {
+    expect(page).toContain("<ProductDetailColumns");
+    expect(columns).toContain("onVariationChange={setSelectedVariationId}");
+    // Variation photos win; product images are the fallback until they exist.
+    expect(columns).toContain("variationImages.length > 0 ? variationImages : product.images");
+    // Every switch remounts the gallery at the variation's first image.
+    expect(columns).toContain("key={selectedVariationId ?? product.id}");
+    expect(panel).toContain("onVariationChange?.(id)");
+  });
+
+  it("each variation loads its own ordered images", () => {
+    expect(queries).toContain(
+      'variations: { include: { images: { orderBy: { sortOrder: "asc" } } } }'
+    );
+    expect(types).toContain("images: { url: string }[]");
+    // The mini-cart thumbnail follows the selected variation too.
+    expect(panel).toContain("selected.images[0]?.url ?? product.images[0]?.url");
+  });
+});
+
 describe("Phase 16: spec copy passes", () => {
   it("shop intro + empty states match the spec", () => {
     const shop = readSource("src/app/(storefront)/shop/page.tsx");

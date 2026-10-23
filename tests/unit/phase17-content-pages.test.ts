@@ -53,7 +53,7 @@ describe("Phase 17: contact carries the real eb-mockup facts", () => {
     const source =
       readSource("src/app/(storefront)/contact/page.tsx") +
       readSource("src/components/storefront/contact/ContactSections.tsx");
-    expect(source).toContain("syedareebkareem@gmail.com");
+    expect(source).toContain("draftcode.tech@gmail.com");
     expect(source).toContain("Question about my order");
     expect(source).toContain("A custom crochet idea");
     expect(source).toContain("Islamabad");

@@ -7,8 +7,7 @@ import {
   getReviewSubmissionState,
 } from "@/modules/reviews";
 import { getWishlistProductIds } from "@/modules/wishlist";
-import { ProductGallery } from "@/components/storefront/ProductGallery";
-import { PurchasePanel } from "@/components/storefront/PurchasePanel";
+import { ProductDetailColumns } from "@/components/storefront/ProductDetailColumns";
 import { ProductCard } from "@/components/storefront/ProductCard";
 import { ReviewForm } from "@/components/storefront/ReviewForm";
 import { RatingStars } from "@/components/storefront/RatingStars";
@@ -103,14 +102,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
           { label: product.name },
         ]}
       />
-      <div className="flex flex-col lg:flex-row gap-12">
-        <div className="lg:w-[60%]">
-          <ProductGallery images={product.images} alt={product.name} />
-        </div>
-        <div className="lg:w-[40%]">
-          <PurchasePanel product={product} wishlisted={wished.has(product.id)} />
-        </div>
-      </div>
+      <ProductDetailColumns
+        product={product}
+        wishlisted={wished.has(product.id)}
+        isLoggedIn={Boolean(session?.user)}
+      />
 
       <section aria-labelledby="reviews-heading" className="mt-16 border-t border-border pt-12">
         <div className="flex flex-wrap items-center justify-between gap-4">

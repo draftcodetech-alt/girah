@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { updateVariation, adjustStock } from "@/modules/admin";
 import { formatPrice } from "@/lib/format";
 import { VariationForm } from "./VariationForm";
+import { ImageManager } from "./ImageManager";
 
 type Variation = {
   id: string;
@@ -12,12 +13,16 @@ type Variation = {
   stock: number;
   isEnabled: boolean;
   product: { name: string };
+  // Supplied by the product edit page; the standalone /admin/variations list
+  // omits it (image management lives with the product it belongs to).
+  images?: { id: string; url: string; sortOrder: number }[];
 };
 
 export function VariationRow({ variation }: { variation: Variation }) {
   const [isPending, startTransition] = useTransition();
   const [showAdjust, setShowAdjust] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
+  const [showImages, setShowImages] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function toggleEnabled() {
@@ -66,17 +71,34 @@ export function VariationRow({ variation }: { variation: Variation }) {
             onClick={() => {
               setShowEdit((s) => !s);
               setShowAdjust(false);
+              setShowImages(false);
             }}
             className="font-body text-small text-sage font-medium"
           >
             {showEdit ? "Close" : "Edit"}
           </button>
           <button
-            onClick={() => setShowAdjust((s) => !s)}
+            onClick={() => {
+              setShowAdjust((s) => !s);
+              setShowEdit(false);
+              setShowImages(false);
+            }}
             className="font-body text-small text-sage font-medium"
           >
             Adjust Stock
           </button>
+          {variation.images !== undefined && (
+            <button
+              onClick={() => {
+                setShowImages((s) => !s);
+                setShowEdit(false);
+                setShowAdjust(false);
+              }}
+              className="font-body text-small text-sage font-medium"
+            >
+              {showImages ? "Close" : "Images"}
+            </button>
+          )}
           <button
             onClick={toggleEnabled}
             disabled={isPending}
@@ -97,6 +119,19 @@ export function VariationRow({ variation }: { variation: Variation }) {
           }}
           onDone={() => setShowEdit(false)}
         />
+      )}
+
+      {showImages && variation.images !== undefined && (
+        <div className="mt-4 bg-sage-light p-4 rounded-[var(--radius-control)]">
+          <p className="font-body text-small text-charcoal mb-3">
+            {variation.name} — shown when this variation is selected on the product page.
+          </p>
+          <ImageManager
+            variationId={variation.id}
+            productName={`${variation.product.name} — ${variation.name}`}
+            images={variation.images}
+          />
+        </div>
       )}
 
       {showAdjust && (

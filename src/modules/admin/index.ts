@@ -28,7 +28,14 @@ export type { DashboardMetrics, DailyRevenuePoint, StockFeedRow } from "./types"
 export { getAdminReviews, setReviewStatus } from "./reviews";
 export type { AdminReviewStatus } from "./reviews";
 
-export { uploadProductImage, deleteProductImage, moveProductImage } from "./images";
+export {
+  uploadProductImage,
+  deleteProductImage,
+  moveProductImage,
+  uploadVariationImage,
+  deleteVariationImage,
+  moveVariationImage,
+} from "./images";
 
 export {
   getAdminCategoriesWithCounts,

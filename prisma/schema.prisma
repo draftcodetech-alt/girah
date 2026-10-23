@@ -49,18 +49,32 @@ model ProductImage {
 }
 
 model ProductVariation {
-  id               String            @id @default(cuid())
-  product          Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id               String                    @id @default(cuid())
+  product          Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId        String
   name             String // e.g. "Medium Bouquet"
   price            Int // stored in smallest currency unit (paisa) — never a float, per Reliability NFR
-  stock            Int               @default(0)
-  isEnabled        Boolean           @default(true) // admin can disable independent of stock count
+  stock            Int                       @default(0)
+  isEnabled        Boolean                   @default(true) // admin can disable independent of stock count
   cartItems        CartItem[]
   orderItems       OrderItem[]
   stockAdjustments StockAdjustment[]
+  images           ProductVariationImage[]
 
   @@index([productId])
+}
+
+// Phase 20: per-variation galleries. Each variation can carry its own photos
+// (first = the main image shown when that variation is picked, rest = the
+// strip below it), mirroring ProductImage one level down.
+model ProductVariationImage {
+  id          String            @id @default(cuid())
+  variation   ProductVariation  @relation(fields: [variationId], references: [id], onDelete: Cascade)
+  variationId String
+  url         String
+  sortOrder   Int               @default(0)
+
+  @@index([variationId])
 }
 
 // Phase 15: wishlist — one row per (user, product); both FKs cascade so a

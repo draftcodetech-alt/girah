@@ -7,10 +7,11 @@ import type { CheckoutInput } from "@/modules/checkout/schema";
 import { resetDb, createTestProduct, createTestUser } from "../setup/helpers";
 
 // Phase 1 integration: the `placeOrder` SERVER ACTION — the wrapper layer
-// placeOrderCore deliberately skips: zod gate, the Safepay-configured gate,
-// request-context identity (session vs guest cookie) and the opt-in saved
-// address. No HTTP: request context is supplied by the same next/headers
-// double the login tests use, and every external service is mocked.
+// placeOrderCore deliberately skips: the session gate (no guest buying), the
+// zod gate, the Safepay-configured gate and the opt-in saved address. No HTTP:
+// request context is supplied by the same next/headers double the login tests
+// use, and every external service is mocked. Identity is always a signed-in
+// account now — the guest-cookie path below only proves it is refused.
 
 const state = vi.hoisted(() => ({
   jar: new Map<string, string>(),
@@ -79,6 +80,14 @@ async function seedCartForGuest(guestId: string, quantity = 2) {
   return { cart, variation };
 }
 
+// No guest buying: every real flow now runs in an account session, so the
+// cookie jar stays empty and only authMock decides who is calling.
+async function signInAs(email: string) {
+  const user = await createTestUser({ email });
+  authMock.mockResolvedValue({ user: { id: user.id, role: "CUSTOMER" } });
+  return user;
+}
+
 async function seedCartForUser(userId: string, quantity = 2) {
   const { variation } = await createTestProduct();
   // One cart per account (userId is @unique) — reuse it across checkouts.
@@ -106,11 +115,48 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("placeOrder — unauthenticated guest COD order", () => {
-  it("creates the order against the guest cookie identity, empties the cart, mails once", async () => {
+describe("placeOrder — no guest checkout", () => {
+  it("refuses a signed-out COD order before any order row exists", async () => {
     authMock.mockResolvedValue(null);
     const { variation } = await seedCartForGuest("guest-wrapper");
     state.jar.set(GUEST, "guest-wrapper");
+
+    const result = await placeOrder(checkout);
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("You must be signed in.");
+
+    // Refused before the core: no order, no stock movement, no mail, cart
+    // left exactly as it was.
+    expect(await db.order.count()).toBe(0);
+    expect(
+      (await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } })).stock
+    ).toBe(5);
+    expect(send).not.toHaveBeenCalled();
+    expect(createSafepayCheckoutUrl).not.toHaveBeenCalled();
+    expect(state.revalidated).toBe(0);
+    expect(await db.cartItem.count()).toBe(1);
+  });
+
+  it("refuses a signed-out caller even when the guest cookie has no cart", async () => {
+    authMock.mockResolvedValue(null);
+    state.jar.set(GUEST, "guest-with-no-cart");
+
+    const result = await placeOrder(checkout);
+
+    // The session gate comes first, so a guest sees the sign-in refusal
+    // rather than the cart-empty one.
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error).toBe("You must be signed in.");
+    expect(await db.order.count()).toBe(0);
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
+describe("placeOrder — signed-in COD order", () => {
+  it("creates the order against the account, empties the cart, mails once", async () => {
+    const user = await signInAs("wrapper@girah.test");
+    const { variation } = await seedCartForUser(user.id);
 
     const result = await placeOrder(checkout);
 
@@ -118,7 +164,7 @@ describe("placeOrder — unauthenticated guest COD order", () => {
     if (!result.success) return;
 
     const order = await db.order.findUniqueOrThrow({ where: { id: result.orderId } });
-    expect(order.userId).toBeNull(); // never attributed to an account
+    expect(order.userId).toBe(user.id);
     expect(order.customerEmail).toBe(checkout.email);
     expect(order.paymentMethod).toBe("COD");
     expect(order.paymentStatus).toBe("PENDING");
@@ -135,9 +181,8 @@ describe("placeOrder — unauthenticated guest COD order", () => {
     expect(createSafepayCheckoutUrl).not.toHaveBeenCalled();
   });
 
-  it("refuses with a generic message when the guest cart does not exist", async () => {
-    authMock.mockResolvedValue(null);
-    state.jar.set(GUEST, "guest-with-no-cart");
+  it("refuses with a generic message when the account cart does not exist", async () => {
+    await signInAs("empty-cart@girah.test");
 
     const result = await placeOrder(checkout);
 
@@ -150,9 +195,8 @@ describe("placeOrder — unauthenticated guest COD order", () => {
 
 describe("placeOrder — zod gate", () => {
   it("returns fieldErrors and writes no order row", async () => {
-    authMock.mockResolvedValue(null);
-    state.jar.set(GUEST, "guest-zod");
-    await seedCartForGuest("guest-zod");
+    const user = await signInAs("zod@girah.test");
+    await seedCartForUser(user.id);
 
     const result = await placeOrder({ ...checkout, email: "not-an-email" });
 
@@ -167,6 +211,8 @@ describe("placeOrder — zod gate", () => {
   });
 
   it("reports every offending field at once", async () => {
+    await signInAs("zod-many@girah.test");
+
     const result = await placeOrder({
       ...checkout,
       fullName: "",
@@ -186,9 +232,8 @@ describe("placeOrder — zod gate", () => {
 
 describe("placeOrder — Safepay not configured", () => {
   it("refuses SAFEPAY before creating any order, and says what to do instead", async () => {
-    authMock.mockResolvedValue(null);
-    state.jar.set(GUEST, "guest-safepay");
-    await seedCartForGuest("guest-safepay");
+    const user = await signInAs("safepay@girah.test");
+    await seedCartForUser(user.id);
 
     // .env ships real keys for the dev store — blank them for this call only.
     vi.stubEnv("SAFEPAY_API_KEY", "");
@@ -214,9 +259,8 @@ describe("placeOrder — Safepay not configured", () => {
   });
 
   it("never applies the Safepay refusal to a COD order while keys are missing", async () => {
-    authMock.mockResolvedValue(null);
-    state.jar.set(GUEST, "guest-cod-while-unconfigured");
-    await seedCartForGuest("guest-cod-while-unconfigured");
+    const user = await signInAs("cod-unconfigured@girah.test");
+    await seedCartForUser(user.id);
 
     vi.stubEnv("SAFEPAY_API_KEY", "");
     vi.stubEnv("SAFEPAY_API_SECRET", "");
@@ -260,7 +304,7 @@ describe("placeOrder — saveAddress", () => {
     expect(after[0].address).toBe("Street 99, New Town");
   });
 
-  it("writes no SavedShipping row when the checkbox is off or the caller is a guest", async () => {
+  it("never writes a SavedShipping row when the checkbox is off — and refuses a guest outright", async () => {
     const user = await createTestUser({ email: "no-save@girah.test" });
     authMock.mockResolvedValue({ user: { id: user.id, role: "CUSTOMER" } });
     await seedCartForUser(user.id);
@@ -269,17 +313,17 @@ describe("placeOrder — saveAddress", () => {
 
     authMock.mockResolvedValue(null);
     state.jar.set(GUEST, "guest-no-save");
-    await seedCartForGuest("guest-no-save");
-    expect((await placeOrder({ ...checkout, saveAddress: true })).success).toBe(true);
+    const guest = await placeOrder({ ...checkout, saveAddress: true });
+    expect(guest.success).toBe(false);
+    if (!guest.success) expect(guest.error).toBe("You must be signed in.");
     expect(await db.savedShipping.count()).toBe(0); // guests are never persisted
   });
 });
 
 describe("placeOrder — duplicate-checkout guard", () => {
   it("a second identical submit fails and produces no second order", async () => {
-    authMock.mockResolvedValue(null);
-    const { variation } = await seedCartForGuest("guest-double");
-    state.jar.set(GUEST, "guest-double");
+    const user = await signInAs("double@girah.test");
+    const { variation } = await seedCartForUser(user.id);
 
     const first = await placeOrder(checkout);
     expect(first.success).toBe(true);
@@ -300,9 +344,8 @@ describe("placeOrder — duplicate-checkout guard", () => {
   });
 
   it("two racing submits of the same cart produce exactly one order", async () => {
-    authMock.mockResolvedValue(null);
-    const { variation } = await seedCartForGuest("guest-race");
-    state.jar.set(GUEST, "guest-race");
+    const user = await signInAs("race@girah.test");
+    const { variation } = await seedCartForUser(user.id);
 
     const results = await Promise.all([placeOrder(checkout), placeOrder(checkout)]);
 

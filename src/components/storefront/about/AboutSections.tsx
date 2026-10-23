@@ -3,9 +3,9 @@ import Image from "next/image";
 
 /**
  * About page — port of the single-file reference design (copy verbatim).
- * Sections: About / What We Make + How It Works (split per the "make and
- * how" mockup: text left, photo bleed right, category chips, rules) /
- * Our Story.
+ * Sections: About / What We Make + How It Works (contained per the revised
+ * mockup: text left + photo right in one 1320 grid, full-width rule, four
+ * real category links below) / Our Story.
  * SVGs are inlined (no <symbol>/<use>) so CSS tokens reach every path — the
  * reference's descendant selectors could never pierce use's shadow tree.
  * Motion is CSS + scroll-driven (.ap-reveal pattern in globals.css): static
@@ -44,13 +44,13 @@ function Sprig() {
   );
 }
 
-/* ── mockup divider: line · sprig · line ── */
+/* ── divider: line · sprig · line. Lines flex to any width; the sprig is a
+   fixed-size svg (tight viewBox) so it never scales up with the rule. ── */
 function SprigRule() {
   return (
     <div className="ap-rule ap-reveal" aria-hidden="true">
-      <svg viewBox="0 0 260 32">
-        <path className="ap-rule-line" d="M0 16h100" />
-        <path className="ap-rule-line" d="M160 16h100" />
+      <span className="ap-rule-line" />
+      <svg className="ap-rule-sprig" viewBox="122 3.5 16 14">
         <path className="ap-rule-stem" d="M130 16V7" />
         <path className="ap-rule-leaf" d="M130 13.5c-4.2 0-6.8-2.7-6.8-6.6 4.2 0 6.8 2.7 6.8 6.6z" />
         <path className="ap-rule-leaf" d="M130 13.5c4.2 0 6.8-2.7 6.8-6.6-4.2 0-6.8 2.7-6.8 6.6z" />
@@ -58,20 +58,36 @@ function SprigRule() {
         <path className="ap-rule-leaf" d="M130 9c3 0 4.9-2 4.9-4.9-3 0-4.9 2-4.9 4.9z" />
         <circle className="ap-rule-bud" cx="130" cy="6.4" r="2.2" />
       </svg>
+      <span className="ap-rule-line" />
     </div>
   );
 }
 
-/* ── mockup's WHAT WE MAKE category chips (line icons) ── */
-const CATEGORIES: { label: string; shapes: string[] }[] = [
+/* ── WHAT WE MAKE category cards (line icons) — hrefs point at the real
+   category slugs in the catalog; descriptions name only real products. ── */
+const CATEGORIES: { label: string; href: string; desc: string; shapes: string[] }[] = [
   {
     label: "Wearables",
+    href: "/shop?category=bracelets",
+    desc: "Flowers that live on your wrist — bracelets and blooms, made to order.",
     shapes: ["M12 8V6.8a2 2 0 1 1 2 2", "M12 8 3.8 14.9A1.5 1.5 0 0 0 4.7 18h14.6a1.5 1.5 0 0 0 .9-3.1L12 8z"],
   },
-  { label: "Home Decor", shapes: ["M4 11.5 12 5l8 6.5", "M6.5 10.3V19h11v-8.7", "M10 19v-4.4h4V19"] },
-  { label: "Accessories", shapes: ["M6.5 8.5h11l-1 10.5h-9L6.5 8.5z", "M9.5 8.5V7a2.5 2.5 0 0 1 5 0v1.5"] },
+  {
+    label: "Home Decor",
+    href: "/shop?category=home-decor",
+    desc: "Coasters, wall pieces, and soft little corners for shelves and tables.",
+    shapes: ["M4 11.5 12 5l8 6.5", "M6.5 10.3V19h11v-8.7", "M10 19v-4.4h4V19"],
+  },
+  {
+    label: "Accessories",
+    href: "/shop?category=keychains",
+    desc: "Keychains and small companions — tiny, sturdy, unmistakably handmade.",
+    shapes: ["M6.5 8.5h11l-1 10.5h-9L6.5 8.5z", "M9.5 8.5V7a2.5 2.5 0 0 1 5 0v1.5"],
+  },
   {
     label: "Gifts",
+    href: "/shop?category=bouquets",
+    desc: "Bouquets that never wilt — ready to ship, or made for someone you love.",
     shapes: [
       "M5 10h14v8.5H5z",
       "M3.8 7h16.4v3H3.8z",
@@ -122,16 +138,15 @@ export function AboutSections() {
           <p className="ap-eyebrow">About Girah</p>
           <h1>About</h1>
           <p className="ap-lede">
-            There is quiet magic in the making — a strand of yarn, a loop, then another, until something exists that did
-            not exist before. Girah means knot, and everything we make begins with one. Handmade in Pakistan, minimal in
-            form, made to be held, gifted, and kept for years.
+            Girah means knot, and everything we make begins with one. Handmade in Pakistan, minimal in form, made to be
+            held, gifted, and kept for years.
           </p>
         </div>
       </section>
 
       <KnotDivider />
 
-      {/* ============ 2. WHAT WE MAKE + HOW IT WORKS (split, photo right — mockup) ============ */}
+      {/* ============ 2. WHAT WE MAKE + HOW IT WORKS (contained split, photo right) ============ */}
       <section className="ap-make" id="make">
         <div className="ap-make-split">
           <div className="ap-make-copy ap-reveal ap-reveal-late">
@@ -147,36 +162,41 @@ export function AboutSections() {
               Ready-to-ship pieces leave us quickly; everything else is made to order in the colors you choose. Custom
               pieces: write to us, and we will bring it to life, knot by knot.
             </p>
-
-            <SprigRule />
-
-            <ul className="ap-chips">
-              {CATEGORIES.map((c) => (
-                <li className="ap-chip" key={c.label}>
-                  <span className="ap-chip-ic" aria-hidden="true">
-                    <svg viewBox="0 0 24 24">
-                      {c.shapes.map((d) => (
-                        <path key={d} d={d} />
-                      ))}
-                    </svg>
-                  </span>
-                  <span className="ap-chip-label">{c.label}</span>
-                </li>
-              ))}
-            </ul>
           </div>
 
           <div className="ap-make-media ap-reveal">
             <Image
               fill
-              sizes="(max-width: 860px) 100vw, 46vw"
+              sizes="(max-width: 860px) 100vw, 44vw"
               className="ap-make-img"
               src="/about/make-how.webp"
               alt="A cream table with a glass vase of crochet daisies, stacked books, scissors and a basket of green yarn"
             />
-            <div className="ap-make-fade" aria-hidden="true" />
           </div>
         </div>
+
+        <SprigRule />
+
+        <ul className="ap-chips">
+          {CATEGORIES.map((c) => (
+            <li className="ap-chip" key={c.label}>
+              <Link href={c.href} className="ap-chip-link">
+                <span className="ap-chip-ic" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    {c.shapes.map((d) => (
+                      <path key={d} d={d} />
+                    ))}
+                  </svg>
+                </span>
+                <span className="ap-chip-label">{c.label}</span>
+                <span className="ap-chip-desc">{c.desc}</span>
+                <span className="ap-chip-cta">
+                  Explore <span aria-hidden="true">→</span>
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
 
         <div className="ap-how">
           <h3 className="ap-reveal">How It Works</h3>

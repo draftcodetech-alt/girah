@@ -1,6 +1,7 @@
 "use server";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
 import { resolveCartIdentity } from "./identity";
 import type { CartActionResult } from "./types";
 import {
@@ -18,6 +19,13 @@ export async function addToCart(
   // then inflate stock via `stock: { decrement: negative }` at checkout. (C1)
   if (!isValidQuantity(requestedQuantity) || requestedQuantity < 1) {
     return { success: false, error: "Invalid quantity." };
+  }
+
+  // Owner spec: no guest buying — a cart only ever exists inside an account.
+  // Checked before resolveCartIdentity so no guest cookie is minted.
+  const session = await auth();
+  if (!session?.user) {
+    return { success: false, error: "You must be signed in." };
   }
 
   try {
