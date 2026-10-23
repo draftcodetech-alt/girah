@@ -28,10 +28,15 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   const params = await searchParams;
   const categories = await getCategories();
 
+  // Public sort list is price-only (by request): Featured/Newest were removed
+  // from the UI, so anything else normalizes to price-asc — the same rule
+  // SortSelect applies, keeping the displayed sort and the real order in sync.
+  const sort: SortOption = params.sort === "price-desc" ? "price-desc" : "price-asc";
+
   const allProducts = await getProducts({
     categorySlug: params.category,
     search: params.search,
-    sort: params.sort as SortOption | undefined,
+    sort,
     minPrice: params.minPrice ? Number(params.minPrice) * 100 : undefined,
     maxPrice: params.maxPrice ? Number(params.maxPrice) * 100 : undefined,
     inStockOnly: params.inStockOnly === "true",
@@ -53,18 +58,15 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
   };
 
   return (
-    <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
+    <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 pt-4 pb-12">
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Shop" }]} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal text-center">
-        Shop
-      </h1>
-      <p className="font-body text-body text-muted text-center mt-4 max-w-[500px] mx-auto">
-        Discover handmade pieces, made with care.
-      </p>
+      {/* Visually removed per spec: the breadcrumb already names the page.
+          Kept sr-only so the page keeps exactly one h1 for a11y/SEO. */}
+      <h1 className="sr-only">Shop</h1>
 
       <div className="mt-6">
         <CategoryTabs categories={categories} activeSlug={params.category} searchParams={params} />

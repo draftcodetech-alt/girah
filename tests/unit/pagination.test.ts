@@ -28,26 +28,26 @@ describe("paginate", () => {
 
   it("slices the first page at PAGE_SIZE", () => {
     const result = paginate(items, 1);
-    expect(PAGE_SIZE).toBe(12);
-    expect(result.items).toHaveLength(12);
+    expect(PAGE_SIZE).toBe(6);
+    expect(result.items).toHaveLength(6);
     expect(result.items[0]).toBe(1);
-    expect(result.items[11]).toBe(12);
+    expect(result.items[5]).toBe(6);
     expect(result.page).toBe(1);
     expect(result.total).toBe(25);
-    expect(result.totalPages).toBe(3);
+    expect(result.totalPages).toBe(5);
   });
 
   it("slices later pages", () => {
     const second = paginate(items, 2);
-    expect(second.items).toEqual([13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]);
-    const third = paginate(items, 3);
-    expect(third.items).toEqual([25]);
-    expect(third.totalPages).toBe(3);
+    expect(second.items).toEqual([7, 8, 9, 10, 11, 12]);
+    const last = paginate(items, 5);
+    expect(last.items).toEqual([25]);
+    expect(last.totalPages).toBe(5);
   });
 
   it("clamps a stale out-of-range page to the last page (never an empty screen)", () => {
     const result = paginate(items, 999);
-    expect(result.page).toBe(3);
+    expect(result.page).toBe(5);
     expect(result.items).toEqual([25]);
   });
 
@@ -62,12 +62,12 @@ describe("paginate", () => {
   });
 
   it("stays on one page when the list fits exactly", () => {
-    const exact = paginate(items.slice(0, 12), 1);
+    const exact = paginate(items.slice(0, 6), 1);
     expect(exact.totalPages).toBe(1);
-    expect(exact.items).toHaveLength(12);
-    const stale = paginate(items.slice(0, 12), 5);
+    expect(exact.items).toHaveLength(6);
+    const stale = paginate(items.slice(0, 6), 5);
     expect(stale.page).toBe(1); // clamped, still rendered — not empty
-    expect(stale.items).toHaveLength(12);
+    expect(stale.items).toHaveLength(6);
   });
 
   it("respects a custom page size", () => {

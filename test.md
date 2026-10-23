@@ -79,7 +79,7 @@ the dev terminal for emails).
   Expected: count label + grid.
   Actual:
 - [ ] Footer has SHOP, ACCOUNT, **Information (About, Contact only)** columns,
-  newsletter form, social icons (Instagram + Email), payment badges.
+  newsletter form, social icons (Instagram + WhatsApp + Email), payment badges.
   Expected: no dead links (no `/faq`, no `/shipping|/returns|/privacy|/terms`).
   Actual:
 - [ ] `© {year} Girah` + handmade line present.
@@ -98,8 +98,8 @@ the dev terminal for emails).
 
 ## 2. Shop, filters & pagination
 
-- [ ] `/shop` renders the product grid; intro line reads
-  "Discover handmade pieces, made with care."
+- [ ] `/shop` renders the product grid; breadcrumb "Home / Shop" sits
+  directly under the navbar (no visible page heading/intro line).
   Expected: grid + `N pieces` count.
   Actual:
 - [ ] Product cards show image, name, **Rs. price with 2 decimals**, star line.
@@ -109,7 +109,8 @@ the dev terminal for emails).
   active tab underlined + `aria-current="page"`.
   Expected:
   Actual:
-- [ ] Change **sort** → order changes, URL updates (has `aria-label`).
+- [ ] Change **sort** (Price: Low → High / High → Low only) → order changes,
+  URL updates (has `aria-label`).
   Expected:
   Actual:
 - [ ] Set **price range** + **In Stock** → results narrow; panel keeps values
@@ -124,7 +125,7 @@ the dev terminal for emails).
   price filters.
   Expected:
   Actual:
-- [ ] **Pagination**: 12 per page, Prev/Next + numbers, current highlighted;
+- [ ] **Pagination**: 6 per page, Prev/Next + numbers, current highlighted;
   `?page=999` clamps to the last real page; changing filters from page 2
   resets to page 1.
   Expected:

@@ -154,7 +154,7 @@ export function CollectionSections({ newest, botanical, gifts, wished }: Props) 
               <p className="collect-lede">Fresh little pieces, made with love.</p>
             </div>
             <Grid products={newest} wished={wished} priorityFirst />
-            <Cta href="/shop?sort=newest" label="EXPLORE NEW PIECES" />
+            <Cta href="/shop" label="EXPLORE NEW PIECES" />
           </div>
         </section>
       )}

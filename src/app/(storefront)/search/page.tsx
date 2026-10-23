@@ -1,5 +1,4 @@
 import { getProducts, paginate, normalizePage } from "@/modules/catalog";
-import type { SortOption } from "@/modules/catalog";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getWishlistProductIds } from "@/modules/wishlist";
@@ -34,7 +33,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const [allProducts, wishedIds] = await Promise.all([
     getProducts({
       search: query || undefined,
-      sort: params.sort as SortOption | undefined,
+      // Same price-only normalization as /shop (SortSelect displays only
+      // Price Low→High / High→Low — anything else must not diverge).
+      sort: params.sort === "price-desc" ? "price-desc" : "price-asc",
       minPrice: params.minPrice ? Number(params.minPrice) * 100 : undefined,
       maxPrice: params.maxPrice ? Number(params.maxPrice) * 100 : undefined,
       inStockOnly: params.inStockOnly === "true",

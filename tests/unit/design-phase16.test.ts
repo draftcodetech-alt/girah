@@ -143,7 +143,7 @@ describe("Phase 16: homepage sections", () => {
     expect(collections).toContain("JUST OFF THE HOOK");
     expect(collections).toContain("FLOWERS THAT STAY");
     expect(collections).toContain("MADE TO MAKE SOMEONE SMILE");
-    expect(collections).toContain('href="/shop?sort=newest"');
+    expect(collections).toContain('href="/shop"');
     expect(collections).toContain('href="/shop?category=home-decor"');
     expect(collections).toContain('href="/shop?category=keychains"');
     // one card implementation only — reuses ProductCard, never a local card
@@ -270,7 +270,11 @@ describe("Phase 16: product page interactions", () => {
 describe("Phase 16: spec copy passes", () => {
   it("shop intro + empty states match the spec", () => {
     const shop = readSource("src/app/(storefront)/shop/page.tsx");
-    expect(shop).toContain("Discover handmade pieces, made with care.");
+    // Spec change: the visible intro + heading were removed — the breadcrumb
+    // already names the page. Guard the removal (and the sr-only h1 kept for
+    // a11y) rather than the old copy.
+    expect(shop).not.toContain("Discover handmade pieces, made with care.");
+    expect(shop).toContain('<h1 className="sr-only">Shop</h1>');
     expect(shop).toContain('"No matches"');
     expect(shop).toContain('"Nothing here"');
     expect(shop).toContain("Try adjusting your filters to find a piece.");

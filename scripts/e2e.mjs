@@ -457,12 +457,16 @@ check("shop cards render the category badge", shop.html.includes("pcard__badge")
 check("shop cards render the mockup CTA", shop.html.includes("View Details"), "View Details missing");
 
 // ── 3. catalog filters ──────────────────────────────────────────────────────
-const floatFilter = await get(`/shop?minPrice=8.3`);
+// Scoped by search=${TS}: every fixture name embeds this run's unique
+// timestamp, so these assertions isolate our fixtures regardless of how many
+// real products the catalogue holds (the dev DB now has >= PAGE_SIZE real
+// products, which pushes unscoped fixtures to page 2).
+const floatFilter = await get(`/shop?search=${TS}&minPrice=8.3`);
 check("minPrice=8.3 keeps the Rs. 8.30 product", floatFilter.html.includes(floatProducts.exact.name), "float paisa dropped an exact match");
 check("minPrice=8.3 excludes the Rs. 8.29 product", !floatFilter.html.includes(floatProducts.under.name), "cheaper product leaked through");
 // Non-finite/negative bounds must be dropped by sanitizeFilters.toPaisa —
 // previously Number("Infinity")*100 reached Prisma as Infinity and broke the page.
-const weird = await get("/shop?minPrice=Infinity&maxPrice=NaN");
+const weird = await get(`/shop?search=${TS}&minPrice=Infinity&maxPrice=NaN`);
 check("garbage price params → 200 with prices intact", weird.status === 200 && !weird.html.includes("Rs. NaN") && !weird.html.includes("Rs. undefined"), `${weird.status}`);
 check("non-finite bounds are ignored, not applied", weird.html.includes(floatProducts.exact.name), "the whole catalogue was filtered away");
 const preserved = await get("/shop?minPrice=8.3&maxPrice=20.75&inStockOnly=true&search=bouquet");
@@ -583,9 +587,13 @@ try {
 }
 
 // ── 10. zero-price product card ─────────────────────────────────────────────
-const shopAgain = await get("/shop");
+// search=${TS} scopes to this run's fixtures (see §3 note) so the card is on
+// page 1 even when the real catalogue fills its own pages.
+const shopAgain = await get(`/shop?search=${TS}`);
 check("zero-price product renders Unavailable, not From Rs. 0", shopAgain.html.includes(unavailableProduct.name) && lineBlock(shopAgain.html, unavailableProduct.name).includes("Unavailable"), "card missing or priced");
-check("no 'From Rs. 0' anywhere on /shop", !shopAgain.html.includes("From Rs. 0"));
+// This one genuinely means ANYWHERE — keep it on the unscoped catalogue.
+const shopFull = await get("/shop");
+check("no 'From Rs. 0' anywhere on /shop", !shopFull.html.includes("From Rs. 0"));
 
 // ── 11. auth regression (Phase 4 paths still alive) ─────────────────────────
 const wrongPassword = await callAction("/login", ids.login, [{ email: "e2e-nobody@example.com", password: "definitely-wrong" }]);
@@ -883,7 +891,7 @@ let reviewOrder = null;
     anonApproved.html.includes(REVIEW_TEXT),
     "approved text not public"
   );
-  const shopApproved = await get("/shop");
+  const shopApproved = await get(`/shop?search=${TS}`);
   const cardAt = shopApproved.html.indexOf(`${FIXTURE_NAME}</h3>`);
   const cardSlice = cardAt >= 0 ? shopApproved.html.slice(cardAt, cardAt + 500) : "";
   check(
@@ -2124,7 +2132,13 @@ const p13Orders = [];
   );
 
   const shop = await get("/shop");
-  check("shop intro matches the spec", shop.html.includes("Discover handmade pieces, made with care."));
+  // Spec change: visible intro + heading removed (breadcrumb names the page);
+  // the h1 survives as sr-only for a11y/SEO.
+  check(
+    "shop intro removed per spec",
+    !shop.html.includes("Discover handmade pieces, made with care.") &&
+      shop.html.includes('aria-label="Breadcrumb"')
+  );
   check("shop ships BreadcrumbList structured data", shop.html.includes('"@type":"BreadcrumbList"'));
 
   const loginPage = await get("/login");
@@ -2148,8 +2162,8 @@ const p13Orders = [];
 // ── 21. Phase 17: launch readiness — pagination, SEO, content pages, headers ─
 const paginatedProducts = [];
 {
-  // 13 products so the e2e-page search matches paginate across 2 pages
-  // (PAGE_SIZE is 12) while the rest of the catalog stays untouched.
+  // 13 products so the e2e-page search matches paginate across pages
+  // (PAGE_SIZE is 6 → 3 pages) while the rest of the catalog stays untouched.
   for (let i = 1; i <= 13; i++) {
     const n = String(i).padStart(2, "0");
     paginatedProducts.push(

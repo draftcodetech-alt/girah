@@ -2,7 +2,9 @@
 // (filtered + sorted) list — price sorting happens in memory — so pagination
 // is a pure slice at the very end, in one place.
 
-export const PAGE_SIZE = 12;
+// 6 products per page (by request; was 12) — two clean rows of three on
+// desktop, and page 2 becomes reachable on a real 12-product catalogue.
+export const PAGE_SIZE = 6;
 
 /** Coerces a `?page=` query value to a 1-based integer (default 1). */
 export function normalizePage(raw: unknown): number {

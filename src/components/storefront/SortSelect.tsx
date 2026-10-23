@@ -2,17 +2,20 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 
+// Public sort list (by request): only the two price orders — "Featured" and
+// "Newest" were removed from the shop UI. The default is price-asc so the
+// select always matches what the page actually applies.
 const SORT_OPTIONS = [
-  { value: "featured", label: "Featured" },
   { value: "price-asc", label: "Price: Low → High" },
   { value: "price-desc", label: "Price: High → Low" },
-  { value: "newest", label: "Newest" },
 ];
 
 export function SortSelect({ basePath = "/shop" }: { basePath?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const currentSort = searchParams.get("sort") ?? "featured";
+  // Normalize anything else (?sort=featured, ?sort=newest, junk) to the
+  // default — same rule the pages apply, so display and order can't diverge.
+  const currentSort = searchParams.get("sort") === "price-desc" ? "price-desc" : "price-asc";
 
   return (
     <select
