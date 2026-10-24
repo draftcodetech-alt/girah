@@ -88,7 +88,6 @@ describe("Phase 16: homepage sections", () => {
   const hero = readSource("src/components/storefront/home/Hero.tsx");
   const gallery = readSource("src/components/storefront/home/GalleryCollage.tsx");
   const collections = readSource("src/components/storefront/home/CollectionSections.tsx");
-  const closing = readSource("src/components/storefront/home/ClosingCta.tsx");
   const instagram = readSource("src/components/storefront/home/InstagramShowcase.tsx");
 
   it("hero carries the locked copy and a single CTA", () => {
@@ -159,11 +158,11 @@ describe("Phase 16: homepage sections", () => {
     expect(home).toMatch(/slice\(0, 3\)/);
   });
 
-  it("closing CTA matches the spec and the sage band is gone", () => {
-    expect(closing).toContain("A SMALL GIRAH MOMENT");
-    expect(closing).toContain("Handmade things,");
-    expect(closing).toContain("made to stay.");
-    expect(home).not.toMatch(/bg-sage text-cream">\s*<div[^>]*>[\s\S]*Made to be cherished/);
+  it("closing CTA section is removed (owner request, 2026-10-24)", () => {
+    expect(home).not.toContain("ClosingCta");
+    expect(home).not.toContain("home-closing");
+    expect(home).not.toContain("A SMALL GIRAH MOMENT");
+    expect(exists("src/components/storefront/home/ClosingCta.tsx")).toBe(false);
   });
 
   it("Instagram showcase is fully gated on real assets", () => {

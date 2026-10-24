@@ -7,6 +7,7 @@ import { AuthError } from "next-auth";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { auth, signIn, signOut } from "@/lib/auth";
+import { isChannelAllowed } from "@/lib/channel-gate";
 import { readSessionFromCookieJar } from "@/lib/session";
 import { mergeGuestCartForCurrentUser } from "@/modules/cart";
 import { sendEmailSafe } from "@/lib/email";
@@ -46,10 +47,25 @@ export async function login(input: LoginInput): Promise<AccountActionResult> {
     return { success: false, error: "Please check the highlighted fields." };
   }
 
+  // Channel gate (single-owner store): /login is the storefront channel and
+  // can never mint an ADMIN session; /executive/login only signs the one
+  // admin in. authorize() re-checks the same shared rule at the credential
+  // choke point — this early check keeps the channel honest before any
+  // credential work, and answers with the same generic message so it is
+  // never an account oracle.
+  const candidate = await db.user.findFirst({
+    where: { email: { equals: parsed.data.email, mode: "insensitive" } },
+    select: { role: true },
+  });
+  if (candidate && !isChannelAllowed(candidate.role, parsed.data.channel)) {
+    return { success: false, error: "Invalid email or password." };
+  }
+
   try {
     await signIn("credentials", {
       email: parsed.data.email,
       password: parsed.data.password,
+      channel: parsed.data.channel,
       redirect: false,
     });
 

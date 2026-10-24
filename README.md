@@ -177,7 +177,7 @@ scripts/        HTTP E2E + smoke suites (npm run test:e2e / test:smoke)
 - **Server actions** validate every input first, then return `{ success, error?, fieldErrors? }` — never trust client numbers or ids.
 - **Money** is integer paisa everywhere; format with `formatPrice` from `@/lib/format`. Dates render with `formatDate` (explicit `Asia/Karachi` timezone).
 - **Module boundary**: production code imports a module's public API only — `@/modules/<name>` or `@/modules/<name>/actions`. Enforced by ESLint (`no-restricted-imports`); `tests/**` may reach into internals.
-- **Authz**: `requireAdmin()` first line of every admin action; live account state (`isActive`, `role`, `sessionVersion`) is re-checked on every request. `src/proxy.ts` gates `/admin/*` and `/account/*` and bounces signed-out visitors to `/login?callbackUrl=…`.
+- **Authz**: `requireAdmin()` first line of every admin action; live account state (`isActive`, `role`, `sessionVersion`) is re-checked on every request. `src/proxy.ts` gates `/admin/*` and `/account/*`: signed-out `/admin/*` bounces to the hidden executive door `/executive/login?callbackUrl=…` (single-owner store — the storefront `/login` can never mint an ADMIN session), signed-out `/account/*` to `/login?callbackUrl=…`.
 
 ## Status
 

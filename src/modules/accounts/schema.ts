@@ -10,8 +10,15 @@ const tooLong = "Password must be at most 72 characters";
 export const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
+  // Owner spec (single-owner store): sign-in is channelled — the storefront
+  // login can never mint an admin session, and the executive door only
+  // signs the one admin in. Defaults to the storefront channel so every
+  // existing caller keeps working.
+  channel: z.enum(["customer", "executive"]).default("customer"),
 });
-export type LoginInput = z.infer<typeof loginSchema>;
+// z.input (not z.infer): the channel is optional for callers — the schema's
+// default fills the storefront channel.
+export type LoginInput = z.input<typeof loginSchema>;
 
 export const registerSchema = z
   .object({

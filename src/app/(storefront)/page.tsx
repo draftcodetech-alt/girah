@@ -4,7 +4,6 @@ import { getWishlistProductIds } from "@/modules/wishlist";
 import { Hero } from "@/components/storefront/home/Hero";
 import { GalleryCollage } from "@/components/storefront/home/GalleryCollage";
 import { CollectionSections } from "@/components/storefront/home/CollectionSections";
-import { ClosingCta } from "@/components/storefront/home/ClosingCta";
 import { InstagramShowcase } from "@/components/storefront/home/InstagramShowcase";
 import { HandmadePromise } from "@/components/storefront/home/HandmadePromise";
 
@@ -80,7 +79,6 @@ export default async function Home() {
         <HandmadePromise />
       </section>
 
-      <ClosingCta />
       <InstagramShowcase />
     </div>
   );

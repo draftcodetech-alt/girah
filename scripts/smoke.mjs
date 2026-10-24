@@ -29,7 +29,9 @@ function applySetCookies(jar, setCookies) {
   }
 }
 
-async function apiLogin(email, password) {
+// channel: "customer" (storefront /login) or "executive" (the /executive/login
+// door — the only channel that can mint an ADMIN session; owner spec).
+async function apiLogin(email, password, channel = "customer") {
   const jar = newJar();
   const csrfRes = await fetch(BASE + "/api/auth/csrf", { headers: { Cookie: jarHeader(jar) } });
   applySetCookies(jar, csrfRes.headers.getSetCookie());
@@ -42,7 +44,7 @@ async function apiLogin(email, password) {
       Origin: BASE,
       Cookie: jarHeader(jar),
     },
-    body: new URLSearchParams({ email, password, csrfToken, callbackUrl: "/", redirect: "false" }).toString(),
+    body: new URLSearchParams({ email, password, csrfToken, callbackUrl: "/", redirect: "false", channel }).toString(),
   });
   applySetCookies(jar, res.headers.getSetCookie());
   return jar;
@@ -112,8 +114,19 @@ if (!variation) {
   variation = { id: fixture.variations[0].id };
 }
 
-const admin = await apiLogin("dev-admin@girah.test", "DevAdmin123!");
+const admin = await apiLogin("dev-admin@girah.test", "DevAdmin123!", "executive");
 const customer = await apiLogin("dev-customer@girah.test", "DevCustomer123!");
+// Owner spec (single-owner store): the channel gate, over raw HTTP.
+{
+  const adminViaStorefront = await apiLogin("dev-admin@girah.test", "DevAdmin123!");
+  const adminViaStorefrontOk = !adminViaStorefront.has("authjs.session-token");
+  checks.push(["channel gate: admin creds via storefront /login → refused", adminViaStorefrontOk, adminViaStorefrontOk ? "no session cookie" : "session cookie minted!"]);
+  console.log(`${adminViaStorefrontOk ? "PASS" : "FAIL"}  channel gate: admin creds via storefront /login → refused`);
+  const customerViaDoor = await apiLogin("dev-customer@girah.test", "DevCustomer123!", "executive");
+  const customerViaDoorOk = !customerViaDoor.has("authjs.session-token");
+  checks.push(["channel gate: customer creds via executive door → refused", customerViaDoorOk, customerViaDoorOk ? "no session cookie" : "session cookie minted!"]);
+  console.log(`${customerViaDoorOk ? "PASS" : "FAIL"}  channel gate: customer creds via executive door → refused`);
+}
 
 await hit("public / renders (homepage)", "/");
 await hit("public /login renders", "/login");

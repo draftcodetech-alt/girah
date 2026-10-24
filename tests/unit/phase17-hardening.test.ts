@@ -74,8 +74,11 @@ describe("Phase 17: registration throttle", () => {
   });
 
   it("counts every attempt before the existence check", () => {
-    const limitedAt = actions.indexOf("isRateLimited(rateKey, REGISTER_RATE)");
-    const existsAt = actions.indexOf("db.user.findFirst");
+    // Scoped to register() — login() has its own db.user.findFirst (channel
+    // gate) earlier in the file, in a different function.
+    const registerBody = actions.slice(actions.indexOf("export async function register("));
+    const limitedAt = registerBody.indexOf("isRateLimited(rateKey, REGISTER_RATE)");
+    const existsAt = registerBody.indexOf("db.user.findFirst");
     expect(limitedAt).toBeGreaterThan(-1);
     expect(existsAt).toBeGreaterThan(limitedAt);
   });

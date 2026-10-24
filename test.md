@@ -34,13 +34,16 @@ the dev terminal for emails).
       link (dev) → …`** line you'll need in §6. (Production never logs this.)
   Actual:
 
-- [ ] Sign-in accounts (seeded):
+- [ ] Sign-in accounts (seeded — exactly **3**, per the single-owner spec):
 
   | Role | Email | Password |
   |------|-------|----------|
   | Customer | `dev-customer@girah.test` | `DevCustomer123!` |
-  | Admin | `dev-admin@girah.test` | `DevAdmin123!` |
+  | Customer | `dev-customer2@girah.test` | `DevCustomer123!` |
+  | Admin (the one and only — no second admin can ever exist) | `dev-admin@girah.test` | `DevAdmin123!` |
 
+  The admin does **not** sign in at `/login` (that door refuses admin
+  credentials) — see §10 for the executive URL.
   You'll also register brand-new customers in §6 — use something like
   `test-<timestamp>@example.com`.
   Actual:
@@ -72,8 +75,8 @@ the dev terminal for emails).
   Actual:
 - [ ] Gallery collage ("A little world"), curated collections
   (JUST OFF THE HOOK / FLOWERS THAT STAY / MADE TO MAKE SOMEONE SMILE),
-  promise strip, closing CTA, Instagram section (FOLLOW GIRAH + 5 tiles →
-  real profile) all render.
+  promise strip, Instagram section (A Little World of Girah + 5 tiles →
+  real profile, @girah CTA) all render.
   Expected: 3 collection sections with 3 cards each (hidden only if a pool is empty).
   Actual:
 - [ ] Header: wordmark, nav (Home / Shop / About / Contact), search field,
@@ -373,9 +376,21 @@ the dev terminal for emails).
 
 ## 10. Admin back-office
 
-Log in as `dev-admin@girah.test` / `DevAdmin123!` → `/admin`.
+The admin door is **not linked anywhere** — type it by hand:
+`http://localhost:3000/executive/login`, then sign in as
+`dev-admin@girah.test` / `DevAdmin123!` → lands on `/admin`.
 
-- [ ] **Authz first**: signed out → login bounce; customer → bounced home.
+- [ ] **Hidden door**: `/executive/login` renders (noindex, not in sitemap,
+  not linked from any page); signed-out `/admin` bounces **there** with a
+  `callbackUrl` and returns to `/admin` after login.
+  Expected:
+  Actual:
+- [ ] **Channel gate**: `dev-admin@…` at the storefront `/login` is refused
+  ("Invalid email or password."); `dev-customer@…` at `/executive/login`
+  is refused the same way.
+  Expected:
+  Actual:
+- [ ] **Authz first**: signed out → executive-door bounce; customer → bounced home.
   Expected:
   Actual:
 - [ ] Left nav wraps on mobile (no horizontal scroll); **Newsletter** item

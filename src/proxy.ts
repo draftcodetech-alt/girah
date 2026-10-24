@@ -62,6 +62,16 @@ export default auth((req) => {
     return NextResponse.redirect(url);
   };
 
+  // Owner spec (single-owner store): /admin bounces to the EXECUTIVE login —
+  // the storefront /login can no longer produce an ADMIN session, so sending
+  // an anonymous visitor there would be a dead end.
+  const executiveLoginUrl = () => {
+    const callbackUrl = pathname + search;
+    const url = new URL("/executive/login", req.nextUrl.origin);
+    url.searchParams.set("callbackUrl", callbackUrl);
+    return NextResponse.redirect(url);
+  };
+
   // Every exit path (redirect or next) carries the security headers.
   // Owner-scoped pages (account, per-order confirmation) must never sit in
   // a shared cache: mark them private + no-store at the edge.
@@ -78,11 +88,24 @@ export default auth((req) => {
   };
 
   if (isAdminRoute) {
-    // Signed out → remember the destination so login lands back on it.
-    if (!isLoggedIn) return respond(loginUrl());
+    // Signed out → the executive door, remembering the destination so login
+    // lands back on it.
+    if (!isLoggedIn) return respond(executiveLoginUrl());
     // Signed in without the role → home, never a login redirect (that would
     // bounce a logged-in customer straight back to /admin after every login).
     if (role !== "ADMIN") return respond(NextResponse.redirect(new URL("/", req.nextUrl.origin)));
+  }
+
+  // The executive door: reachable only signed-out — a session is sent to the
+  // right place instead of seeing a form. Typing the URL IS the access step,
+  // so the page itself is never gated and never linked from anywhere.
+  if (pathname.startsWith("/executive")) {
+    if (isLoggedIn) {
+      return respond(
+        NextResponse.redirect(new URL(role === "ADMIN" ? "/admin" : "/", req.nextUrl.origin))
+      );
+    }
+    return respond(NextResponse.next());
   }
 
   if ((isAccountRoute || isWishlistRoute) && !isLoggedIn) {

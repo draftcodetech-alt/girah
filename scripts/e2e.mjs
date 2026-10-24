@@ -184,7 +184,9 @@ async function callActionFormData(path, actionId, formData, jar = null) {
 }
 
 // Classic Auth.js credentials login (route handler path — used for admin setup).
-async function apiLogin(email, password) {
+// channel: "customer" (storefront /login) or "executive" (the /executive/login
+// door — the only channel that can mint an ADMIN session; owner spec).
+async function apiLogin(email, password, channel = "customer") {
   const jar = newJar();
   const csrfRes = await safeFetch(BASE + "/api/auth/csrf", { headers: { Cookie: jarHeader(jar) } });
   applySetCookies(jar, csrfRes.headers.getSetCookie());
@@ -197,7 +199,7 @@ async function apiLogin(email, password) {
       Origin: BASE,
       Cookie: jarHeader(jar),
     },
-    body: new URLSearchParams({ email, password, csrfToken, callbackUrl: "/", redirect: "false" }).toString(),
+    body: new URLSearchParams({ email, password, csrfToken, callbackUrl: "/", redirect: "false", channel }).toString(),
   });
   applySetCookies(jar, res.headers.getSetCookie());
   return { status: res.status, location: res.headers.get("location"), jar };
@@ -444,7 +446,43 @@ for (const path of ["/", "/shop", "/login", "/register", `/product/${fixtureProd
 const anonAccount = await get("/account");
 check("anon GET /account → /login", anonAccount.status >= 300 && anonAccount.status < 400 && (anonAccount.location ?? "").includes("/login"), `${anonAccount.status} ${anonAccount.location}`);
 const anonAdmin = await get("/admin");
-check("anon GET /admin → login with callbackUrl", anonAdmin.status >= 300 && anonAdmin.status < 400 && (anonAdmin.location ?? "").includes("/login?callbackUrl=%2Fadmin"), `${anonAdmin.status} ${anonAdmin.location}`);
+check("anon GET /admin → executive login with callbackUrl", anonAdmin.status >= 300 && anonAdmin.status < 400 && (anonAdmin.location ?? "").includes("/executive/login?callbackUrl=%2Fadmin"), `${anonAdmin.status} ${anonAdmin.location}`);
+// Owner spec (single-owner store): the admin door is /executive/login —
+// typed by hand, never linked. Lock the channel gate at the HTTP level.
+const execDoor = await get("/executive/login");
+check("anon GET /executive/login → 200 (hidden door renders)", execDoor.status === 200, `${execDoor.status}`);
+check("executive login page is noindex", execDoor.html.includes("noindex"), "no noindex meta");
+const adminViaStorefront = await apiLogin(ADMIN.email, ADMIN.password);
+check(
+  "admin credentials via storefront /login → refused, no session",
+  !adminViaStorefront.jar.has("authjs.session-token") && !(adminViaStorefront.location ?? "").includes("/admin"),
+  `${adminViaStorefront.status} ${adminViaStorefront.location}`
+);
+const customerViaDoor = await apiLogin(CUSTOMER.email, CUSTOMER.password, "executive");
+check(
+  "customer credentials via executive channel → refused, no session",
+  !customerViaDoor.jar.has("authjs.session-token"),
+  `${customerViaDoor.status} ${customerViaDoor.location}`
+);
+const adminDoorSession = await apiLogin(ADMIN.email, ADMIN.password, "executive");
+check(
+  "admin credentials via executive channel → session minted",
+  adminDoorSession.jar.has("authjs.session-token") && !(adminDoorSession.location ?? "").includes("error"),
+  `${adminDoorSession.status} ${adminDoorSession.location}`
+);
+const adminAtDoor = await get("/executive/login", adminDoorSession.jar);
+check(
+  "signed-in admin at executive door → redirected to /admin",
+  [302, 307].includes(adminAtDoor.status) && (adminAtDoor.location ?? "").includes("/admin"),
+  `${adminAtDoor.status} ${adminAtDoor.location}`
+);
+const customerDoorSession = await apiLogin(CUSTOMER.email, CUSTOMER.password);
+const customerAtDoor = await get("/executive/login", customerDoorSession.jar);
+check(
+  "signed-in customer at executive door → redirected home",
+  [302, 307].includes(customerAtDoor.status) && (customerAtDoor.location ?? "").endsWith("/"),
+  `${customerAtDoor.status} ${customerAtDoor.location}`
+);
 // No guest buying: cart and checkout are session-only, same bounce as
 // /account — and the callback must round-trip back to the page they wanted.
 const anonCart = await get("/cart");
@@ -640,7 +678,7 @@ check("no 'From Rs. 0' anywhere on /shop", !shopFull.html.includes("From Rs. 0")
 // ── 11. auth regression (Phase 4 paths still alive) ─────────────────────────
 const wrongPassword = await callAction("/login", ids.login, [{ email: "e2e-nobody@example.com", password: "definitely-wrong" }]);
 check("wrong password → generic error", wrongPassword.json?.success === false && wrongPassword.json?.error === "Invalid email or password.", JSON.stringify(wrongPassword.json));
-const adminLogin = await apiLogin(ADMIN.email, ADMIN.password);
+const adminLogin = await apiLogin(ADMIN.email, ADMIN.password, "executive");
 const adminRedirected = (adminLogin.location ?? "").includes("error");
 check("admin credentials login succeeds", adminLogin.status >= 300 && adminLogin.status < 400 && !adminRedirected && adminLogin.jar.has("authjs.session-token"), `${adminLogin.status} ${adminLogin.location}`);
 const adminPage = await get("/admin", adminLogin.jar);
@@ -672,9 +710,9 @@ check("updateOrderStatus action id resolved", Boolean(ids.updateOrderStatus), "m
 {
   const anonAdmin = await get("/admin/products");
   check(
-    "anon /admin/products bounces to login with callbackUrl",
+    "anon /admin/products bounces to executive login with callbackUrl",
     [302, 307].includes(anonAdmin.status) &&
-      (anonAdmin.location ?? "").includes("/login?callbackUrl=%2Fadmin%2Fproducts"),
+      (anonAdmin.location ?? "").includes("/executive/login?callbackUrl=%2Fadmin%2Fproducts"),
     `${anonAdmin.status} ${anonAdmin.location}`
   );
 
@@ -879,9 +917,9 @@ let reviewOrder = null;
   // Admin moderation queue: render, filter, approve.
   const anonReviews = await get("/admin/reviews");
   check(
-    "anon GET /admin/reviews → login with callbackUrl",
+    "anon GET /admin/reviews → executive login with callbackUrl",
     anonReviews.status >= 300 && anonReviews.status < 400 &&
-      (anonReviews.location ?? "").includes("/login?callbackUrl=%2Fadmin%2Freviews"),
+      (anonReviews.location ?? "").includes("/executive/login?callbackUrl=%2Fadmin%2Freviews"),
     `${anonReviews.status} ${anonReviews.location}`
   );
   const reviewsPage = await get("/admin/reviews", adminLogin.jar);
@@ -1742,9 +1780,9 @@ const p13Orders = [];
 
   const anonDetail = await get(`/admin/orders/${shippedRow.id}`);
   check(
-    "anon order detail bounces to login with callbackUrl",
+    "anon order detail bounces to executive login with callbackUrl",
     [302, 307].includes(anonDetail.status) &&
-      (anonDetail.location ?? "").includes(`/login?callbackUrl=%2Fadmin%2Forders%2F${shippedRow.id}`),
+      (anonDetail.location ?? "").includes(`/executive/login?callbackUrl=%2Fadmin%2Forders%2F${shippedRow.id}`),
     `${anonDetail.status} ${anonDetail.location}`
   );
   const customerDetail = await get(`/admin/orders/${shippedRow.id}`, loginJar);
@@ -2102,7 +2140,9 @@ const p13Orders = [];
   const shopAnchors = [...htmlNoScripts.matchAll(/<a\s[^>]*>([\s\S]*?)<\/a>/g)]
     .map((m) => m[1].replace(/<[^>]+>/g, "").trim())
     .filter((text) => text === "Shop Handmade");
-  check("single hero CTA text (hero + closing only)", shopAnchors.length === 2, String(shopAnchors.length));
+  // The closing CTA ("hero + closing" pair) is removed — the hero owns the
+  // "Shop Handmade" text alone now.
+  check("single hero CTA text (closing CTA removed)", shopAnchors.length === 1, String(shopAnchors.length));
   check("old featured-trio heading is gone", !home.html.includes("FIND SOMETHING TO CHERISH"));
   check("gallery collage section ships", home.html.includes('class="girah-gallery"'));
   check(
@@ -2113,8 +2153,9 @@ const p13Orders = [];
   check("gallery images are served", (await get("/gallery/sunflower.webp")).status === 200);
   check("gallery vine cut-outs resolve", (await get("/gallery/vine1.webp")).status === 200);
   check(
-    "closing CTA eyebrow + statement ship",
-    home.html.includes("A SMALL GIRAH MOMENT") && home.html.includes("Handmade things,")
+    "closing CTA section is gone (owner request)",
+    !home.html.includes("A SMALL GIRAH MOMENT") && !home.html.includes("Handmade things,") &&
+      !home.html.includes('id="home-closing"')
   );
   check(
     "the old sage CTA band and category chips are gone",
@@ -2137,8 +2178,8 @@ const p13Orders = [];
   check(
     "Instagram showcase matches its configuration",
     process.env.NEXT_PUBLIC_INSTAGRAM_URL
-      ? home.html.includes("FOLLOW GIRAH")
-      : !home.html.includes("FOLLOW GIRAH")
+      ? home.html.includes("A Little World of Girah")
+      : !home.html.includes("A Little World of Girah")
   );
   check(
     "home ships WebSite/Organization structured data",
@@ -2457,9 +2498,9 @@ const p22Orders = [];
   const custPath = `/admin/customers/${customer.id}`;
   const anonCust = await get(custPath);
   check(
-    "anon customer detail bounces to login with callbackUrl",
+    "anon customer detail bounces to executive login with callbackUrl",
     [302, 307].includes(anonCust.status) &&
-      (anonCust.location ?? "").includes(`/login?callbackUrl=%2Fadmin%2Fcustomers%2F${customer.id}`),
+      (anonCust.location ?? "").includes(`/executive/login?callbackUrl=%2Fadmin%2Fcustomers%2F${customer.id}`),
     `${anonCust.status} ${anonCust.location}`
   );
   const custAsCustomer = await get(custPath, loginJar);

@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { getFreshAccount } from "@/lib/account-guard";
 import { isRateLimited, recordFailure, resetRateLimit } from "@/lib/rate-limit";
+import { isChannelAllowed } from "@/lib/channel-gate";
 import { authConfig } from "@/lib/auth.config";
 
 // Server-side instance: session strategy, pages, trustHost, and the shared
@@ -17,6 +18,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
+        // Owner spec (single-owner store): sign-in is channelled. The
+        // storefront (/login) can never mint an ADMIN session; the executive
+        // door (/executive/login, typed manually) is the only way in. This
+        // is the choke point — every login passes through here, including a
+        // raw POST to /api/auth/callback/credentials.
+        channel: { label: "Channel", type: "text" },
       },
       authorize: async (credentials, request) => {
         if (!credentials?.email || !credentials?.password) {
@@ -66,6 +73,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         );
 
         if (!isValidPassword) {
+          recordFailure(rateKey);
+          return null;
+        }
+
+        // Channel gate (single-owner store): admin credentials only sign in
+        // through the executive door, and only the admin may use that door.
+        // A wrong channel answers exactly like a wrong password, so this is
+        // never an account oracle — and it never resets the failure budget.
+        if (!isChannelAllowed(user.role, credentials.channel)) {
           recordFailure(rateKey);
           return null;
         }
