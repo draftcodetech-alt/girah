@@ -179,43 +179,59 @@ on the next integration run.
 
 ## 4. Browser probes (visual / interaction — not covered by the HTTP suites)
 
-Use Chrome (local testing is Chrome-only) against `npm run dev` on
-localhost:3000, accounts from `test.md` §0. Playwright module for scripting
-screenshots: `/home/syed-areeb-kareem/.npm/_npx/e41f203b7505f1fb/node_modules/playwright`
-launched with `--channel chrome` (earlier harnesses live in
-`/tmp/opencode/shotharness/`).
+Ran 2026-10-26 with Playwright (Chrome, `--channel chrome`) against the
+production build on **:3100**, after every suite was green. Harnesses:
+`/tmp/opencode/probes.mjs`, `/tmp/opencode/probes2.mjs`,
+`/tmp/opencode/probes4.mjs` (module at
+`/home/syed-areeb-kareem/.npm/_npx/e41f203b7505f1fb/node_modules/playwright`).
+**57 / 57 checks passed**, 29 screenshots in `/tmp/opencode/probes/` (`01`–`25`).
+Fixtures: a temporary DELIVERED + a PENDING order for
+`dev-customer@girah.test` (`/tmp/opencode/probe-fixture.mjs`), removed by
+`/tmp/opencode/probe-cleanup.mjs` afterwards — the dev DB is back to its
+pre-probe shape (4 users, 1 order = the owner's, 1 empty cart, 1 review,
+1 saved address, every variation of the touched product enabled).
 
-- [ ] **Admin order actions spacing** — `/admin/orders/<id>`: buttons sit in
-      one compact row with an even `gap-3`/`gap-4`; **Mark Paid** is a real
-      sage/cream button (not a bare text link); no Refund button; no double
-      gap where the refund used to be.
-- [ ] **`/admin/catalog` desktop + 1440/768/360** — Products list on top,
-      Categories below; clicking a product row expands the editor +
-      variations inline; **+ Add Product** → `/admin/products/new`; Images link
-      → `/admin/products/[id]`; left nav shows Dashboard · Catalog · Orders ·
-      Customers · Reviews · Newsletter (no Stock/Variations/Categories tabs);
-      typing `/admin/products` in the address bar lands on `/admin/catalog`.
-- [ ] **Storefront buy flow with no stock** — product page has no `In stock` /
-      `Only N left` hint and no OOS badge on cards; add to cart, raise the
-      quantity well past the old stock number (no refusal), checkout completes
-      COD; cart line shows `Unavailable` + dead steppers only when an admin
-      disables the variation.
-- [ ] **Review form star cascade** — on a product you can review: default all
-      gray; hover the 4th star → **4 gold / 1 gray**; click the 3rd → 3 gold /
-      2 gray; hover the 1st → 1 gold; leave → stays at the submitted value;
-      Tab into the radios shows the sage focus ring; arrow keys move the
-      selection **and** the fill. (Root cause fixed: the old CSS lit only the
-      selected star, so the fill never swept.)
-- [ ] **Review now** — orders list: only the `DELIVERED` row shows the button,
-      the order number is still the row's link (no nested interactive);
-      detail page: **View receipt** + per-item **Review now** →
-      `/product/<slug>#reviews-heading` scrolled to the reviews heading.
-      A `PENDING`/`CONFIRMED` order shows neither.
-- [ ] **Receipt** — `/account/orders/<id>/receipt` renders the invoice with
-      **no Print button**; `Ctrl/Cmd+P` still prints cleanly (page chrome
-      hidden by `print:hidden`).
-- [ ] **Account dashboard** — the redesigned `/account` blocks render at
-      360/768/1440 with no horizontal scroll.
+- [x] **Admin order actions spacing** — list row gap **12px** (`gap-3`),
+      detail row gap **16px** (`gap-4`), both `flex-wrap` + `items-center` with
+      no doubled space; **no Refund control** on list or detail; **Mark Paid**
+      renders as a real button (`h-10 px-4 … bg-sage text-cream`), not a text
+      link. Screenshots `13`, `14`, `22`.
+- [x] **`/admin/catalog` desktop + 1440/768/360** — Products on top,
+      Categories block below; **Edit** expands the inline product form,
+      **Variations** expands the inline variation list; **Add Product** →
+      `/admin/products/new`; **Images** → `/admin/products/<id>`; nav is
+      Dashboard · Catalog · Orders · Customers · Reviews · Newsletter (no
+      Stock/Variations/Categories tabs); typing `/admin/products` in the
+      address bar lands on `/admin/catalog` (meta-refresh observed in a real
+      browser); no horizontal overflow at 1440/768/360. Screenshots
+      `09`–`12`, `21`.
+- [x] **Storefront buy flow with no stock** — PDP carries no `In stock` /
+      `Only N left` copy; shop cards show no OOS badge; the quantity well takes
+      **31** (cap 999, no refusal); COD checkout completes to the confirmation
+      page; with a variation disabled from the admin catalog the cart line
+      shows **Unavailable** and both steppers go dead (the `isEnabled` flip was
+      asserted in the DB, then restored). Screenshots `17`–`19`, `23`–`25`.
+- [x] **Review form star cascade** — default all gray; hover 4th → **4 gold /
+      1 gray**; hover 1st → **1 gold**; click 3rd → 3 gold / 2 gray; leaving
+      keeps the submitted value; **Tab** reaches the radios with the sage focus
+      ring (box-shadow `… rgb(82,107,90) 0 0 0 4px`); **arrow keys** move the
+      selection *and* the fill. Screenshots `01`–`03`, `15`, `16`.
+- [x] **Review now** — with 4 orders in the list exactly **one** row (the
+      `DELIVERED` one) offers it, and the order number is still the row's
+      `<a href="/account/orders/<id>">`; the `PENDING` row offers nothing;
+      detail keeps **View receipt** and the per-item link goes to
+      `/product/<slug>#reviews-heading` and lands on the reviews heading with
+      the form usable. Screenshots `04`, `05`, `20`.
+- [x] **Receipt** — renders the invoice with **no Print button**, the screen
+      chrome wrapped in `print:hidden`, and under `emulateMedia("print")` that
+      chrome computes to `display: none`. Screenshots `07` (screen), `08`
+      (print media).
+- [x] **Account dashboard** — `/account` at 1440/768/360: `scrollWidth` equals
+      the viewport at every width (0px overflow). Screenshots `06-*`.
+
+Sub-checks exercised here instead of being left to `test.md`: the COD
+checkout, the disabled-variation cart line, and the legacy-route redirect in a
+real browser. What remains is the human `test.md` walk (copy, layout, feel).
 
 ---
 
@@ -245,8 +261,8 @@ only what this refactor touched.
 - [x] E2E → **345/345**
 - [x] `prisma validate` + `prisma migrate status` → valid / up to date
 - [ ] Schema probe (§3) → `User_single_admin` survives, no `stock`, no `StockAdjustment` (verified once on dev at migration time; re-run if in doubt)
-- [ ] Browser probes (§4) → all ticked
-- [ ] `test.md` manual pass → all ticked
+- [x] Browser probes (§4) → **57/57** with Playwright + 29 screenshots
+- [ ] `test.md` manual pass → all ticked (last gate before deploy)
 - [x] README test counts updated to the real totals
 - [x] Owner says **commit**
 - [ ] Owner says **deploy** (still blocked on the manual pass)
