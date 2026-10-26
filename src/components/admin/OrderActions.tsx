@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { updateOrderStatus, markCodPaymentReceived, refundOrderPayment } from "@/modules/admin";
-import { formatPrice } from "@/lib/format";
+import { updateOrderStatus, markCodPaymentReceived } from "@/modules/admin";
 
 const STATUSES = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
 
@@ -17,27 +16,27 @@ type OrderActionTarget = {
 };
 
 /**
- * Order controls shared by the list row and the detail page (Phase 13 adds
- * the standalone Refund here): status select with optimistic rollback,
- * COD-only Mark Paid, and a two-step Refund that only appears while the
- * payment is PAID. Every refusal from the server surfaces inline.
+ * Order controls shared by the list row and the detail page: status select
+ * with optimistic rollback and COD-only Mark Paid, laid out as one flex row
+ * with a real gap between every control (compact mode tightens the rhythm
+ * for list rows). Every refusal from the server surfaces inline.
+ *
+ * The standalone Refund control was removed as a spec change — refunding a
+ * captured Safepay payment still happens automatically when an order is
+ * CANCELLED (the status machine), it just isn't a button here anymore.
  */
 export function OrderActions({
   order,
   compact = false,
-  allowRefund = false,
 }: {
   order: OrderActionTarget;
   compact?: boolean;
-  /** Refund is a detail-page control only (Phase 13 plan) — the list row never offers it. */
-  allowRefund?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [status, setStatus] = useState(order.orderStatus);
   const [paymentStatus, setPaymentStatus] = useState(order.paymentStatus);
   const [error, setError] = useState<string | null>(null);
-  const [confirmingRefund, setConfirmingRefund] = useState(false);
 
   function handleStatusChange(newStatus: string) {
     const previousStatus = status;
@@ -70,70 +69,27 @@ export function OrderActions({
     });
   }
 
-  function handleRefund() {
-    setError(null);
-    setConfirmingRefund(false);
-    startTransition(async () => {
-      const result = await refundOrderPayment(order.id);
-      if (result.success) {
-        setPaymentStatus("REFUNDED");
-        router.refresh();
-      } else {
-        setError(result.error);
-      }
-    });
-  }
-
   const showMarkPaid =
     order.paymentMethod === "COD" && paymentStatus === "PENDING" && status !== "CANCELLED";
-  const showRefund = allowRefund && paymentStatus === "PAID";
 
   return (
-    <div className={compact ? "" : "flex flex-wrap items-center gap-4"}>
-      <span className="font-body text-small text-muted">
-        Payment: {paymentStatus}
-        {showMarkPaid && (
-          <button
-            type="button"
-            onClick={handleMarkPaid}
-            disabled={isPending}
-            className="ml-2 text-sage font-medium underline"
-          >
-            Mark Paid
-          </button>
-        )}
-      </span>
+    <div
+      className={
+        compact ? "flex flex-wrap items-center gap-3" : "flex flex-wrap items-center gap-4"
+      }
+    >
+      <span className="font-body text-small text-muted">Payment: {paymentStatus}</span>
 
-      {showRefund &&
-        (confirmingRefund ? (
-          <span className="inline-flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleRefund}
-              disabled={isPending}
-              className="h-10 px-4 rounded-[var(--radius-control)] font-body text-small font-semibold bg-error text-cream disabled:opacity-60"
-            >
-              {isPending ? "Refunding…" : `Yes, refund ${formatPrice(order.total)}`}
-            </button>
-            <button
-              type="button"
-              onClick={() => setConfirmingRefund(false)}
-              disabled={isPending}
-              className="font-body text-small text-muted underline"
-            >
-              Keep payment
-            </button>
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setConfirmingRefund(true)}
-            disabled={isPending}
-            className="h-10 px-4 rounded-[var(--radius-control)] font-body text-small font-medium border border-border text-error bg-cream"
-          >
-            Refund
-          </button>
-        ))}
+      {showMarkPaid && (
+        <button
+          type="button"
+          onClick={handleMarkPaid}
+          disabled={isPending}
+          className="h-10 px-4 rounded-[var(--radius-control)] font-body text-small font-semibold bg-sage text-cream disabled:opacity-60"
+        >
+          {isPending ? "Marking…" : "Mark Paid"}
+        </button>
+      )}
 
       <select
         value={status}

@@ -1,7 +1,6 @@
 import { db } from "@/lib/db";
 import type { CartIdentity } from "@/modules/cart";
 import { priceCartItemsFresh, UnavailableVariationError, InvalidQuantityError } from "./pricing";
-import { decrementStockForItems, InsufficientStockError } from "./stock";
 import { createOrderWithRetriableNumber } from "./order-number";
 import type { CheckoutInput } from "./schema";
 
@@ -26,7 +25,7 @@ export class CartAlreadyCheckedOutError extends Error {
  * same cart twice, so the cart is re-read INSIDE the transaction and emptied
  * with an exactly-counted deleteMany. Under READ COMMITTED, row locks make
  * only one of two racing transactions match the expected count; the loser
- * throws and rolls back — undoing its stock decrement too.
+ * throws and rolls back.
  */
 export async function placeOrderCore(
   data: CheckoutInput,
@@ -52,7 +51,6 @@ export async function placeOrderCore(
 
         const cartItems = freshItems.map((i) => ({ variationId: i.variationId, quantity: i.quantity }));
         const { lines, subtotal } = await priceCartItemsFresh(tx, cartItems);
-        await decrementStockForItems(tx, cartItems);
 
         const newOrder = await createOrderWithRetriableNumber(tx, (orderNumber) =>
           tx.order.create({
@@ -111,7 +109,6 @@ export async function placeOrderCore(
       };
     }
     if (
-      error instanceof InsufficientStockError ||
       error instanceof UnavailableVariationError ||
       error instanceof InvalidQuantityError
     ) {

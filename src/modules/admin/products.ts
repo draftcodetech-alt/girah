@@ -56,7 +56,7 @@ export async function createProduct(input: ProductInput): Promise<AdminActionRes
   }
 
   await db.product.create({ data: parsed.data });
-  revalidatePath("/admin/products");
+  revalidatePath("/admin/catalog");
   revalidatePath("/shop");
   return { success: true };
 }
@@ -82,7 +82,7 @@ export async function updateProduct(id: string, input: ProductInput): Promise<Ad
   }
 
   await db.product.update({ where: { id }, data: parsed.data });
-  revalidatePath("/admin/products");
+  revalidatePath("/admin/catalog");
   revalidatePath(`/product/${parsed.data.slug}`);
   revalidatePath("/shop");
   return { success: true };
@@ -111,7 +111,7 @@ export async function deleteProduct(id: string): Promise<AdminActionResult> {
     }
     throw error;
   }
-  revalidatePath("/admin/products");
+  revalidatePath("/admin/catalog");
   revalidatePath("/shop");
   return { success: true };
 }

@@ -16,7 +16,7 @@ import {
 // Every image mutation touches the admin list (thumbnail), the admin edit page,
 // the storefront product page and the shop card (first image = card cover).
 function revalidateImageTargets(productId: string, slug: string) {
-  revalidatePath("/admin/products");
+  revalidatePath("/admin/catalog");
   revalidatePath(`/admin/products/${productId}`);
   revalidatePath(`/product/${slug}`);
   revalidatePath("/shop");

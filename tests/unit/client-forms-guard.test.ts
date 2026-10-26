@@ -9,11 +9,13 @@ const CLIENT_FORMS = [
   "src/components/storefront/ProfileForm.tsx",
   "src/components/storefront/CheckoutForm.tsx",
   "src/components/admin/ProductForm.tsx",
-  "src/components/admin/VariationRow.tsx",
 ];
 
 const FEEDBACK_UI = [
   ...CLIENT_FORMS,
+  // VariationRow hosts no form any more (the stock-adjust form went with the
+  // stock concept) — its toggle refusal must still reach a live region.
+  "src/components/admin/VariationRow.tsx",
   // Phase 13: AdminOrderRow delegated its controls to the shared OrderActions.
   "src/components/admin/OrderActions.tsx",
   "src/components/admin/ToggleActiveButton.tsx",

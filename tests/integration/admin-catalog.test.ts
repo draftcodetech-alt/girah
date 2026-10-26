@@ -467,32 +467,20 @@ describe("variation create + edit", () => {
       productId: product.id,
       name: "Large Bouquet",
       price: 1800.5, // rupees → 180050 paisa
-      stock: 7,
       isEnabled: true,
     });
     expect(result.success).toBe(true);
 
     const row = await db.productVariation.findFirst({ where: { name: "Large Bouquet" } });
-    expect(row).toMatchObject({ productId: product.id, price: 180050, stock: 7, isEnabled: true });
+    expect(row).toMatchObject({ productId: product.id, price: 180050, isEnabled: true });
   });
 
-  it("validates price, stock and productId", async () => {
+  it("validates price and productId (no stock field anymore)", async () => {
     const { product } = await createTestProduct();
-    const noStock = await createVariation({
-      productId: product.id,
-      name: "Bad",
-      price: 10,
-      stock: -1,
-      isEnabled: true,
-    });
-    expect(noStock.success).toBe(false);
-    if (!noStock.success) expect(noStock.fieldErrors?.stock).toBeTruthy();
-
     const noPrice = await createVariation({
       productId: product.id,
       name: "Bad",
       price: 0,
-      stock: 1,
       isEnabled: true,
     });
     expect(noPrice.success).toBe(false);
@@ -502,7 +490,6 @@ describe("variation create + edit", () => {
       productId: "nope",
       name: "Bad",
       price: 10,
-      stock: 1,
       isEnabled: true,
     });
     expect(unknown.success).toBe(false);

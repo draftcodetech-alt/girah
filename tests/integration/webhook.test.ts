@@ -183,7 +183,7 @@ describe("processSafepayWebhook", () => {
     expect(result.status).toBe(200);
   });
 
-  it("applies refund events PAID -> REFUNDED without restocking", async () => {
+  it("applies refund events PAID -> REFUNDED without moving the order status", async () => {
     const { variation } = await createTestProduct();
     const order = await seedOrder({ paymentStatus: "PAID" });
     await db.orderItem.create({
@@ -206,9 +206,10 @@ describe("processSafepayWebhook", () => {
 
     const fresh = await refresh(order.id);
     expect(fresh.paymentStatus).toBe("REFUNDED");
-    // Refund events never credit stock — only the cancel flow does.
-    expect(await db.stockAdjustment.count()).toBe(0);
-    expect((await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } })).stock).toBe(5);
+    // A refund event is payment-only: fulfillment status stays exactly where
+    // the status machine left it (the stock concept is gone entirely).
+    expect(fresh.orderStatus).toBe(order.orderStatus);
+    expect(await db.orderItem.count()).toBe(1);
   });
 
   it("auto-refunds a late payment that lands on an already-cancelled order", async () => {

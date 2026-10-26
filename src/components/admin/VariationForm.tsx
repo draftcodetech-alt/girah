@@ -15,8 +15,7 @@ type EditableVariation = {
  * Create mode (productId given): posts rupees — `createVariation` converts to
  * paisa server-side. Edit mode reuses the existing `updateVariation` contract,
  * which takes paisa, so THIS form does the Math.round(rupees * 100) conversion.
- * Stock is intentionally absent from edit mode: adjustStock is the only path
- * that changes stock (it writes the audit row).
+ * No stock field anywhere: the stock concept was removed.
  */
 export function VariationForm({
   productId,
@@ -50,7 +49,6 @@ export function VariationForm({
             productId: productId!,
             name,
             price: rupees,
-            stock: Number(formData.get("stock")),
             isEnabled,
           })
         : await updateVariation(variation!.id, {
@@ -99,22 +97,6 @@ export function VariationForm({
         />
         {fieldErrors.price && <p role="alert" className="text-small text-error mt-1">{fieldErrors.price}</p>}
       </div>
-      {isCreate && (
-        <div>
-          <label htmlFor={`${idPrefix}-stock`} className="font-body text-small text-charcoal block mb-1">Stock</label>
-          <input
-            id={`${idPrefix}-stock`}
-            name="stock"
-            type="number"
-            min={0}
-            step={1}
-            required
-            defaultValue={0}
-            className={`${inputClass("stock")} w-24`}
-          />
-          {fieldErrors.stock && <p role="alert" className="text-small text-error mt-1">{fieldErrors.stock}</p>}
-        </div>
-      )}
       <label className="flex items-center gap-2 font-body text-small text-charcoal h-10">
         <input type="checkbox" name="isEnabled" defaultChecked={variation?.isEnabled ?? true} />
         Enabled

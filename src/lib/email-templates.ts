@@ -164,7 +164,7 @@ export function welcomeEmail(data: { to: string; name: string }): SendEmailInput
 
 export function newsletterWelcomeEmail(data: { to: string }): SendEmailInput {
   const intro =
-    "Thanks for subscribing! We'll email you here when new handmade pieces, restocks and offers drop at Girah.";
+    "Thanks for subscribing! We'll email you here when new handmade pieces and offers drop at Girah.";
   const why = "You're receiving this because you subscribed with this address on the Girah site.";
   return {
     to: data.to,

@@ -1,45 +1,16 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
-import { canCustomerCancel } from "@/modules/orders/status-ops";
 import { savedShippingSchema } from "@/modules/addresses";
 import { checkoutSchema } from "@/modules/checkout/schema";
 
-// Phase 12 (account completion): cancel eligibility is the ONE rule shared
-// by the order page (renders the button) and the action (re-validates), so
-// its matrix lives here as a pure unit. Plus schema composition and the
-// source-level shell wiring (nav, prefill, receipt, two-step confirms).
+// Phase 12 (account completion): schema composition and the source-level
+// shell wiring (nav, prefill, receipt). Customer cancel / buy-again / print
+// were removed as spec changes (see delaytest.md) — this file now locks
+// that they STAY removed, plus the "Review now" plumbing on delivered orders.
 
 const ROOT = new URL("../..", import.meta.url).pathname;
 const readSource = (relativePath: string) => readFileSync(join(ROOT, relativePath), "utf8");
-
-const eligibility = (orderStatus: string, paymentStatus: string) =>
-  canCustomerCancel({ orderStatus, paymentStatus });
-
-describe("Phase 12: canCustomerCancel (unpaid-only scope)", () => {
-  it("allows PENDING orders with a pending payment", () => {
-    expect(eligibility("PENDING", "PENDING")).toBe(true);
-  });
-
-  it("allows CONFIRMED orders with a pending payment", () => {
-    expect(eligibility("CONFIRMED", "PENDING")).toBe(true);
-  });
-
-  it.each(["PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"])(
-    "refuses %s orders even when unpaid (already prepared / terminal)",
-    (orderStatus) => {
-      expect(eligibility(orderStatus, "PENDING")).toBe(false);
-    }
-  );
-
-  it.each(["PAID", "REFUNDED", "FAILED"])(
-    "refuses %s orders — the customer path is refund-free",
-    (paymentStatus) => {
-      expect(eligibility("PENDING", paymentStatus)).toBe(false);
-      expect(eligibility("CONFIRMED", paymentStatus)).toBe(false);
-    }
-  );
-});
 
 describe("Phase 12: saved shipping schema", () => {
   const valid = {
@@ -162,42 +133,53 @@ describe("Phase 12: checkout prefill + save", () => {
   });
 });
 
-describe("Phase 12: cancel / reorder / receipt wiring", () => {
+describe("order actions removed; receipt + Review now kept", () => {
   const detail = readSource("src/app/account/orders/[id]/page.tsx");
+  const list = readSource("src/app/account/orders/page.tsx");
 
-  it("the order page gates Cancel behind the shared eligibility rule", () => {
-    expect(detail).toMatch(/canCustomerCancel\(order\)/);
-    expect(detail).toMatch(/<CancelOrderButton/);
+  it("the order page offers only View receipt (no cancel, no buy again)", () => {
+    expect(detail).toMatch(/\/receipt/);
+    expect(detail).not.toMatch(/CancelOrderButton|canCustomerCancel|ReorderButton/);
   });
 
-  it("cancel is a two-step confirm surfaced inline with role=alert", () => {
-    const button = readSource("src/components/storefront/CancelOrderButton.tsx");
-    expect(button).toMatch(/^"use client"/);
-    expect(button).toMatch(/setConfirming\(true\)/);
-    expect(button).toMatch(/Yes, cancel order #/);
-    expect(button).toMatch(/role="alert"/);
+  it("the removed components and actions are really gone", () => {
+    const actions = readSource("src/modules/orders/actions.ts");
+    expect(actions).not.toMatch(/cancelMyOrder|reorderOrder|addToCart/);
+    for (const gone of [
+      "src/components/storefront/CancelOrderButton.tsx",
+      "src/components/storefront/ReorderButton.tsx",
+      "src/components/storefront/PrintButton.tsx",
+      "src/modules/checkout/stock.ts",
+      "src/modules/admin/stock.ts",
+      "src/modules/admin/variation-ops.ts",
+    ]) {
+      expect(existsSync(join(ROOT, gone)), `${gone} should be deleted`).toBe(false);
+    }
   });
 
-  it("reorder stays on the page and reports via role=status / role=alert", () => {
-    const button = readSource("src/components/storefront/ReorderButton.tsx");
-    expect(button).toMatch(/^"use client"/);
-    expect(button).toMatch(/role="status"/);
-    expect(button).toMatch(/role="alert"/);
-    expect(button).not.toMatch(/router\.push/);
-    expect(detail).toMatch(/<ReorderButton/);
-  });
-
-  it("the receipt page hides its chrome when printing", () => {
+  it("the receipt keeps its printable invoice and print:hidden chrome", () => {
     const receipt = readSource("src/app/account/orders/[id]/receipt/page.tsx");
     expect(receipt).toMatch(/getMyOrderForReceipt/);
     expect(receipt).toMatch(/print:hidden/);
-    expect(receipt).toMatch(/<PrintButton/);
+    expect(receipt).not.toMatch(/<PrintButton/);
     expect(detail).toMatch(/\/receipt/);
   });
 
-  it("reorder replays through the one addToCart implementation", () => {
-    const actions = readSource("src/modules/orders/actions.ts");
-    expect(actions).toMatch(/import \{ addToCart \} from "@\/modules\/cart"/);
-    expect(actions).toMatch(/addToCart\(item\.variationId, item\.quantity\)/);
+  it("a delivered order offers Review now — on the list row and per line item", () => {
+    expect(list).toContain('order.orderStatus === "DELIVERED"');
+    expect(list).toContain("Review now");
+    // The list row is a container now: the order number is the link, so the
+    // Review-now control is never nested inside another interactive element.
+    expect(list).not.toMatch(/<Link\s+key=\{order\.id\}[\s\S]*?Review now/);
+    expect(detail).toContain('order.orderStatus === "DELIVERED"');
+    expect(detail).toContain("Review now");
+    expect(detail).toContain("#reviews-heading");
+    expect(detail).toContain("productSlug");
+  });
+
+  it("getMyOrderById joins the product slug for those links", () => {
+    const queries = readSource("src/modules/orders/queries.ts");
+    expect(queries).toMatch(/variation:\s*\{\s*select:\s*\{\s*product:\s*\{\s*select:\s*\{\s*slug:/);
+    expect(queries).toContain("productSlug: i.variation.product.slug");
   });
 });

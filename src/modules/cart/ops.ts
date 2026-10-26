@@ -42,7 +42,7 @@ export async function updateCartItemQuantityCore(
   try {
     const item = await db.cartItem.findUnique({
       where: { id: cartItemId },
-      include: { cart: true, variation: true },
+      include: { cart: true },
     });
 
     // Phase 4 L9: a missing item and someone else's item used to return
@@ -56,17 +56,9 @@ export async function updateCartItemQuantityCore(
     if (quantity < 1) {
       await db.cartItem.delete({ where: { id: cartItemId } });
     } else {
-      const cappedQuantity = Math.min(quantity, item.variation.stock);
-      // Phase 5 qty-0: stock has dropped to 0 since this line was added —
-      // capping would compute 0 and trip the DB CHECK (quantity >= 1),
-      // surfacing a generic failure. Refuse with an actionable message
-      // instead; the user removes the line via Remove (qty 0 → delete above).
-      if (cappedQuantity < 1) {
-        return {
-          success: false,
-          error: "This item is out of stock — remove it from your cart or try again later.",
-        };
-      }
+      // No stock concept — the only ceiling is the crafted-payload guard
+      // (MAX_QUANTITY) that every other quantity path enforces.
+      const cappedQuantity = Math.min(quantity, MAX_QUANTITY);
       await db.cartItem.update({ where: { id: cartItemId }, data: { quantity: cappedQuantity } });
     }
 

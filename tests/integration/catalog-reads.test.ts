@@ -63,7 +63,6 @@ describe("getProductBySlug", () => {
     expect(detail!.variations.map((v) => v.id)).toContain(variation.id);
     expect(detail!.variations[0]).toMatchObject({
       price: expect.any(Number),
-      stock: expect.any(Number),
       isEnabled: true,
     });
   });
@@ -71,7 +70,7 @@ describe("getProductBySlug", () => {
   it("includes each variation's own images in sortOrder (empty = product fallback)", async () => {
     const { product, variation } = await createTestProduct();
     const other = await db.productVariation.create({
-      data: { productId: product.id, name: "No Photos", price: 200_000, stock: 3 },
+      data: { productId: product.id, name: "No Photos", price: 200_000 },
     });
     await db.productVariationImage.createMany({
       data: [

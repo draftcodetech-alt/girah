@@ -4,7 +4,6 @@ import {
   variationSchema,
   createVariationSchema,
   categorySchema,
-  stockAdjustmentSchema,
 } from "@/modules/admin/schema";
 import {
   changePasswordSchema,
@@ -91,29 +90,26 @@ describe("variationSchema", () => {
 });
 
 describe("createVariationSchema", () => {
-  it("accepts rupees >= 0.01 and non-negative integer stock", () => {
+  // Stock was removed from the schema as a spec change — no field, no
+  // message, nothing to coerce.
+  it("accepts rupees >= 0.01 with an isEnabled flag (no stock field)", () => {
     const parsed = createVariationSchema.safeParse({
       productId: "p1",
       name: "Small",
       price: "8.5",
-      stock: "2",
       isEnabled: true,
     });
     expect(parsed.success).toBe(true);
-    if (parsed.success) {
-      expect(parsed.data.price).toBe(8.5);
-      expect(parsed.data.stock).toBe(2);
-    }
+    if (parsed.success) expect(parsed.data.price).toBe(8.5);
+    expect("stock" in (parsed.success ? parsed.data : {})).toBe(false);
   });
 
-  it("rejects a sub-rupee price and negative/fractional stock", () => {
+  it("rejects a sub-rupee price, a missing product and a non-boolean flag", () => {
     expect(
-      firstError(createVariationSchema, { productId: "p", name: "n", price: 0.001, stock: 0, isEnabled: true })?.message
+      firstError(createVariationSchema, { productId: "p", name: "n", price: 0.001, isEnabled: true })?.message
     ).toBe("Price must be greater than 0");
-    expect(
-      firstError(createVariationSchema, { productId: "p", name: "n", price: 1, stock: -1, isEnabled: true })?.message
-    ).toBe("Stock cannot be negative");
-    expect(createVariationSchema.safeParse({ productId: "p", name: "n", price: 1, stock: 2.5, isEnabled: true }).success).toBe(false);
+    expect(createVariationSchema.safeParse({ name: "n", price: 1, isEnabled: true }).success).toBe(false);
+    expect(createVariationSchema.safeParse({ productId: "p", name: "n", price: 1, isEnabled: "yes" }).success).toBe(false);
   });
 });
 
@@ -133,24 +129,6 @@ describe("categorySchema", () => {
     expect(categorySchema.safeParse({ name: "n" }).success).toBe(false);
     expect(firstError(categorySchema, { name: "n", slug: "N o P e" })?.message).toBe(
       "Slug must be lowercase letters, numbers, and hyphens only"
-    );
-  });
-});
-
-describe("stockAdjustmentSchema", () => {
-  it("coerces the adjustment to an integer and trims the reason", () => {
-    const parsed = stockAdjustmentSchema.safeParse({ adjustment: "-3", reason: "  restock  " });
-    expect(parsed.success).toBe(true);
-    if (parsed.success) {
-      expect(parsed.data.adjustment).toBe(-3);
-      expect(parsed.data.reason).toBe("restock");
-    }
-  });
-
-  it("rejects a fractional adjustment and an empty reason", () => {
-    expect(stockAdjustmentSchema.safeParse({ adjustment: 1.5, reason: "x" }).success).toBe(false);
-    expect(firstError(stockAdjustmentSchema, { adjustment: 1, reason: "   " })?.message).toBe(
-      "A reason is required"
     );
   });
 });

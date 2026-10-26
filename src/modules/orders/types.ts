@@ -22,5 +22,8 @@ export type OrderView = {
     unitPrice: number;
     quantity: number;
     subtotal: number;
+    /** Live product slug for the DELIVERED-only "Review now" deep link
+     *  (present on getMyOrderById; other views don't join it). */
+    productSlug?: string;
   }[];
 };

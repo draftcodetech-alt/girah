@@ -40,7 +40,7 @@ export function isOrderNumberCollision(error: unknown): boolean {
  * PostgreSQL poisons the entire transaction after a constraint violation
  * ("current transaction is aborted…"), so each attempt is wrapped in a
  * SAVEPOINT: on collision we ROLLBACK TO it and retry with a fresh number,
- * keeping whatever the transaction already did (pricing, stock decrement).
+ * keeping whatever the transaction already did (pricing).
  */
 export async function createOrderWithRetriableNumber<T>(
   tx: Prisma.TransactionClient,

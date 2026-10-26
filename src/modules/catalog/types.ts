@@ -4,7 +4,6 @@ export type ProductListItem = {
   slug: string;
   mainImageUrl: string | null;
   startingPrice: number; // lowest variation price, in paisa
-  isOutOfStock: boolean; // true only when EVERY variation is unavailable
   // Phase 10: approved-review rating (null/0 when nothing is approved yet).
   ratingAverage: number | null;
   ratingCount: number;
@@ -22,7 +21,6 @@ export type ProductDetail = {
     id: string;
     name: string;
     price: number;
-    stock: number;
     isEnabled: boolean;
     images: { url: string }[];
   }[];
@@ -36,6 +34,5 @@ export type ProductFilters = {
   search?: string;
   minPrice?: number;
   maxPrice?: number;
-  inStockOnly?: boolean;
   sort?: SortOption;
 };

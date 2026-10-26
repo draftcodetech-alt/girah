@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDashboardMetrics, LOW_STOCK_THRESHOLD } from "@/modules/admin";
+import { getDashboardMetrics } from "@/modules/admin";
 import { formatPrice, formatDate } from "@/lib/format";
 
 // Phase 13: real dashboard (was a 3-line stub). Everything renders on the
@@ -22,7 +22,7 @@ export default async function AdminDashboard() {
       <p className="font-body text-small text-muted mb-8">Store at a glance — updated on every page load.</p>
 
       {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
         <KpiCard label="Revenue · 30d" value={formatPrice(metrics.revenue30)} hint="Paid orders only" />
         <KpiCard label="Orders · 30d" value={String(metrics.orders30)} hint="All statuses" />
         <KpiCard label="New customers · 30d" value={String(metrics.customers30)} hint="Accounts created" />
@@ -31,12 +31,6 @@ export default async function AdminDashboard() {
           value={String(metrics.pendingReviews)}
           hint="Awaiting moderation"
           href="/admin/reviews?status=PENDING"
-        />
-        <KpiCard
-          label="Low stock"
-          value={String(metrics.lowStockCount)}
-          hint={`Enabled, ≤ ${LOW_STOCK_THRESHOLD} left`}
-          href="/admin/stock"
         />
       </div>
 
@@ -86,58 +80,26 @@ export default async function AdminDashboard() {
         )}
       </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        {/* Orders by status */}
-        <section className="bg-sage-light rounded-[var(--radius-surface)] p-6">
-          <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-charcoal mb-4">
-            Orders by status
-          </h2>
-          <div className="space-y-3">
-            {metrics.ordersByStatus.map((row) => (
-              <div key={row.status} className="flex items-center gap-3">
-                <span className="w-24 shrink-0 font-body text-small text-charcoal">{row.status}</span>
-                <span className="flex-1 h-3 rounded bg-cream overflow-hidden">
-                  <span
-                    className="block h-full bg-sage rounded"
-                    style={{ width: `${(row.count / statusMax) * 100}%` }}
-                  />
-                </span>
-                <span className="w-8 text-right font-body text-small text-charcoal">{row.count}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+      <section className="bg-sage-light rounded-[var(--radius-surface)] p-6 mt-6">
+        <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-charcoal mb-4">
+          Orders by status
+        </h2>
+        <div className="space-y-3">
+          {metrics.ordersByStatus.map((row) => (
+            <div key={row.status} className="flex items-center gap-3">
+              <span className="w-24 shrink-0 font-body text-small text-charcoal">{row.status}</span>
+              <span className="flex-1 h-3 rounded bg-cream overflow-hidden">
+                <span
+                  className="block h-full bg-sage rounded"
+                  style={{ width: `${(row.count / statusMax) * 100}%` }}
+                />
+              </span>
+              <span className="w-8 text-right font-body text-small text-charcoal">{row.count}</span>
+            </div>
+          ))}
+        </div>
+      </section>
 
-        {/* Low stock */}
-        <section className="bg-sage-light rounded-[var(--radius-surface)] p-6">
-          <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-charcoal mb-4">
-            Low stock
-          </h2>
-          {metrics.lowStockList.length === 0 ? (
-            <p className="font-body text-body text-muted">Everything is above {LOW_STOCK_THRESHOLD} in stock.</p>
-          ) : (
-            <ul className="space-y-2">
-              {metrics.lowStockList.map((row) => (
-                <li key={row.id} className="flex items-center justify-between gap-3">
-                  <Link
-                    href={`/admin/products/${row.product.id}`}
-                    className="font-body text-small text-charcoal hover:text-sage underline-offset-2 hover:underline"
-                  >
-                    {row.product.name} — {row.name}
-                  </Link>
-                  <span
-                    className={`font-body text-small font-semibold ${
-                      row.stock === 0 ? "text-error" : "text-warning"
-                    }`}
-                  >
-                    {row.stock} left
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
 
       {/* Recent orders */}
       <section className="bg-sage-light rounded-[var(--radius-surface)] p-6 mt-6">

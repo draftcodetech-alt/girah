@@ -7,15 +7,14 @@ type CartLineControlsProps = {
   cartItemId: string;
   productName: string;
   quantity: number;
-  availableStock: number;
   isEnabled: boolean;
 };
 
 type ControlState = string | null;
 
 // Phase 8: these three forms used to be inline server-component closures whose
-// `CartActionResult` was awaited and discarded — a refused change (stock moved
-// while the page was open, line disabled) left the number unchanged with no
+// `CartActionResult` was awaited and discarded — a refused change (line
+// disabled, server refusal) left the number unchanged with no
 // message. One form action now surfaces the refusal as a `role="alert"` line.
 // The forms carry only hidden inputs, so React 19's auto-reset on submit is a
 // no-op (the Phase 6 concern applies to forms with user-entered values).
@@ -23,7 +22,6 @@ export function CartLineControls({
   cartItemId,
   productName,
   quantity,
-  availableStock,
   isEnabled,
 }: CartLineControlsProps) {
   const [error, formAction] = useActionState<ControlState, FormData>(
@@ -53,7 +51,7 @@ export function CartLineControls({
             <button
               type="submit"
               aria-label="Decrease quantity"
-              disabled={quantity <= 1 || !isEnabled || availableStock <= 0}
+              disabled={quantity <= 1 || !isEnabled}
               className="flex-1 h-12 w-12 disabled:text-placeholder text-charcoal"
             >
               −
@@ -66,7 +64,7 @@ export function CartLineControls({
             <button
               type="submit"
               aria-label="Increase quantity"
-              disabled={quantity >= availableStock || !isEnabled || availableStock <= 0}
+              disabled={!isEnabled}
               className="flex-1 h-12 w-12 disabled:text-placeholder text-charcoal"
             >
               +

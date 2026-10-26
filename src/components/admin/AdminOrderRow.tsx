@@ -16,7 +16,7 @@ type Order = {
 
 /**
  * List row: identity + link into the Phase 13 detail page; ALL controls
- * (status select, Mark Paid, Refund) live in the shared OrderActions so
+ * (status select, Mark Paid) live in the shared OrderActions so
  * the list and the detail page can never drift apart.
  */
 export function AdminOrderRow({ order }: { order: Order }) {

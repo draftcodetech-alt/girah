@@ -19,7 +19,6 @@ type ShopPageProps = {
     sort?: string;
     minPrice?: string;
     maxPrice?: string;
-    inStockOnly?: string;
     page?: string;
   }>;
 };
@@ -39,7 +38,6 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
     sort,
     minPrice: params.minPrice ? Number(params.minPrice) * 100 : undefined,
     maxPrice: params.maxPrice ? Number(params.maxPrice) * 100 : undefined,
-    inStockOnly: params.inStockOnly === "true",
   });
   const { items: products, page: currentPage, totalPages } = paginate(
     allProducts,
@@ -84,10 +82,9 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
           <form method="GET" action="/shop">
             {params.category && <input type="hidden" name="category" value={params.category} />}
             {params.sort && <input type="hidden" name="sort" value={params.sort} />}
-            {/* Phase 5: searching must not wipe the price/stock filters either */}
+            {/* Phase 5: searching must not wipe the price filters either */}
             {params.minPrice && <input type="hidden" name="minPrice" value={params.minPrice} />}
             {params.maxPrice && <input type="hidden" name="maxPrice" value={params.maxPrice} />}
-            {params.inStockOnly && <input type="hidden" name="inStockOnly" value={params.inStockOnly} />}
             <input
               type="search"
               name="search"
@@ -118,7 +115,6 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                 if (params.sort && !drop.includes("sort")) p.set("sort", params.sort);
                 if (params.minPrice && !drop.includes("minPrice")) p.set("minPrice", params.minPrice);
                 if (params.maxPrice && !drop.includes("maxPrice")) p.set("maxPrice", params.maxPrice);
-                if (params.inStockOnly && !drop.includes("inStockOnly")) p.set("inStockOnly", params.inStockOnly);
                 const qs = p.toString();
                 return `/shop${qs ? `?${qs}` : ""}`;
               };
@@ -131,7 +127,6 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
                 chips.push({ label: `Rs. ${params.minPrice}+`, href: without(["minPrice"]) });
               if (params.maxPrice && Number.isFinite(Number(params.maxPrice)))
                 chips.push({ label: `Up to Rs. ${params.maxPrice}`, href: without(["maxPrice"]) });
-              if (params.inStockOnly === "true") chips.push({ label: "In stock", href: without(["inStockOnly"]) });
               return chips.map((chip) => (
                 <Link
                   key={chip.label}

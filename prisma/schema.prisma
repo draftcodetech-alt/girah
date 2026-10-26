@@ -54,11 +54,9 @@ model ProductVariation {
   productId        String
   name             String // e.g. "Medium Bouquet"
   price            Int // stored in smallest currency unit (paisa) — never a float, per Reliability NFR
-  stock            Int                       @default(0)
-  isEnabled        Boolean                   @default(true) // admin can disable independent of stock count
+  isEnabled        Boolean                   @default(true) // admin can disable without deleting the variation
   cartItems        CartItem[]
   orderItems       OrderItem[]
-  stockAdjustments StockAdjustment[]
   images           ProductVariationImage[]
 
   @@index([productId])
@@ -117,7 +115,6 @@ model User {
   cart             Cart?
   orders           Order[]
   reviews          Review[]
-  stockAdjustments StockAdjustment[]
   wishlist         WishlistItem[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
@@ -281,24 +278,6 @@ model Review {
   @@unique([productId, userId])
   @@index([productId])
   @@index([status])
-}
-
-model StockAdjustment {
-  id            String           @id @default(cuid())
-  variation     ProductVariation @relation(fields: [variationId], references: [id], onDelete: Cascade)
-  variationId   String
-  previousStock Int
-  adjustment    Int
-  newStock      Int
-  reason        String
-  // Phase 2: WHO made this adjustment (admin manual adjust or cancel-restock).
-  // NULL only for legacy rows created before this column existed.
-  adminId       String?
-  admin         User?            @relation(fields: [adminId], references: [id], onDelete: SetNull)
-  createdAt     DateTime         @default(now())
-
-  @@index([variationId])
-  @@index([adminId])
 }
 
 // ────────────────────────────────

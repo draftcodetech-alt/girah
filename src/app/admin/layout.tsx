@@ -4,10 +4,7 @@ import { redirect } from "next/navigation";
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Dashboard" },
-  { href: "/admin/products", label: "Products" },
-  { href: "/admin/categories", label: "Categories" },
-  { href: "/admin/variations", label: "Variations" },
-  { href: "/admin/stock", label: "Stock" },
+  { href: "/admin/catalog", label: "Catalog" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/customers", label: "Customers" },
   { href: "/admin/reviews", label: "Reviews" },

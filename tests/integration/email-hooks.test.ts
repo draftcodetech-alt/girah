@@ -137,31 +137,30 @@ describe("webhook payment-result emails", () => {
 });
 
 describe("order status emails", () => {
-  const adminId = null;
 
   it("stays quiet through CONFIRMED and PROCESSING", async () => {
     const order = await seedOrder({ paymentMethod: "COD" });
-    await updateOrderStatusCore(order.id, { orderStatus: "CONFIRMED" }, adminId);
-    await updateOrderStatusCore(order.id, { orderStatus: "PROCESSING" }, adminId);
+    await updateOrderStatusCore(order.id, { orderStatus: "CONFIRMED" });
+    await updateOrderStatusCore(order.id, { orderStatus: "PROCESSING" });
     expect(send).not.toHaveBeenCalled();
   });
 
   it("emails SHIPPED and DELIVERED through the state machine", async () => {
     const order = await seedOrder({ paymentMethod: "COD" });
-    await updateOrderStatusCore(order.id, { orderStatus: "CONFIRMED" }, adminId);
-    await updateOrderStatusCore(order.id, { orderStatus: "PROCESSING" }, adminId);
-    await updateOrderStatusCore(order.id, { orderStatus: "SHIPPED" }, adminId);
+    await updateOrderStatusCore(order.id, { orderStatus: "CONFIRMED" });
+    await updateOrderStatusCore(order.id, { orderStatus: "PROCESSING" });
+    await updateOrderStatusCore(order.id, { orderStatus: "SHIPPED" });
     expect(send).toHaveBeenCalledTimes(1);
     expect(lastSubject()).toBe(`Your order has shipped — #${order.orderNumber}`);
 
-    await updateOrderStatusCore(order.id, { orderStatus: "DELIVERED" }, adminId);
+    await updateOrderStatusCore(order.id, { orderStatus: "DELIVERED" });
     expect(send).toHaveBeenCalledTimes(2);
     expect(lastSubject()).toBe(`Order delivered — #${order.orderNumber}`);
   });
 
   it("cancelling an unpaid order promises no refund that was not issued", async () => {
     const order = await seedOrder({ paymentMethod: "COD" });
-    await updateOrderStatusCore(order.id, { orderStatus: "CANCELLED" }, adminId);
+    await updateOrderStatusCore(order.id, { orderStatus: "CANCELLED" });
     expect(send).toHaveBeenCalledTimes(1);
     expect(lastSubject()).toBe(`Order cancelled — #${order.orderNumber}`);
     expect(send.mock.calls[0][0].html).not.toContain("payment has been refunded");
@@ -170,7 +169,7 @@ describe("order status emails", () => {
 
   it("cancelling a paid Safepay order says refunded (refund issued first)", async () => {
     const order = await seedOrder({ paymentStatus: "PAID", safepayTracker: "track_email_cancel" });
-    await updateOrderStatusCore(order.id, { orderStatus: "CANCELLED" }, adminId);
+    await updateOrderStatusCore(order.id, { orderStatus: "CANCELLED" });
     expect(vi.mocked(refundSafepayPayment)).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0].html).toContain("payment has been refunded");
@@ -181,11 +180,11 @@ describe("order status emails", () => {
 
   it("a duplicate same-status click never mails again", async () => {
     const order = await seedOrder({ paymentMethod: "COD" });
-    await updateOrderStatusCore(order.id, { orderStatus: "CONFIRMED" }, adminId);
-    await updateOrderStatusCore(order.id, { orderStatus: "PROCESSING" }, adminId);
-    await updateOrderStatusCore(order.id, { orderStatus: "SHIPPED" }, adminId);
+    await updateOrderStatusCore(order.id, { orderStatus: "CONFIRMED" });
+    await updateOrderStatusCore(order.id, { orderStatus: "PROCESSING" });
+    await updateOrderStatusCore(order.id, { orderStatus: "SHIPPED" });
     expect(send).toHaveBeenCalledTimes(1);
-    const again = await updateOrderStatusCore(order.id, { orderStatus: "SHIPPED" }, adminId);
+    const again = await updateOrderStatusCore(order.id, { orderStatus: "SHIPPED" });
     expect(again.success).toBe(true);
     expect(send).toHaveBeenCalledTimes(1);
   });

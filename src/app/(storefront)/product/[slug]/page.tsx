@@ -60,7 +60,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   // CTR for niche stores). Price is integer paisa — divided to PKR here.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
   const productUrl = `${appUrl}/product/${product.slug}`;
-  const purchasable = product.variations.filter((v) => v.isEnabled && v.stock > 0);
+  // No stock concept: purchasability = at least one ENABLED variation.
   const priced = product.variations.filter((v) => v.isEnabled);
   const productJsonLd = {
     "@context": "https://schema.org",
@@ -85,7 +85,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         priceCurrency: "PKR",
         price: (Math.min(...priced.map((v) => v.price)) / 100).toFixed(0),
         availability:
-          purchasable.length > 0
+          priced.length > 0
             ? "https://schema.org/InStock"
             : "https://schema.org/OutOfStock",
       },

@@ -4,8 +4,8 @@ import { addToCart, removeCartItem, updateCartItemQuantity } from "@/modules/car
 import { resetDb, createTestProduct, createTestUser } from "../setup/helpers";
 
 // Phase 1 integration: the cart action WRAPPERS (not the cores) — the layer
-// that owns request context: session resolution, the stock re-check that runs
-// on every add regardless of what the client claims it sent, and (since the
+// that owns request context: session resolution, the availability re-check
+// that runs on every add regardless of what the client claims it sent, and (since the
 // owner's no-guest-buying change) the refusal that keeps carts account-only.
 // The guest-cookie identity still exists for the merge path on login; it is
 // simply no longer reachable from addToCart.
@@ -68,19 +68,19 @@ beforeEach(async () => {
   authMock.mockReset().mockResolvedValue(null);
 });
 
-describe("addToCart — server-side stock rules", () => {
-  it("caps the quantity at the live stock, never above", async () => {
-    const { variation } = await createTestProduct(); // stock 5
+describe("addToCart — server-side availability rules", () => {
+  it("merges quantities with no stock ceiling (only the 999 payload cap)", async () => {
+    const { variation } = await createTestProduct();
     const user = await signInAs("cap@girah.test");
 
     expect(await addToCart(variation.id, 3)).toEqual({ success: true });
     let line = await lineForUser(user.id, variation.id);
     expect(line?.quantity).toBe(3);
 
-    // 3 + 4 = 7 requested against stock 5 → clamped to 5, never 7.
+    // 3 + 4 = 7 — the old stock clamp (min with 5) is gone by spec.
     expect(await addToCart(variation.id, 4)).toEqual({ success: true });
     line = await lineForUser(user.id, variation.id);
-    expect(line?.quantity).toBe(5);
+    expect(line?.quantity).toBe(7);
     expect(state.revalidated.length).toBe(2);
   });
 
@@ -96,15 +96,10 @@ describe("addToCart — server-side stock rules", () => {
     expect(await db.cart.count()).toBe(0);
   });
 
-  it("refuses a variation with zero stock and one that does not exist", async () => {
-    const { variation } = await createTestProduct();
-    await db.productVariation.update({ where: { id: variation.id }, data: { stock: 0 } });
+  it("refuses a variation that does not exist", async () => {
+    await createTestProduct(); // a real catalogue exists; the id below is fabricated
     await signInAs("out@girah.test");
 
-    expect(await addToCart(variation.id, 1)).toEqual({
-      success: false,
-      error: "This item is no longer available.",
-    });
     expect(await addToCart("variation-that-never-existed", 1)).toEqual({
       success: false,
       error: "This item is no longer available.",
@@ -153,18 +148,6 @@ describe("no guest buying", () => {
     });
     // The stale cookie is left alone but nothing lands in a guest cart.
     expect(await db.cart.count()).toBe(0);
-    expect(await db.cartItem.count()).toBe(0);
-  });
-
-  it("refuses a stock-0 variation as signed-in, not as a guest", async () => {
-    const { variation } = await createTestProduct();
-    await db.productVariation.update({ where: { id: variation.id }, data: { stock: 0 } });
-    await signInAs("out-2@girah.test");
-
-    expect(await addToCart(variation.id, 1)).toEqual({
-      success: false,
-      error: "This item is no longer available.",
-    });
     expect(await db.cartItem.count()).toBe(0);
   });
 });

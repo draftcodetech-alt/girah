@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/require-admin";
-import { buildDailyRevenueSeries, CHART_DAYS, KPI_WINDOW_DAYS, LOW_STOCK_THRESHOLD } from "./dashboard-ops";
+import { buildDailyRevenueSeries, CHART_DAYS, KPI_WINDOW_DAYS } from "./dashboard-ops";
 import type { DashboardMetrics } from "./types";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -31,10 +31,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     orders30,
     customers30,
     pendingReviews,
-    lowStockCount,
     chartOrders,
     statusGroups,
-    lowStockList,
     recentOrders,
   ] = await Promise.all([
     db.order.aggregate({
@@ -44,18 +42,11 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     db.order.count({ where: { createdAt: { gte: kpiSince } } }),
     db.user.count({ where: { createdAt: { gte: kpiSince } } }),
     db.review.count({ where: { status: "PENDING" } }),
-    db.productVariation.count({ where: { isEnabled: true, stock: { lte: LOW_STOCK_THRESHOLD } } }),
     db.order.findMany({
       where: { createdAt: { gte: chartSince } },
       select: { createdAt: true, total: true, paymentStatus: true },
     }),
     db.order.groupBy({ by: ["orderStatus"], _count: { _all: true } }),
-    db.productVariation.findMany({
-      where: { isEnabled: true, stock: { lte: LOW_STOCK_THRESHOLD } },
-      orderBy: { stock: "asc" },
-      take: 8,
-      include: { product: { select: { id: true, name: true, slug: true } } },
-    }),
     db.order.findMany({
       orderBy: { createdAt: "desc" },
       take: 8,
@@ -79,15 +70,8 @@ export async function getDashboardMetrics(): Promise<DashboardMetrics> {
     orders30,
     customers30,
     pendingReviews,
-    lowStockCount,
     series: buildDailyRevenueSeries(chartOrders, now),
     ordersByStatus: ALL_ORDER_STATUSES.map((status) => ({ status, count: countsByStatus.get(status) ?? 0 })),
-    lowStockList: lowStockList.map((row) => ({
-      id: row.id,
-      name: row.name,
-      stock: row.stock,
-      product: row.product,
-    })),
     recentOrders,
   };
 }

@@ -5,7 +5,7 @@ type CategoryTabsProps = {
   activeSlug?: string;
   // Phase 5 filter preservation: the FULL current query values — every tab
   // href clones them and swaps only `category`, so switching tabs no longer
-  // silently drops price/stock/search/sort filters (previously only `sort`
+  // silently drops price/search/sort filters (previously only `sort`
   // survived).
   searchParams?: Partial<Record<string, string>>;
 };

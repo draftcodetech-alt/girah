@@ -41,20 +41,35 @@ export default async function OrdersPage() {
       <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase mb-8">Orders</h1>
       <div className="divide-y divide-border">
         {orders.map((order) => (
-          <Link
+          <div
             key={order.id}
-            href={`/account/orders/${order.id}`}
-            className="flex items-center justify-between py-4 hover:bg-sage-light/30 -mx-4 px-4"
+            className="flex flex-wrap items-center justify-between gap-3 py-4 -mx-4 px-4 hover:bg-sage-light/30"
           >
             <div>
-              <p className="font-body text-body font-medium text-charcoal">#{order.orderNumber}</p>
+              <Link
+                href={`/account/orders/${order.id}`}
+                className="font-body text-body font-medium text-charcoal hover:text-sage underline-offset-2 hover:underline"
+              >
+                #{order.orderNumber}
+              </Link>
               <p className="font-body text-small text-muted mt-1">{order.items.length} item(s)</p>
             </div>
-            <div className="text-right">
-              <p className="font-body text-body text-charcoal">{formatPrice(order.total)}</p>
-              <p className="font-body text-small text-sage mt-1">{order.orderStatus}</p>
+            <div className="flex items-center gap-4">
+              {/* Received products → prompt the review loop (detail page has the per-item links). */}
+              {order.orderStatus === "DELIVERED" && (
+                <Link
+                  href={`/account/orders/${order.id}`}
+                  className="h-10 px-5 inline-flex items-center rounded-[var(--radius-control)] font-body text-small font-semibold bg-sage text-cream"
+                >
+                  Review now
+                </Link>
+              )}
+              <div className="text-right">
+                <p className="font-body text-body text-charcoal">{formatPrice(order.total)}</p>
+                <p className="font-body text-small text-sage mt-1">{order.orderStatus}</p>
+              </div>
             </div>
-          </Link>
+          </div>
         ))}
       </div>
     </div>

@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 
 // Phase 8: the cart steppers used to be inline server-component closures whose
-// CartActionResult was awaited and discarded — a refused change (stock moved,
-// line disabled) left the quantity unchanged with no message. The controls are
+// CartActionResult was awaited and discarded — a refused change (line disabled,
+// bad quantity) left the quantity unchanged with no message. The controls are
 // now a client component that surfaces the refusal.
 
 const CONTROLS = "src/components/storefront/CartLineControls.tsx";
@@ -36,9 +36,11 @@ describe("CartLineControls surfaces refused cart updates", () => {
     expect(source).toMatch(/aria-label="Decrease quantity"/);
     expect(source).toMatch(/aria-label="Increase quantity"/);
     expect(source).toMatch(/aria-label=\{`Remove \$\{productName\}`\}/);
-    // Same stock/enabled disable rules as before (E2E checks the disabled attr).
-    expect(source).toMatch(/quantity >= availableStock \|\| !isEnabled \|\| availableStock <= 0/);
-    expect(source).toMatch(/quantity <= 1 \|\| !isEnabled \|\| availableStock <= 0/);
+    // Stock is gone by spec: only the isEnabled flag disables a stepper
+    // (E2E checks the disabled attr on a disabled line).
+    expect(source).toMatch(/disabled=\{quantity <= 1 \|\| !isEnabled\}/);
+    expect(source).toMatch(/disabled=\{!isEnabled\}/);
+    expect(source).not.toMatch(/availableStock/);
   });
 });
 

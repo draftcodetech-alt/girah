@@ -156,7 +156,7 @@ async function handleSuccess(
   }
 
   // Late success for an order the admin already cancelled: the money was
-  // captured AFTER we released the stock. Refund it on the spot; if the
+  // captured AFTER the order was cancelled. Refund it on the spot; if the
   // refund fails, record PAID (truthful: we hold the money) and leave a
   // CRITICAL log so an admin refunds from the Safepay dashboard.
   if (order.orderStatus === "CANCELLED") {
@@ -225,8 +225,8 @@ async function handleFailure(order: Order): Promise<SafepayWebhookResult> {
 }
 
 async function handleRefund(order: Order): Promise<SafepayWebhookResult> {
-  // PAID -> REFUNDED only. Deliberately does NOT restock: stock is credited
-  // exclusively by the cancel flow, so a refund can never double-credit it.
+  // PAID -> REFUNDED only. Deliberately order-status-untouched: a refund
+  // must never move the order out of its current status.
   const claimed = await db.order.updateMany({
     where: { id: order.id, paymentStatus: "PAID" },
     data: { paymentStatus: "REFUNDED" },

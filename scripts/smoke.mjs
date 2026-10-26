@@ -88,10 +88,10 @@ const customerRow = await ensureUser({
 });
 await ensureUser({ email: "dev-admin@girah.test", password: "DevAdmin123!", role: "ADMIN" });
 
-// A filled cart needs some enabled in-stock variation — seed data on a dev
-// database, our own fixture on a fresh one.
+// A filled cart needs some enabled variation — seed data on a dev
+// database, our own fixture on a fresh one. (Stock no longer exists.)
 let variation = await db.productVariation.findFirst({
-  where: { isEnabled: true, stock: { gt: 1 } },
+  where: { isEnabled: true },
   select: { id: true },
 });
 let fixture = null;
@@ -107,7 +107,7 @@ if (!variation) {
       slug: `smoke-fixture-${TS}`,
       description: "Smoke-suite cart fixture.",
       categoryId: category.id,
-      variations: { create: [{ name: "Standard", price: 100000, stock: 5, isEnabled: true }] },
+      variations: { create: [{ name: "Standard", price: 100000, isEnabled: true }] },
     },
     include: { variations: true },
   });
@@ -137,8 +137,7 @@ await hit("public /forgot-password renders", "/forgot-password");
 await hit("public /reset-password renders (missing token → invalid message)", "/reset-password");
 await hit("admin /admin renders (dashboard)", "/admin", admin);
 await hit("admin /admin/orders renders", "/admin/orders", admin);
-await hit("admin /admin/stock renders", "/admin/stock", admin);
-await hit("admin /admin/variations renders", "/admin/variations", admin);
+await hit("admin /admin/catalog renders (merged products + categories)", "/admin/catalog", admin);
 await hit("admin /admin/products/new renders", "/admin/products/new", admin);
 const detailProduct = fixture ?? (await db.product.findFirst({ select: { id: true }, orderBy: { createdAt: "asc" } }));
 if (detailProduct) {
@@ -146,7 +145,6 @@ if (detailProduct) {
 } else {
   checks.push(["admin /admin/products/[id] renders", false, "no product available"]);
 }
-await hit("admin /admin/categories renders", "/admin/categories", admin);
 await hit("admin /admin/customers renders", "/admin/customers", admin);
 await hit("admin /admin/reviews renders", "/admin/reviews", admin);
 await hit("customer /account renders", "/account", customer);

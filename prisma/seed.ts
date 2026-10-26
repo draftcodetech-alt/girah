@@ -136,11 +136,11 @@ async function main() {
       },
       variations: {
         create: [
-          { name: "Single Sunflower", price: 80000, stock: 10 },
-          { name: "Small Bouquet", price: 180000, stock: 10 },
-          { name: "Medium Bouquet", price: 280000, stock: 10 },
-          { name: "Large Bouquet", price: 400000, stock: 10 },
-          { name: "Full Floral Bouquet", price: 500000, stock: 10 },
+          { name: "Single Sunflower", price: 80000 },
+          { name: "Small Bouquet", price: 180000 },
+          { name: "Medium Bouquet", price: 280000 },
+          { name: "Large Bouquet", price: 400000 },
+          { name: "Full Floral Bouquet", price: 500000 },
         ],
       },
     },
@@ -164,10 +164,10 @@ async function main() {
       },
       variations: {
         create: [
-          { name: "Single Duck", price: 70000, stock: 10 },
-          { name: "Duck + Flower", price: 80000, stock: 10 },
-          { name: "Set of 2", price: 130000, stock: 10 },
-          { name: "Set of 3", price: 180000, stock: 10 },
+          { name: "Single Duck", price: 70000 },
+          { name: "Duck + Flower", price: 80000 },
+          { name: "Set of 2", price: 130000 },
+          { name: "Set of 3", price: 180000 },
         ],
       },
     },
@@ -189,10 +189,10 @@ async function main() {
       },
       variations: {
         create: [
-          { name: "Mini", price: 180000, stock: 10 },
-          { name: "Classic", price: 280000, stock: 10 },
-          { name: "Deluxe", price: 400000, stock: 10 },
-          { name: "Premium", price: 550000, stock: 10 },
+          { name: "Mini", price: 180000 },
+          { name: "Classic", price: 280000 },
+          { name: "Deluxe", price: 400000 },
+          { name: "Premium", price: 550000 },
         ],
       },
     },

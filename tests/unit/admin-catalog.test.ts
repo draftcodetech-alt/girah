@@ -85,8 +85,8 @@ describe("Phase 11: image actions are admin-gated", () => {
     }
   );
 
-  it("revalidates list, edit page, product page and shop", () => {
-    expect(images).toContain('revalidatePath("/admin/products")');
+  it("revalidates the catalog list, edit page, product page and shop", () => {
+    expect(images).toContain('revalidatePath("/admin/catalog")');
     expect(images).toContain("revalidatePath(`/admin/products/${productId}`)");
     expect(images).toContain("revalidatePath(`/product/${slug}`)");
     expect(images).toContain('revalidatePath("/shop")');
@@ -186,11 +186,13 @@ describe("Phase 11: category CRUD", () => {
     expect(categories).toContain("P2002");
   });
 
-  it("exposes a /admin/categories page in the admin nav", () => {
-    expect(existsSync(join(ROOT, "src/app/admin/categories/page.tsx"))).toBe(true);
+  it("keeps categories on the single Catalog page (old route only redirects)", () => {
+    expect(existsSync(join(ROOT, "src/app/admin/catalog/page.tsx"))).toBe(true);
+    expect(readSource("src/app/admin/catalog/page.tsx")).toContain("CategoryRow");
     const layout = readSource("src/app/admin/layout.tsx");
-    expect(layout).toContain('href: "/admin/categories"');
-    expect(readSource("src/app/admin/categories/page.tsx")).toContain("CategoryRow");
+    expect(layout).toContain('href: "/admin/catalog"');
+    expect(layout).not.toContain('href: "/admin/categories"');
+    expect(readSource("src/app/admin/categories/page.tsx")).toContain('redirect("/admin/catalog")');
   });
 
   it("ProductForm can create a category inline", () => {
@@ -202,9 +204,11 @@ describe("Phase 11: category CRUD", () => {
 });
 
 describe("Phase 11: product list delete + thumbnail", () => {
-  const list = readSource("src/app/admin/products/page.tsx");
+  const catalog = readSource("src/app/admin/catalog/page.tsx");
+  const list = readSource("src/components/admin/CatalogProductRow.tsx");
 
   it("renders the cover thumbnail and the delete button", () => {
+    expect(catalog).toContain("CatalogProductRow");
     expect(list).toContain("ProductDeleteButton");
     expect(list).toContain("isOptimizableImageUrl");
     expect(list).toContain("<Image");

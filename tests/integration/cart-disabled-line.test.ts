@@ -42,14 +42,13 @@ describe("getCartFor — disabled lines", () => {
     expect(view.subtotal).toBeGreaterThan(0);
   });
 
-  it("reports isEnabled=true and full stock for a healthy line", async () => {
+  it("reports isEnabled=true for a healthy line", async () => {
     const { variation } = await createTestProduct();
     const cart = await db.cart.create({ data: { guestId: "guest-healthy" } });
     await db.cartItem.create({ data: { cartId: cart.id, variationId: variation.id, quantity: 1 } });
 
     const view = await getCartFor({ guestId: "guest-healthy" });
     expect(view.items[0].isEnabled).toBe(true);
-    expect(view.items[0].availableStock).toBe(variation.stock);
   });
 
   it("returns an empty cart for a null identity", async () => {

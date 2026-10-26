@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
-import { updateVariation, adjustStock } from "@/modules/admin";
+import { useState, useTransition } from "react";
+import { updateVariation } from "@/modules/admin";
 import { formatPrice } from "@/lib/format";
 import { VariationForm } from "./VariationForm";
 import { ImageManager } from "./ImageManager";
@@ -10,17 +10,15 @@ type Variation = {
   id: string;
   name: string;
   price: number;
-  stock: number;
   isEnabled: boolean;
   product: { name: string };
-  // Supplied by the product edit page; the standalone /admin/variations list
-  // omits it (image management lives with the product it belongs to).
+  // Supplied by the product edit page; the catalog page's per-product list
+  // passes it too (image management lives with the product it belongs to).
   images?: { id: string; url: string; sortOrder: number }[];
 };
 
 export function VariationRow({ variation }: { variation: Variation }) {
   const [isPending, startTransition] = useTransition();
-  const [showAdjust, setShowAdjust] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showImages, setShowImages] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,23 +35,6 @@ export function VariationRow({ variation }: { variation: Variation }) {
     });
   }
 
-  function handleAdjust(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    setError(null);
-    startTransition(async () => {
-      const result = await adjustStock(variation.id, {
-        adjustment: Number(formData.get("adjustment")),
-        reason: formData.get("reason") as string,
-      });
-      if (result.success) {
-        setShowAdjust(false);
-      } else {
-        setError(result.error);
-      }
-    });
-  }
-
   return (
     <div className="py-4 border-b border-border">
       <div className="flex items-center justify-between">
@@ -62,7 +43,7 @@ export function VariationRow({ variation }: { variation: Variation }) {
             {variation.product.name} — {variation.name}
           </p>
           <p className="font-body text-small text-muted mt-1">
-            {formatPrice(variation.price)} · Stock: {variation.stock}
+            {formatPrice(variation.price)}
             {!variation.isEnabled && <span className="text-error"> · Disabled</span>}
           </p>
         </div>
@@ -70,29 +51,17 @@ export function VariationRow({ variation }: { variation: Variation }) {
           <button
             onClick={() => {
               setShowEdit((s) => !s);
-              setShowAdjust(false);
               setShowImages(false);
             }}
             className="font-body text-small text-sage font-medium"
           >
             {showEdit ? "Close" : "Edit"}
           </button>
-          <button
-            onClick={() => {
-              setShowAdjust((s) => !s);
-              setShowEdit(false);
-              setShowImages(false);
-            }}
-            className="font-body text-small text-sage font-medium"
-          >
-            Adjust Stock
-          </button>
           {variation.images !== undefined && (
             <button
               onClick={() => {
                 setShowImages((s) => !s);
                 setShowEdit(false);
-                setShowAdjust(false);
               }}
               className="font-body text-small text-sage font-medium"
             >
@@ -132,39 +101,6 @@ export function VariationRow({ variation }: { variation: Variation }) {
             images={variation.images}
           />
         </div>
-      )}
-
-      {showAdjust && (
-        <form onSubmit={handleAdjust} className="mt-4 flex items-end gap-3 bg-sage-light p-4 rounded-[var(--radius-control)]">
-          <div>
-            <label htmlFor={`adjust-${variation.id}`} className="font-body text-small text-charcoal block mb-1">Adjustment</label>
-            <input
-              id={`adjust-${variation.id}`}
-              name="adjustment"
-              type="number"
-              placeholder="e.g. 5 or -3"
-              required
-              className="h-10 w-32 rounded-[var(--radius-control)] border border-border px-3 font-body text-body bg-cream"
-            />
-          </div>
-          <div className="flex-1">
-            <label htmlFor={`reason-${variation.id}`} className="font-body text-small text-charcoal block mb-1">Reason</label>
-            <input
-              id={`reason-${variation.id}`}
-              name="reason"
-              placeholder="e.g. Restock"
-              required
-              className="h-10 w-full rounded-[var(--radius-control)] border border-border px-3 font-body text-body bg-cream"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={isPending}
-            className="h-10 px-4 rounded-[var(--radius-control)] bg-sage text-cream font-body text-small font-semibold"
-          >
-            {isPending ? "Saving…" : "Save"}
-          </button>
-        </form>
       )}
       {error && <p role="alert" className="font-body text-small text-error mt-2">{error}</p>}
     </div>

@@ -4,6 +4,36 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
 
+// The four dashboard destinations, kept as data so every card renders the
+// same structure — title / description / action — with no drift between
+// them. Routes are the real existing ones (wishlist lives outside /account).
+const DASHBOARD_CARDS = [
+  {
+    href: "/account/orders",
+    title: "Orders",
+    description: "View your previous purchases",
+    action: "View orders",
+  },
+  {
+    href: "/account/profile",
+    title: "Profile",
+    description: "Manage your account information",
+    action: "Edit profile",
+  },
+  {
+    href: "/account/addresses",
+    title: "Saved Shipping",
+    description: "Save your address for a faster checkout",
+    action: "Manage addresses",
+  },
+  {
+    href: "/wishlist",
+    title: "Wishlist",
+    description: "Pieces you've saved for later",
+    action: "View wishlist",
+  },
+];
+
 export default async function AccountPage() {
   const session = await auth();
   // Phase 4 L5: proxy.ts already gates /account/*, but the page checks for
@@ -13,75 +43,61 @@ export default async function AccountPage() {
     redirect("/login?callbackUrl=%2Faccount");
   }
 
-  return (
-    <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
-      <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Account" }]} />
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase">
-        My Account
-      </h1>
-      <p className="font-body text-body text-muted mt-2">Welcome back, {session.user.name}</p>
+  // Owner spec (2026-10-24, account dashboard redesign): personalized
+  // greeting. A missing/blank name must never render "undefined", "null" or
+  // an empty "Welcome back," — fall back to the bare greeting.
+  const displayName = session.user.name?.trim();
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-        <Link
-          href="/account/orders"
-          className="border border-border bg-sage-light rounded-[var(--radius-surface)] p-8 hover:bg-sage-light/70 transition-colors"
-        >
-          <h2 className="font-body text-card-title uppercase tracking-[0.04em] text-charcoal">
-            Orders
-          </h2>
-          <p className="font-body text-small text-muted mt-2">View your previous purchases</p>
-          <span className="font-body text-small font-medium text-sage mt-4 inline-block">
-            View&nbsp;→
-          </span>
-        </Link>
-        <Link
-          href="/account/profile"
-          className="border border-border bg-sage-light rounded-[var(--radius-surface)] p-8 hover:bg-sage-light/70 transition-colors"
-        >
-          <h2 className="font-body text-card-title uppercase tracking-[0.04em] text-charcoal">
-            Profile
-          </h2>
-          <p className="font-body text-small text-muted mt-2">Manage your account information</p>
-          <span className="font-body text-small font-medium text-sage mt-4 inline-block">
-            Edit&nbsp;→
-          </span>
-        </Link>
-        <Link
-          href="/account/addresses"
-          className="border border-border bg-sage-light rounded-[var(--radius-surface)] p-8 hover:bg-sage-light/70 transition-colors"
-        >
-          <h2 className="font-body text-card-title uppercase tracking-[0.04em] text-charcoal">
-            Saved Shipping
-          </h2>
-          <p className="font-body text-small text-muted mt-2">
-            Save the address checkout fills in for you
-          </p>
-          <span className="font-body text-small font-medium text-sage mt-4 inline-block">
-            Manage&nbsp;→
-          </span>
-        </Link>
-        <Link
-          href="/wishlist"
-          className="border border-border bg-sage-light rounded-[var(--radius-surface)] p-8 hover:bg-sage-light/70 transition-colors"
-        >
-          <h2 className="font-body text-card-title uppercase tracking-[0.04em] text-charcoal">
-            Wishlist
-          </h2>
-          <p className="font-body text-small text-muted mt-2">Pieces you&apos;ve saved for later</p>
-          <span className="font-body text-small font-medium text-sage mt-4 inline-block">
-            View&nbsp;→
-          </span>
-        </Link>
+  return (
+    <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-10 md:py-14">
+      <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Account" }]} />
+
+      <header className="mb-9 md:mb-10">
+        {/* Refined serif heading (editorial scale, not the 52px page h1) —
+            uppercase keeps the section's shared heading language. */}
+        <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.8rem)] leading-[1.15] tracking-[0.02em] text-charcoal uppercase">
+          My Account
+        </h1>
+        <p className="font-body text-body text-muted mt-3">
+          {displayName ? `Welcome back, ${displayName}` : "Welcome back"}
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
+        {DASHBOARD_CARDS.map((card) => (
+          <Link
+            key={card.href}
+            href={card.href}
+            className="group flex flex-col rounded-[var(--radius-panel)] border border-border bg-sage-light p-6 md:p-7 transition-colors hover:border-sage/50 hover:bg-sage-light/70"
+          >
+            <h2 className="font-[family-name:var(--font-display)] text-card-title text-charcoal">
+              {card.title}
+            </h2>
+            <p className="font-body text-small text-muted mt-2">{card.description}</p>
+            {/* mt-auto pins the action to the bottom of every card so the
+                rows stay aligned regardless of description length. */}
+            <span className="mt-auto pt-5 inline-flex items-center gap-1.5 font-body text-small font-medium text-sage">
+              {card.action}
+              <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">
+                →
+              </span>
+            </span>
+          </Link>
+        ))}
       </div>
 
-      <form action={logout} className="mt-8">
-        <button
-          type="submit"
-          className="h-12 px-6 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage-light text-charcoal"
-        >
-          Log Out
-        </button>
-      </form>
+      {/* Log out stays out of the card grid: a restrained secondary action,
+          separated by a hairline so it never reads as a fifth card. */}
+      <div className="mt-9 md:mt-10 pt-7 md:pt-8 border-t border-border">
+        <form action={logout}>
+          <button
+            type="submit"
+            className="h-11 px-6 rounded-[var(--radius-control)] border border-border bg-transparent font-body text-button font-semibold uppercase tracking-[0.02em] text-muted transition-colors hover:text-charcoal hover:border-sage"
+          >
+            Log Out
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

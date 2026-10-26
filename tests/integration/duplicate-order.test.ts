@@ -30,7 +30,7 @@ describe("placeOrderCore duplicate-checkout race", () => {
   beforeEach(resetDb);
 
   it("three concurrent checkouts of the same cart create exactly one order", async () => {
-    const { variation, identity } = await seedCart(2);
+    const { identity } = await seedCart(2);
 
     const results = await Promise.all([
       placeOrderCore(checkoutData, identity),
@@ -46,8 +46,6 @@ describe("placeOrderCore duplicate-checkout race", () => {
     }
 
     expect(await db.order.count()).toBe(1);
-    const fresh = await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } });
-    expect(fresh.stock).toBe(3); // 5 − 2, decremented exactly once
     expect(await db.cartItem.count()).toBe(0);
     expect(await db.orderItem.count()).toBe(1);
   });

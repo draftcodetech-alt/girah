@@ -322,12 +322,15 @@ const requiredActions = [
   "requestPasswordReset",
   "resetPassword",
   "toggleWishlist",
-  // Section 22 actions — the wrappers behind Pay Now and the stock audit.
-  "adjustStock",
+  // Section 22 actions — the wrapper behind Pay Now.
   "startSafepayRetry",
 ];
 for (const name of requiredActions) {
   check(`action id resolved: ${name}`, Boolean(ids[name]), `missing from server-reference-manifest.json`);
+}
+// Spec removals: these actions must be gone from the manifest entirely.
+for (const name of ["cancelMyOrder", "reorderOrder", "adjustStock", "refundOrderPayment"]) {
+  check(`removed action id absent: ${name}`, !ids[name], `still exposed by the manifest`);
 }
 if (results.some((r) => !r.ok)) {
   console.log("\nCannot continue without action ids.");
@@ -343,7 +346,7 @@ const category =
   (await db.category.create({ data: { name: "E2E Fixtures", slug: "e2e-fixtures" } }));
 
 // Cart/checkout fixture — variation NAMES match the seed's so the assertions
-// read the same, but the records are ours (stock is restored, product deleted).
+// read the same, but the records are ours (the product is deleted at the end).
 const fixtureProduct = await db.product.create({
   data: {
     name: `E2E Fixture Bouquet ${TS}`,
@@ -352,17 +355,17 @@ const fixtureProduct = await db.product.create({
     categoryId: category.id,
     variations: {
       create: [
-        { name: "Small Bouquet", price: 180000, stock: 10, isEnabled: true },
-        { name: "Single Sunflower", price: 80000, stock: 17, isEnabled: true },
-        { name: "Full Floral Bouquet", price: 500000, stock: 10, isEnabled: false },
+        { name: "Small Bouquet", price: 180000, isEnabled: true },
+        { name: "Single Sunflower", price: 80000, isEnabled: true },
+        { name: "Full Floral Bouquet", price: 500000, isEnabled: false },
       ],
     },
   },
   include: { variations: true },
 });
 const variationIdOf = (name) => fixtureProduct.variations.find((v) => v.name === name).id;
-const V_SMALL = variationIdOf("Small Bouquet"); // enabled, stock 10
-const V_SINGLE = variationIdOf("Single Sunflower"); // enabled, stock 17 (stock-0 test)
+const V_SMALL = variationIdOf("Small Bouquet"); // enabled
+const V_SINGLE = variationIdOf("Single Sunflower"); // enabled
 const V_DISABLED = variationIdOf("Full Floral Bouquet"); // isEnabled=false
 const FIXTURE_NAME = fixtureProduct.name;
 
@@ -394,7 +397,7 @@ for (const [key, price] of [["exact", 830], ["under", 829]]) {
       slug,
       description: "Phase 5 float-price filter fixture.",
       categoryId: category.id,
-      variations: { create: [{ name: "Standard", price, stock: 5, isEnabled: true }] },
+      variations: { create: [{ name: "Standard", price, isEnabled: true }] },
     },
     include: { variations: true },
   });
@@ -407,7 +410,7 @@ const unavailableProduct = await db.product.create({
     slug: `e2e-unavailable-${TS}`,
     description: "Phase 5 zero-price guard fixture.",
     categoryId: category.id,
-    variations: { create: [{ name: "Hidden", price: 0, stock: 0, isEnabled: false }] },
+    variations: { create: [{ name: "Hidden", price: 0, isEnabled: false }] },
   },
 });
 
@@ -431,7 +434,7 @@ for (const [slug, name] of [["bouquets", "Bouquets"], ["home-decor", "Home Decor
           slug: `e2e-curated-${slug}-${i}-${TS}`,
           description: "E2E homepage curation fixture.",
           categoryId: cat.id,
-          variations: { create: [{ name: "Standard", price: 99900, stock: 5, isEnabled: true }] },
+          variations: { create: [{ name: "Standard", price: 99900, isEnabled: true }] },
         },
       })
     );
@@ -549,7 +552,7 @@ check("minPrice=8.3 excludes the Rs. 8.29 product", !floatFilter.html.includes(f
 const weird = await get(`/shop?search=${TS}&minPrice=Infinity&maxPrice=NaN`);
 check("garbage price params → 200 with prices intact", weird.status === 200 && !weird.html.includes("Rs. NaN") && !weird.html.includes("Rs. undefined"), `${weird.status}`);
 check("non-finite bounds are ignored, not applied", weird.html.includes(floatProducts.exact.name), "the whole catalogue was filtered away");
-const preserved = await get("/shop?minPrice=8.3&maxPrice=20.75&inStockOnly=true&search=bouquet");
+const preserved = await get("/shop?minPrice=8.3&maxPrice=20.75&search=bouquet");
 check("price filters survive a search round trip", preserved.html.includes('name="minPrice" value="8.3"') && preserved.html.includes('name="maxPrice" value="20.75"'), "hidden inputs missing");
 check("filter panel re-fills from the query", preserved.html.includes('value="8.3"') && preserved.html.includes('value="20.75"'));
 const tabs = await get("/shop?minPrice=8.3&maxPrice=20.75");
@@ -635,35 +638,20 @@ check("addToCart(0) refused", addZero.json?.success === false && addZero.json?.e
 const addDisabled = await callAction("/cart", ids.addToCart, [V_DISABLED, 1], loginJar);
 check("addToCart of a disabled variation refused", addDisabled.json?.success === false && addDisabled.json?.error === "This item is no longer available.", JSON.stringify(addDisabled.json));
 
-// ── 9. stock-0: steppers disabled + friendly error, never a silent delete ───
+// ── 9. enabled line: working steppers, qty-0 removes (stock is gone) ────────
 await seedUserCart(customer.id, [{ variationId: V_SINGLE, quantity: 1 }]);
-const singleBefore = await db.productVariation.findUniqueOrThrow({ where: { id: V_SINGLE } });
 const item = await db.cartItem.findFirst({ where: { cart: { userId: customer.id } } });
-const inStockPage = await get("/cart", loginJar);
-const inStockBlock = lineBlock(inStockPage.html, FIXTURE_NAME);
-check("in-stock line keeps working steppers", !stepperDisabled(inStockBlock), inStockBlock.slice(0, 300));
+const enabledPage = await get("/cart", loginJar);
+const enabledBlock = lineBlock(enabledPage.html, FIXTURE_NAME);
+check("enabled line keeps working steppers", !stepperDisabled(enabledBlock), enabledBlock.slice(0, 300));
+const bump = await callAction("/cart", ids.updateCartItemQuantity, [item.id, 2], loginJar);
+check("enabled line quantity change succeeds", bump.json?.success === true, JSON.stringify(bump.json));
 
-await db.productVariation.update({ where: { id: V_SINGLE }, data: { stock: 0 } });
-try {
-  const outOfStockPage = await get("/cart", loginJar);
-  const outBlock = lineBlock(outOfStockPage.html, FIXTURE_NAME);
-  check("stock-0 line disables its steppers", stepperDisabled(outBlock), outBlock.slice(0, 300));
-  const bump = await callAction("/cart", ids.updateCartItemQuantity, [item.id, 1], loginJar);
-  check(
-    "stock-0 change → friendly error (line kept)",
-    bump.json?.success === false &&
-      bump.json?.error === "This item is out of stock — remove it from your cart or try again later.",
-    JSON.stringify(bump.json)
-  );
-  const kept = await db.cartItem.findUnique({ where: { id: item.id } });
-  check("stock-0 refusal never deletes the line", Boolean(kept));
-
-  // qty-0 is the Remove path (steppers can't reach 0; the Remove button does).
+// qty-0 is the Remove path (steppers can't reach 0; the Remove button does).
+{
   const remove = await callAction("/cart", ids.updateCartItemQuantity, [item.id, 0], loginJar);
   check("quantity 0 removes the line", remove.json?.success === true, JSON.stringify(remove.json));
   check("removed line is gone from the DB", (await db.cartItem.findUnique({ where: { id: item.id } })) === null);
-} finally {
-  await db.productVariation.update({ where: { id: V_SINGLE }, data: { stock: singleBefore.stock } });
 }
 
 // ── 10. zero-price product card ─────────────────────────────────────────────
@@ -1070,8 +1058,12 @@ let p11Order = null;
     );
   }
 
-  const catPage = await get("/admin/categories", adminLogin.jar);
-  check("admin /admin/categories renders", catPage.status === 200, `${catPage.status}`);
+  const catPage = await get("/admin/catalog", adminLogin.jar);
+  check(
+    "admin /admin/catalog renders (categories live here now)",
+    catPage.status === 200 && catPage.html.includes("Categories ("),
+    `${catPage.status}`
+  );
 
   // Category create → row + rendered list + offered by the product form.
   const P11_CAT = { name: `E2E P11 Cat ${TS}`, slug: `e2e-p11-cat-${TS}` };
@@ -1084,7 +1076,7 @@ let p11Order = null;
   check("createCategory → success", createCat.json?.success === true, JSON.stringify(createCat.json));
   const catRow = await db.category.findUnique({ where: { slug: P11_CAT.slug } });
   check("createCategory stores the row", Boolean(catRow), "row missing");
-  const catListAfter = await get("/admin/categories", adminLogin.jar);
+  const catListAfter = await get("/admin/catalog", adminLogin.jar);
   check(
     "category list shows the new category",
     catListAfter.html.includes(P11_CAT.slug),
@@ -1122,7 +1114,7 @@ let p11Order = null;
     adminLogin.jar
   );
   check("deleteCategory removes an empty category", delCat.json?.success === true, JSON.stringify(delCat.json));
-  const catListFinal = await get("/admin/categories", adminLogin.jar);
+  const catListFinal = await get("/admin/catalog", adminLogin.jar);
   check(
     "deleted category is gone from the list",
     !catListFinal.html.includes(P11_CAT.slug),
@@ -1144,7 +1136,6 @@ let p11Order = null;
     productId: fixtureProduct.id,
     name: `E2E XL Bouquet ${TS}`,
     price: 1800.5,
-    stock: 4,
     isEnabled: true,
   };
   const createVar = await callAction(detailPath, ids.createVariation, [P11_VAR], adminLogin.jar);
@@ -1152,8 +1143,8 @@ let p11Order = null;
   const varRow = await db.productVariation.findFirst({ where: { name: P11_VAR.name } });
   check(
     "createVariation stores rupees as integer paisa",
-    varRow?.price === 180050 && varRow?.stock === 4,
-    `price=${varRow?.price} stock=${varRow?.stock}`
+    varRow?.price === 180050,
+    `price=${varRow?.price}`
   );
   const storePage = await get(`/product/${fixtureProduct.slug}`);
   check(
@@ -1276,7 +1267,7 @@ let p11Order = null;
   // optimizer (src="/_next/image?url=…"); the Cloudflare build sets
   // images.unoptimized by design, so there the thumbnail is the raw
   // <img alt="<product name>"> instead — accept either form.
-  const listPage = await get("/admin/products", adminLogin.jar);
+  const listPage = await get("/admin/catalog", adminLogin.jar);
   const fixtureRowAt = listPage.html.indexOf(FIXTURE_NAME);
   check(
     "product list renders the cover thumbnail",
@@ -1298,7 +1289,7 @@ let p11Order = null;
       slug: `e2e-p11-delete-${TS}`,
       description: "Phase 11 deleteProduct fixture.",
       categoryId: category.id,
-      variations: { create: [{ name: "Standard", price: 10000, stock: 3, isEnabled: true }] },
+      variations: { create: [{ name: "Standard", price: 10000, isEnabled: true }] },
     },
     include: { variations: true },
   });
@@ -1351,10 +1342,10 @@ let p11Order = null;
   );
 }
 
-// ── 16. Phase 12: account completion — addresses, cancel/reorder, receipt ──
+// ── 16. Phase 12: account completion — addresses, receipt, Review now ──────
 const p12Orders = [];
 {
-  for (const name of ["cancelMyOrder", "reorderOrder", "saveShippingAddress", "deleteShippingAddress"]) {
+  for (const name of ["saveShippingAddress", "deleteShippingAddress"]) {
     check(`action id resolved: ${name}`, Boolean(ids[name]), "missing from server-reference-manifest.json");
   }
 
@@ -1522,12 +1513,17 @@ const p12Orders = [];
   // --- order detail + receipt ---------------------------------------------
   const detailPage = await get(`/account/orders/${unpaidOrder.id}`, loginJar);
   check(
-    "order detail renders Cancel / Buy again / View receipt",
+    "order detail renders View receipt only (Cancel / Buy again removed)",
     detailPage.status === 200 &&
-      detailPage.html.includes("Cancel order") &&
-      detailPage.html.includes("Buy again") &&
-      detailPage.html.includes("View receipt"),
+      detailPage.html.includes("View receipt") &&
+      !detailPage.html.includes("Cancel order") &&
+      !detailPage.html.includes("Buy again"),
     `${detailPage.status}`
+  );
+  check(
+    "a non-delivered order offers no Review now link",
+    !detailPage.html.includes("Review now"),
+    "Review now leaked onto a PENDING order"
   );
   check(
     "order detail withholds contact PII",
@@ -1537,11 +1533,11 @@ const p12Orders = [];
 
   const receiptPage = await get(`/account/orders/${unpaidOrder.id}/receipt`, loginJar);
   check(
-    "receipt renders the invoice + print button",
+    "receipt renders the invoice (Print button removed)",
     receiptPage.status === 200 &&
       receiptPage.html.includes("e2e-p12@example.com") &&
       receiptPage.html.includes("9 E2E Lane") &&
-      receiptPage.html.includes("Print receipt"),
+      !receiptPage.html.includes("Print receipt"),
     `${receiptPage.status}`
   );
   check("receipt hides page chrome when printing", receiptPage.html.includes("print:hidden"), "print:hidden missing");
@@ -1567,104 +1563,57 @@ const p12Orders = [];
     `${strangerDetail.status}`
   );
 
-  // --- cancel: refusals first, owner last ---------------------------------
-  const paidCancel = await callAction(`/account/orders/${paidOrder.id}`, ids.cancelMyOrder, [paidOrder.id], loginJar);
+  // --- customer cancel / reorder: removed by spec --------------------------
   check(
-    "cancel refuses a PAID order (no customer refund path)",
-    paidCancel.json?.success === false && /already been paid/i.test(paidCancel.json?.error ?? ""),
-    JSON.stringify(paidCancel.json)
-  );
-  const procCancel = await callAction(
-    `/account/orders/${processingOrder.id}`,
-    ids.cancelMyOrder,
-    [processingOrder.id],
-    loginJar
-  );
-  check(
-    "cancel refuses a PROCESSING order",
-    procCancel.json?.success === false && /already being prepared/i.test(procCancel.json?.error ?? ""),
-    JSON.stringify(procCancel.json)
-  );
-  const strangerCancel = await callAction(
-    `/account/orders/${unpaidOrder.id}`,
-    ids.cancelMyOrder,
-    [unpaidOrder.id],
-    adminLogin.jar
-  );
-  check(
-    "cancel by a stranger → generic not-found",
-    strangerCancel.json?.success === false && strangerCancel.json?.error === "Order not found.",
-    JSON.stringify(strangerCancel.json)
-  );
-  const anonCancel = await callAction(`/account/orders/${unpaidOrder.id}`, ids.cancelMyOrder, [unpaidOrder.id], null);
-  check(
-    "cancel without a session is bounced to /login",
-    anonCancel.status >= 300 && anonCancel.status < 400 && (anonCancel.location ?? "").includes("/login"),
-    `${anonCancel.status} ${anonCancel.location}`
+    "detail page never renders Cancel or Buy again",
+    !detailPage.html.includes("Cancel order") && !detailPage.html.includes("Buy again"),
+    "removed control leaked back into the order detail"
   );
 
-  const stockBefore = (await db.productVariation.findUniqueOrThrow({ where: { id: V_SMALL } })).stock;
-  const cancel = await callAction(`/account/orders/${unpaidOrder.id}`, ids.cancelMyOrder, [unpaidOrder.id], loginJar);
-  const stockAfter = (await db.productVariation.findUniqueOrThrow({ where: { id: V_SMALL } })).stock;
-  check("owner cancels the unpaid order", cancel.json?.success === true, JSON.stringify(cancel.json));
-  check(
-    "cancelled order restocks the item",
-    stockAfter === stockBefore + 1,
-    `${stockBefore} → ${stockAfter}`
-  );
-  const cancelledRow = await db.order.findUniqueOrThrow({ where: { id: unpaidOrder.id } });
-  check("order is CANCELLED in the DB", cancelledRow.orderStatus === "CANCELLED", cancelledRow.orderStatus);
-  const auditRow = await db.stockAdjustment.findFirst({ where: { reason: { contains: "cancelled by customer" } } });
-  check("restock audit row is customer-attributed (adminId null)", Boolean(auditRow) && auditRow.adminId === null);
+  // --- Review now: DELIVERED only -------------------------------------------
+  const deliveredOrder = await db.order.create({
+    data: {
+      ...baseOrder,
+      orderNumber: `GIR-P12D${TS.toString(16).padStart(12, "0").slice(-12)}`,
+      orderStatus: "DELIVERED",
+      paymentStatus: "PAID",
+    },
+  });
+  p12Orders.push(deliveredOrder.id);
 
-  const afterCancel = await get(`/account/orders/${unpaidOrder.id}`, loginJar);
-  check("cancelled order hides the Cancel button", !afterCancel.html.includes("Cancel order"), "Cancel button still rendered");
-  check("cancelled order still offers Buy again", afterCancel.html.includes("Buy again"));
+  const ordersListPage = await get("/account/orders", loginJar);
+  check(
+    "orders list offers Review now once a delivered order exists",
+    ordersListPage.status === 200 && ordersListPage.html.includes("Review now"),
+    `${ordersListPage.status}`
+  );
+  check(
+    "orders list keeps the order number as the row link",
+    ordersListPage.html.includes(`href="/account/orders/${deliveredOrder.id}"`),
+    "delivered row link missing"
+  );
 
-  // --- reorder ---------------------------------------------------------------
-  const anonReorder = await callAction(`/account/orders/${paidOrder.id}`, ids.reorderOrder, [paidOrder.id], null);
+  const deliveredDetail = await get(`/account/orders/${deliveredOrder.id}`, loginJar);
   check(
-    "reorder without a session is bounced to /login",
-    anonReorder.status >= 300 && anonReorder.status < 400 && (anonReorder.location ?? "").includes("/login"),
-    `${anonReorder.status} ${anonReorder.location}`
-  );
-  const strangerReorder = await callAction(
-    `/account/orders/${paidOrder.id}`,
-    ids.reorderOrder,
-    [paidOrder.id],
-    adminLogin.jar
+    "delivered detail links Review now into the product reviews",
+    deliveredDetail.status === 200 &&
+      deliveredDetail.html.includes("Review now") &&
+      deliveredDetail.html.includes(`href="/product/${fixtureProduct.slug}#reviews-heading"`),
+    `${deliveredDetail.status}`
   );
   check(
-    "reorder by a stranger → generic not-found",
-    strangerReorder.json?.success === false && strangerReorder.json?.error === "Order not found.",
-    JSON.stringify(strangerReorder.json)
+    "delivered detail still offers View receipt",
+    deliveredDetail.html.includes("View receipt"),
+    "View receipt missing"
   );
 
   await wipeUserCart(customer.id);
-  const reorder = await callAction(`/account/orders/${paidOrder.id}`, ids.reorderOrder, [paidOrder.id], loginJar);
-  check(
-    "reorder replays the order lines into the cart",
-    reorder.json?.success === true && reorder.json?.added >= 1,
-    JSON.stringify(reorder.json)
-  );
-  const reorderCart = await db.cart.findUnique({ where: { userId: customer.id }, include: { items: true } });
-  check(
-    "cart carries the reordered line",
-    Boolean(reorderCart?.items.find((i) => i.variationId === V_SMALL)),
-    JSON.stringify(reorderCart?.items ?? null)
-  );
 }
 
-// ── 17. Phase 13: admin ops & dashboard — filters, detail, refund, stock ────
+// ── 17. Phase 13: admin ops & dashboard — filters, detail, catalog ─────────
 const p13Orders = [];
 {
-  check(
-    "action id resolved: refundOrderPayment",
-    Boolean(ids.refundOrderPayment),
-    "missing from server-reference-manifest.json"
-  );
-
-  // Fixtures: filter pair (unique order numbers) + one order per refund path.
+  // Fixtures: filter pair (unique order numbers) + payment-state rows.
   const base = {
     customerName: "E2E Phase 13",
     customerEmail: "e2e-p13@example.com",
@@ -1703,18 +1652,25 @@ const p13Orders = [];
   check(
     "dashboard shows KPI cards and list sections",
     dash.html.includes("Orders · 30d") &&
-      dash.html.includes("Low stock") &&
       dash.html.includes("Orders by status") &&
       dash.html.includes("Recent orders"),
     "missing dashboard sections"
   );
+  check("dashboard has no low-stock metric", !dash.html.includes("Low stock"), "low-stock KPI came back");
   check(
     "dashboard renders an accessible revenue chart (or its empty state)",
     (dash.html.includes('role="img"') && dash.html.includes("Daily paid revenue")) ||
       dash.html.includes("No paid orders in the last 14 days."),
     "no chart and no empty state"
   );
-  check("admin nav links the Stock page", dash.html.includes('href="/admin/stock"'), "nav item missing");
+  check("admin nav links the Catalog page", dash.html.includes('href="/admin/catalog"'), "nav item missing");
+  check(
+    "admin nav drops Stock / Variations / Categories tabs",
+    !dash.html.includes('href="/admin/stock"') &&
+      !dash.html.includes('href="/admin/variations"') &&
+      !dash.html.includes('href="/admin/categories"'),
+    "removed nav item leaked back"
+  );
 
   // --- orders filters (tabs + search, each preserving the other) -----------
   const tabbed = await get("/admin/orders?status=SHIPPED", adminLogin.jar);
@@ -1770,10 +1726,14 @@ const p13Orders = [];
     "refund button rendered for a PENDING payment"
   );
   const paidDetail = await get(`/admin/orders/${codPaid.id}`, adminLogin.jar);
-  check("a PAID detail page offers Refund", paidDetail.html.includes("Refund</button>"), "refund button missing");
+  check(
+    "a PAID detail page offers no Refund button either (refund removed)",
+    !paidDetail.html.includes("Refund</button>"),
+    "refund button still rendered"
+  );
   const ordersList = await get("/admin/orders", adminLogin.jar);
   check(
-    "orders list never offers the refund control (detail-page-only)",
+    "orders list never offers the refund control",
     !ordersList.html.includes("Refund</button>"),
     "refund button leaked into the list"
   );
@@ -1800,110 +1760,66 @@ const p13Orders = [];
     `status ${missingDetail.status}`
   );
 
-  // --- refund guards over the wire -----------------------------------------
-  const anonRefund = await callAction("/admin/orders", ids.refundOrderPayment, [codPaid.id], null);
-  check(
-    "anonymous refund POST is bounced to /login by the proxy",
-    anonRefund.status >= 300 && anonRefund.status < 400 && (anonRefund.location ?? "").includes("/login"),
-    `${anonRefund.status} ${anonRefund.location}`
-  );
-  const customerRefund = await callAction("/admin/orders", ids.refundOrderPayment, [codPaid.id], loginJar);
-  const refundLoc = (customerRefund.location ?? "").replace(BASE, "");
-  check(
-    "customer refund POST redirects home (never reaches the action)",
-    customerRefund.status >= 300 && customerRefund.status < 400 && refundLoc === "/",
-    `${customerRefund.status} ${customerRefund.location}`
-  );
-  const pendingRefund = await callAction("/admin/orders", ids.refundOrderPayment, [pendingRow.id], adminLogin.jar);
-  check(
-    "refunding a PENDING payment is refused with the status named",
-    pendingRefund.json?.success === false && /Only a PAID payment can be refunded/.test(pendingRefund.json?.error ?? ""),
-    JSON.stringify(pendingRefund.json)
-  );
-  const noTrackerRefund = await callAction(
+  // --- admin action POST gating over the wire -------------------------------
+  // (The standalone refund action is gone by spec; updateOrderStatus is the
+  // canonical admin-only action the proxy must gate before it ever runs.)
+  const anonStatus = await callAction(
     "/admin/orders",
-    ids.refundOrderPayment,
-    [safepayNoTracker.id],
-    adminLogin.jar
+    ids.updateOrderStatus,
+    [shippedRow.id, { orderStatus: "DELIVERED" }],
+    null
   );
-  const noTrackerRow = await db.order.findUnique({ where: { id: safepayNoTracker.id } });
   check(
-    "SAFEPAY PAID without a tracker is refused, order untouched",
-    noTrackerRefund.json?.success === false &&
-      /no Safepay payment reference/.test(noTrackerRefund.json?.error ?? "") &&
-      noTrackerRow?.paymentStatus === "PAID",
-    JSON.stringify(noTrackerRefund.json)
+    "anonymous status POST is bounced to /login by the proxy",
+    anonStatus.status >= 300 && anonStatus.status < 400 && (anonStatus.location ?? "").includes("/login"),
+    `${anonStatus.status} ${anonStatus.location}`
   );
-  const fakeTrackerRefund = await callAction(
+  const customerStatus = await callAction(
     "/admin/orders",
-    ids.refundOrderPayment,
-    [safepayFakeTracker.id],
-    adminLogin.jar
+    ids.updateOrderStatus,
+    [shippedRow.id, { orderStatus: "DELIVERED" }],
+    loginJar
   );
-  const fakeTrackerRow = await db.order.findUnique({ where: { id: safepayFakeTracker.id } });
+  const statusLoc = (customerStatus.location ?? "").replace(BASE, "");
   check(
-    "SAFEPAY refund attempt against the real API refuses before any state change",
-    fakeTrackerRefund.json?.success === false &&
-      /Safepay rejected the refund/.test(fakeTrackerRefund.json?.error ?? "") &&
-      fakeTrackerRow?.paymentStatus === "PAID",
-    JSON.stringify(fakeTrackerRefund.json)
+    "customer status POST redirects home (never reaches the action)",
+    customerStatus.status >= 300 && customerStatus.status < 400 && statusLoc === "/",
+    `${customerStatus.status} ${customerStatus.location}`
+  );
+  check(
+    "the gated POSTs never changed the order",
+    (await db.order.findUnique({ where: { id: shippedRow.id } }))?.orderStatus === "SHIPPED",
+    "order status moved without an admin session"
   );
 
-  // --- refund success: money back, order kept -------------------------------
-  const auditBefore = await db.stockAdjustment.count();
-  const codRefund = await callAction("/admin/orders", ids.refundOrderPayment, [codPaid.id], adminLogin.jar);
-  const codAfter = await db.order.findUnique({ where: { id: codPaid.id } });
-  const auditAfter = await db.stockAdjustment.count();
-  check("COD PAID refund succeeds over the wire", codRefund.json?.success === true, JSON.stringify(codRefund.json));
+  // --- catalog: the merged products + categories + variations page ----------
+  const catalogPage = await get("/admin/catalog", adminLogin.jar);
   check(
-    "refund flips paymentStatus but KEEPS the order (status + no restock)",
-    codAfter?.paymentStatus === "REFUNDED" &&
-      codAfter?.orderStatus === "CONFIRMED" &&
-      auditAfter === auditBefore,
-    JSON.stringify({ paymentStatus: codAfter?.paymentStatus, orderStatus: codAfter?.orderStatus })
+    "admin /admin/catalog renders (products + categories)",
+    catalogPage.status === 200 &&
+      catalogPage.html.includes("Products (") &&
+      catalogPage.html.includes("Categories (") &&
+      catalogPage.html.includes("+ Add Product"),
+    `${catalogPage.status}`
   );
-  const doubleRefund = await callAction("/admin/orders", ids.refundOrderPayment, [codPaid.id], adminLogin.jar);
-  check(
-    "a second refund is refused (already refunded)",
-    doubleRefund.json?.success === false && doubleRefund.json?.error === "This payment has already been refunded.",
-    JSON.stringify(doubleRefund.json)
-  );
-  const refundedDetail = await get(`/admin/orders/${codPaid.id}`, adminLogin.jar);
-  check(
-    "detail page reflects the refunded payment",
-    /Payment:\s*(?:<!-- -->)?REFUNDED/.test(refundedDetail.html),
-    "payment state not rendered"
-  );
-
-  // --- stock audit feed -----------------------------------------------------
-  const stockPage = await get("/admin/stock", adminLogin.jar);
-  check("admin stock page renders", stockPage.status === 200 && stockPage.html.includes("Stock history"), `${stockPage.status}`);
-  const stockReason = `E2E P13 stock ${TS}`;
-  await db.stockAdjustment.create({
-    data: {
-      variationId: V_SMALL,
-      previousStock: 9,
-      adjustment: -1,
-      newStock: 8,
-      reason: stockReason,
-      adminId: null,
-    },
-  });
-  const stockFeed = await get("/admin/stock", adminLogin.jar);
-  check(
-    "feed shows the adjustment with customer-cancel attribution",
-    stockFeed.html.includes(stockReason) && stockFeed.html.includes("Customer (order cancel)"),
-    "row missing from feed"
-  );
-  // Feed search matches product/variation names (not the reason text).
-  const stockSearch = await get(`/admin/stock?search=${encodeURIComponent(FIXTURE_NAME)}`, adminLogin.jar);
-  check("feed search narrows to the fixture product's rows", stockSearch.html.includes(stockReason), `${stockSearch.status}`);
-  const stockNone = await get("/admin/stock?search=no-such-product-xyz", adminLogin.jar);
-  check(
-    "feed search empty state",
-    stockNone.html.includes("No stock changes match"),
-    `${stockNone.status}`
-  );
+  for (const legacy of ["/admin/products", "/admin/categories", "/admin/variations", "/admin/stock"]) {
+    const res = await get(legacy, adminLogin.jar);
+    // Under a streaming shell Next serves the redirect as a 200 carrying a
+    // meta refresh (and a NEXT_REDIRECT flight digest); a pre-shell request
+    // gets a plain 3xx with Location. Both mean "gone to /admin/catalog".
+    const viaHeader = [302, 307].includes(res.status) && (res.location ?? "").includes("/admin/catalog");
+    const viaMeta =
+      res.status === 200 &&
+      res.html.includes('http-equiv="refresh"') &&
+      res.html.includes("url=/admin/catalog");
+    check(
+      `legacy ${legacy} redirects to /admin/catalog`,
+      viaHeader || viaMeta,
+      `${res.status} ${res.location}`
+    );
+  }
+  const newProductPage = await get("/admin/products/new", adminLogin.jar);
+  check("the new-product route is NOT a redirect", newProductPage.status === 200, `${newProductPage.status}`);
 }
 
 // ── 18. Phase 14: forgot / reset password — pages, token lifecycle, login ──
@@ -2264,7 +2180,7 @@ const paginatedProducts = [];
           slug: `e2e-page-${n}-${TS}`,
           description: "Phase 17 pagination fixture.",
           categoryId: category.id,
-          variations: { create: [{ name: "Standard", price: 100000, stock: 3, isEnabled: true }] },
+          variations: { create: [{ name: "Standard", price: 100000, isEnabled: true }] },
         },
         include: { variations: true },
       })
@@ -2463,7 +2379,7 @@ const paginatedProducts = [];
 // ── 22. coverage gaps: confirmation/profile/customer pages + wrapped actions ─
 const p22Orders = [];
 {
-  for (const name of ["removeCartItem", "adjustStock", "startSafepayRetry"]) {
+  for (const name of ["removeCartItem", "startSafepayRetry"]) {
     check(`action id resolved: ${name}`, Boolean(ids[name]), "missing from server-reference-manifest.json");
   }
 
@@ -2605,7 +2521,8 @@ const p22Orders = [];
   if (cartLine) {
     const REFUSAL = "Item not found in your cart.";
     // No guest buying: an anon POST to the gated /cart path never reaches the
-    // action — the proxy bounces it to /login first (same as adjustStock).
+    // action — the proxy bounces it to /login first (same as the admin-only
+    // actions, checked over the wire in section 17).
     const anonRemove = await callAction("/cart", ids.removeCartItem, [cartLine.id], null);
     check(
       "anonymous removeCartItem POST to /cart is bounced to /login by the proxy",
@@ -2639,58 +2556,6 @@ const p22Orders = [];
     );
   }
 
-  // --- adjustStock over the wire (proxy gates + admin audit) --------------
-  const anonAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: 1, reason: "anon" }], null);
-  check(
-    "anonymous adjustStock POST is bounced to /login by the proxy",
-    anonAdjust.status >= 300 && anonAdjust.status < 400 && (anonAdjust.location ?? "").includes("/login"),
-    `${anonAdjust.status} ${anonAdjust.location}`
-  );
-  const customerAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: 1, reason: "customer" }], loginJar);
-  const customerAdjustLoc = (customerAdjust.location ?? "").replace(BASE, "");
-  check(
-    "customer adjustStock POST redirects home (never reaches the action)",
-    customerAdjust.status >= 300 && customerAdjust.status < 400 && customerAdjustLoc === "/",
-    `${customerAdjust.status} ${customerAdjust.location}`
-  );
-
-  const p22Admin = await db.user.findUnique({ where: { email: ADMIN.email } });
-  const stockBefore22 = (await db.productVariation.findUniqueOrThrow({ where: { id: V_SINGLE } })).stock;
-  const adjustReason = `E2E adjust ${TS}`;
-  const okAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: 2, reason: adjustReason }], adminLogin.jar);
-  const stockAfter22 = (await db.productVariation.findUniqueOrThrow({ where: { id: V_SINGLE } })).stock;
-  const adjustRow = await db.stockAdjustment.findFirst({ where: { reason: adjustReason } });
-  check(
-    "admin adjustStock applies the delta over the wire",
-    okAdjust.json?.success === true && stockAfter22 === stockBefore22 + 2,
-    `success=${okAdjust.json?.success} ${stockBefore22} → ${stockAfter22}`
-  );
-  check(
-    "adjustStock writes the audit row attributed to the admin",
-    adjustRow?.adjustment === 2 &&
-      adjustRow?.previousStock === stockBefore22 &&
-      adjustRow?.newStock === stockAfter22 &&
-      adjustRow?.adminId === p22Admin?.id,
-    JSON.stringify(adjustRow)
-  );
-  const badAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: 1, reason: "   " }], adminLogin.jar);
-  check(
-    "adjustStock refuses an empty reason with a field error",
-    badAdjust.json?.success === false && badAdjust.json?.fieldErrors?.reason === "A reason is required",
-    JSON.stringify(badAdjust.json)
-  );
-  const negAdjust = await callAction("/admin/variations", ids.adjustStock, [V_SINGLE, { adjustment: -99999, reason: `E2E negative ${TS}` }], adminLogin.jar);
-  check(
-    "adjustStock refuses an adjustment past zero",
-    negAdjust.json?.success === false &&
-      negAdjust.json?.error === "Adjustment would result in negative stock.",
-    JSON.stringify(negAdjust.json)
-  );
-  check(
-    "refused adjustments leave stock untouched",
-    (await db.productVariation.findUniqueOrThrow({ where: { id: V_SINGLE } })).stock === stockAfter22,
-    "stock moved after a refusal"
-  );
 
   // --- startSafepayRetry: deterministic pre-API failures ONLY -------------
   // Every branch below errors out before createSafepayCheckoutUrl, so no run
@@ -2757,7 +2622,6 @@ if (reviewOrder) await db.order.delete({ where: { id: reviewOrder.id } }).catch(
 for (const orderId of p12Orders) await db.order.delete({ where: { id: orderId } }).catch(() => {});
 for (const orderId of p13Orders) await db.order.delete({ where: { id: orderId } }).catch(() => {});
 for (const orderId of p22Orders) await db.order.delete({ where: { id: orderId } }).catch(() => {});
-await db.stockAdjustment.deleteMany({ where: { reason: { contains: "E2E P13 stock" } } });
 if (p11Order) await db.order.delete({ where: { id: p11Order.id } }).catch(() => {});
 if (p11Product) await db.product.delete({ where: { id: p11Product.id } }).catch(() => {});
 for (const product of [...Object.values(floatProducts), unavailableProduct, fixtureProduct, ...curatedProducts]) {

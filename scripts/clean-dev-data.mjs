@@ -1,7 +1,7 @@
 // Owner spec change (2026-10-24): Girah is a single-owner store with a clean
 // slate. This script wipes ALL activity — orders (and their payment
 // trackers), carts (including guest carts), wishlists, reviews, saved
-// addresses, newsletter signups, password-reset tokens, stock adjustments
+// addresses, newsletter signups, password-reset tokens
 // and leftover e2e/smoke fixture products — and leaves EXACTLY three
 // accounts: one admin (permanent) and two customers.
 //
@@ -38,7 +38,7 @@ const KEPT = [
 const keptEmails = KEPT.map((k) => k.email);
 
 async function report() {
-  const [users, admins, orders, orderItems, carts, cartItems, wishlists, reviews, saved, news, tokens, adjustments, fixtureProducts] =
+  const [users, admins, orders, orderItems, carts, cartItems, wishlists, reviews, saved, news, tokens, fixtureProducts] =
     await Promise.all([
       db.user.findMany({ select: { email: true, role: true, isActive: true } }),
       db.user.count({ where: { role: "ADMIN" } }),
@@ -51,7 +51,6 @@ async function report() {
       db.savedShipping.count(),
       db.newsletterSubscriber.count(),
       db.passwordResetToken.count(),
-      db.stockAdjustment.count(),
       db.product.count({ where: { slug: { startsWith: "e2e-" } } }),
     ]);
   console.log("── current state ─────────────────────────────────");
@@ -60,7 +59,7 @@ async function report() {
   console.log(`orders: ${orders} (items: ${orderItems})`);
   console.log(`carts: ${carts} (items: ${cartItems})`);
   console.log(`wishlists: ${wishlists}  reviews: ${reviews}  saved addresses: ${saved}`);
-  console.log(`newsletter signups: ${news}  reset tokens: ${tokens}  stock adjustments: ${adjustments}`);
+  console.log(`newsletter signups: ${news}  reset tokens: ${tokens}`);
   console.log(`e2e fixture products: ${fixtureProducts}`);
   return { users, admins };
 }
@@ -95,7 +94,6 @@ async function wipe() {
     ["password reset tokens", () => db.passwordResetToken.deleteMany({})],
     ["wishlist items", () => db.wishlistItem.deleteMany({})],
     ["reviews", () => db.review.deleteMany({})],
-    ["stock adjustments", () => db.stockAdjustment.deleteMany({})],
     ["saved shipping addresses", () => db.savedShipping.deleteMany({})],
     ["newsletter subscribers", () => db.newsletterSubscriber.deleteMany({})],
     ["cart items", () => db.cartItem.deleteMany({})],

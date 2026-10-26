@@ -9,7 +9,6 @@ export function FilterPanel({ onApply }: { onApply?: () => void }) {
 
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") ?? "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") ?? "");
-  const [inStockOnly, setInStockOnly] = useState(searchParams.get("inStockOnly") === "true");
 
   function apply() {
     const params = new URLSearchParams(searchParams.toString());
@@ -23,11 +22,6 @@ export function FilterPanel({ onApply }: { onApply?: () => void }) {
     } else {
       params.delete("maxPrice");
     }
-    if (inStockOnly) {
-      params.set("inStockOnly", "true");
-    } else {
-      params.delete("inStockOnly");
-    }
     // Filter changes reset pagination (a smaller set on a stale ?page= is an
     // empty screen).
     params.delete("page");
@@ -38,11 +32,9 @@ export function FilterPanel({ onApply }: { onApply?: () => void }) {
   function clear() {
     setMinPrice("");
     setMaxPrice("");
-    setInStockOnly(false);
     const params = new URLSearchParams(searchParams.toString());
     params.delete("minPrice");
     params.delete("maxPrice");
-    params.delete("inStockOnly");
     params.delete("page");
     router.push(`/shop?${params.toString()}`);
     onApply?.();
@@ -74,21 +66,6 @@ export function FilterPanel({ onApply }: { onApply?: () => void }) {
           />
         </div>
         <p className="font-body text-small text-muted mt-1">In rupees, e.g. 800</p>
-      </div>
-
-      <div>
-        <h3 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
-          Availability
-        </h3>
-        <label className="flex items-center gap-2 mt-3 font-body text-body text-charcoal">
-          <input
-            type="checkbox"
-            checked={inStockOnly}
-            onChange={(e) => setInStockOnly(e.target.checked)}
-            className="h-4 w-4 accent-sage"
-          />
-          In Stock
-        </label>
       </div>
 
       <div className="flex gap-3">

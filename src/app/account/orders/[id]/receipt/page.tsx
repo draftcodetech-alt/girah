@@ -4,7 +4,6 @@ import Link from "next/link";
 import { getMyOrderForReceipt } from "@/modules/orders";
 import { formatPrice, formatDate } from "@/lib/format";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
-import { PrintButton } from "@/components/storefront/PrintButton";
 
 // Full-PII invoice: never indexed, never cached shared.
 export const metadata: Metadata = {
@@ -35,7 +34,6 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           Receipt
         </h1>
         <div className="flex flex-wrap gap-4 mt-6">
-          <PrintButton />
           <Link
             href={`/account/orders/${order.id}`}
             className="h-12 px-6 inline-flex items-center rounded-[var(--radius-control)] font-body text-button font-semibold bg-cream text-charcoal border border-border"

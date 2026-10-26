@@ -22,7 +22,9 @@ export function PurchasePanel({
 }) {
   const router = useRouter();
   const purchasableVariations = product.variations.filter((v) => v.isEnabled);
-  const allOutOfStock = product.variations.every((v) => !v.isEnabled || v.stock <= 0);
+  // No stock concept: "unavailable" now only means every variation is
+  // disabled by the admin.
+  const allUnavailable = purchasableVariations.length === 0;
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -61,7 +63,7 @@ export function PurchasePanel({
     onVariationChange?.(id);
   }
 
-  const canAddToCart = !!selected && selected.isEnabled && selected.stock > 0 && !isPending;
+  const canAddToCart = !!selected && selected.isEnabled && !isPending;
 
   function handleAddToCart() {
     if (!selected) return;
@@ -112,16 +114,16 @@ export function PurchasePanel({
         </h2>
         <div className="flex flex-wrap gap-2 mt-3">
           {product.variations.map((v) => {
-            const isOutOfStock = !v.isEnabled || v.stock <= 0;
+            const isDisabled = !v.isEnabled;
             const isSelected = v.id === selectedId;
             return (
               <button
                 key={v.id}
-                disabled={isOutOfStock}
+                disabled={isDisabled}
                 onClick={() => selectVariation(v.id)}
                 aria-pressed={isSelected}
                 className={`font-body text-body h-12 px-4 rounded-[var(--radius-control)] border transition-colors ${
-                  isOutOfStock
+                  isDisabled
                     ? "border-border text-placeholder cursor-not-allowed line-through"
                     : isSelected
                     ? "bg-sage text-cream border-sage"
@@ -139,12 +141,6 @@ export function PurchasePanel({
         <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage">
           Quantity
         </h2>
-        {/* Live stock hint for the selected variation — real counts only. */}
-        {selected && (
-          <p role="status" className={`font-body text-small mt-2 ${selected.stock <= 3 ? "text-warning font-medium" : "text-muted"}`}>
-            {selected.stock <= 3 ? `Only ${selected.stock} left in stock` : "In stock"}
-          </p>
-        )}
         <div className="flex items-center h-12 w-[144px] mt-3 rounded-[var(--radius-control)] border border-border">
           <button
             aria-label="Decrease quantity"
@@ -157,8 +153,10 @@ export function PurchasePanel({
           <span className="font-body text-body px-3">{quantity}</span>
           <button
             aria-label="Increase quantity"
-            disabled={!selected || quantity >= (selected?.stock ?? 0)}
-            onClick={() => setQuantity((q) => Math.min(selected?.stock ?? 1, q + 1))}
+            // 999 mirrors cart MAX_QUANTITY — the crafted-payload ceiling
+            // the server enforces (no stock ceiling anymore).
+            disabled={!selected || quantity >= 999}
+            onClick={() => setQuantity((q) => Math.min(999, q + 1))}
             className="flex-1 h-full disabled:text-placeholder text-charcoal"
           >
             +
@@ -172,8 +170,8 @@ export function PurchasePanel({
         onClick={handleAddToCart}
         className="w-full h-12 mt-8 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage text-cream disabled:bg-sage-light disabled:text-muted disabled:cursor-not-allowed"
       >
-        {allOutOfStock
-          ? "Out of Stock"
+        {allUnavailable
+          ? "Unavailable"
           : !isLoggedIn
           ? "Sign in to Buy"
           : isPending
@@ -235,8 +233,8 @@ export function PurchasePanel({
               onClick={handleAddToCart}
               className="h-12 px-6 shrink-0 rounded-[var(--radius-control)] font-body text-button font-semibold uppercase tracking-[0.02em] bg-sage text-cream disabled:bg-sage-light disabled:text-muted disabled:cursor-not-allowed"
             >
-              {allOutOfStock
-                ? "Out of Stock"
+              {allUnavailable
+                ? "Unavailable"
                 : !isLoggedIn
                 ? "Sign in to Buy"
                 : isPending

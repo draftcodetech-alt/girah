@@ -278,8 +278,9 @@ describe("Phase 20: variation galleries", () => {
     // The old "Name — Rs. X (8 in stock)" list is gone for good.
     expect(panel).not.toContain("in stock)");
     expect(panel).not.toContain("(Out of stock)");
-    // The Quantity-section stock hint is a different feature and stays.
-    expect(panel).toContain("left in stock");
+    // The Quantity-section stock hint went with the stock concept (spec).
+    expect(panel).not.toContain("left in stock");
+    expect(panel).not.toContain("In stock");
   });
 
   it("the product page shares the selection between panel and gallery", () => {
@@ -343,12 +344,16 @@ describe("Phase 16: spec copy passes", () => {
 
   it("account dashboard has the editorial blocks + wishlist superset", () => {
     const account = readSource("src/app/account/page.tsx");
-    expect(account).toContain('href="/account/orders"');
-    expect(account).toContain('href="/account/profile"');
-    expect(account).toContain('href="/account/addresses"');
-    expect(account).toContain('href="/wishlist"');
+    expect(account).toContain('href: "/account/orders"');
+    expect(account).toContain('href: "/account/profile"');
+    expect(account).toContain('href: "/account/addresses"');
+    expect(account).toContain('href: "/wishlist"');
     expect(account).toContain("Saved Shipping");
-    expect(account).toMatch(/text-h1 text-charcoal uppercase/);
+    // Owner spec change (2026-10-24): editorial heading at the refined
+    // clamp scale instead of the 52px page-h1 — still uppercase serif.
+    expect(account).toMatch(/text-\[clamp\(2rem,4vw,2\.8rem\)\][^"]*text-charcoal uppercase/);
+    // Personalized greeting, never "Welcome back, undefined".
+    expect(account).toMatch(/displayName \? `Welcome back, \$\{displayName\}` : "Welcome back"/);
     expect(account).toMatch(/Log Out/);
   });
 

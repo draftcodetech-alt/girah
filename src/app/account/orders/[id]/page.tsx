@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getMyOrderById, canCustomerCancel } from "@/modules/orders";
+import { getMyOrderById } from "@/modules/orders";
 import { formatPrice, formatDate } from "@/lib/format";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
-import { CancelOrderButton } from "@/components/storefront/CancelOrderButton";
-import { ReorderButton } from "@/components/storefront/ReorderButton";
 
 export default async function OrderDetailsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,11 +31,22 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
           Items
         </h2>
         {order.items.map((item, i) => (
-          <div key={i} className="flex justify-between font-body text-small py-1.5">
+          <div key={i} className="flex justify-between items-start gap-4 font-body text-small py-1.5">
             <span className="text-charcoal">
               {item.productName} — {item.variationName} × {item.quantity}
             </span>
-            <span className="text-charcoal">{formatPrice(item.subtotal)}</span>
+            <span className="flex items-center gap-4 shrink-0">
+              {/* Received order → deep link into the product's review form. */}
+              {order.orderStatus === "DELIVERED" && item.productSlug && (
+                <Link
+                  href={`/product/${item.productSlug}#reviews-heading`}
+                  className="text-sage font-semibold underline underline-offset-2 hover:text-charcoal"
+                >
+                  Review now
+                </Link>
+              )}
+              <span className="text-charcoal">{formatPrice(item.subtotal)}</span>
+            </span>
           </div>
         ))}
         <div className="flex justify-between font-body text-body font-semibold text-charcoal mt-4 pt-4 border-t border-border">
@@ -64,13 +73,9 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
         </p>
       </div>
 
-      {/* Action bar (Phase 12): cancel only for unpaid/not-yet-prepared
-          orders (server re-validates), reorder anywhere, receipt always. */}
+      {/* Action bar: receipt always (cancel / buy-again were removed as
+          spec'd; the review prompt lives on each delivered line item). */}
       <div className="flex flex-wrap items-start gap-4 mt-8">
-        {canCustomerCancel(order) && (
-          <CancelOrderButton orderId={order.id} orderNumber={order.orderNumber} />
-        )}
-        <ReorderButton orderId={order.id} />
         <Link
           href={`/account/orders/${order.id}/receipt`}
           className="h-12 px-6 inline-flex items-center rounded-[var(--radius-control)] font-body text-button font-semibold bg-cream text-charcoal border border-border"

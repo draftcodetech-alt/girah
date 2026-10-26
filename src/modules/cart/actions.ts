@@ -7,6 +7,7 @@ import type { CartActionResult } from "./types";
 import {
   getOrCreateCart,
   isValidQuantity,
+  MAX_QUANTITY,
   updateCartItemQuantityCore,
 } from "./ops";
 
@@ -15,8 +16,7 @@ export async function addToCart(
   requestedQuantity: number
 ): Promise<CartActionResult> {
   // Server actions are plain HTTP endpoints — never trust the client to send
-  // a sane quantity. A negative value would pass Math.min(..., stock) below,
-  // then inflate stock via `stock: { decrement: negative }` at checkout. (C1)
+  // a sane quantity. A negative value would otherwise be stored as-is. (C1)
   if (!isValidQuantity(requestedQuantity) || requestedQuantity < 1) {
     return { success: false, error: "Invalid quantity." };
   }
@@ -31,9 +31,10 @@ export async function addToCart(
   try {
     const identity = await resolveCartIdentity();
 
-    // Server ALWAYS re-checks live stock — never trusts the client.
+    // Server re-checks the variation exists and is enabled — never trusts
+    // the client. (No stock concept: availability = enabled only.)
     const variation = await db.productVariation.findUnique({ where: { id: variationId } });
-    if (!variation || !variation.isEnabled || variation.stock <= 0) {
+    if (!variation || !variation.isEnabled) {
       return { success: false, error: "This item is no longer available." };
     }
 
@@ -44,7 +45,7 @@ export async function addToCart(
     });
 
     const desiredQuantity = (existingItem?.quantity ?? 0) + requestedQuantity;
-    const cappedQuantity = Math.min(desiredQuantity, variation.stock);
+    const cappedQuantity = Math.min(desiredQuantity, MAX_QUANTITY);
 
     if (existingItem) {
       await db.cartItem.update({ where: { id: existingItem.id }, data: { quantity: cappedQuantity } });

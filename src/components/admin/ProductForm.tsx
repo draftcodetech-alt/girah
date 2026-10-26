@@ -56,7 +56,7 @@ export function ProductForm({
         : await createProduct(input);
 
       if (result.success) {
-        router.push("/admin/products");
+        router.push("/admin/catalog");
         router.refresh();
       } else {
         setError(result.error);

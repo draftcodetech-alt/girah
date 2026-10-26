@@ -33,7 +33,7 @@ export default async function AdminOrderDetailPage({
       </p>
 
       <div className="mt-6">
-        <OrderActions order={order} allowRefund />
+        <OrderActions order={order} />
       </div>
 
       <section className="bg-sage-light rounded-[var(--radius-surface)] p-6 mt-6">

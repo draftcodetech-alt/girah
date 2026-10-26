@@ -82,7 +82,7 @@ export async function placeOrder(input: CheckoutInput): Promise<PlaceOrderResult
       });
       return { ...result, checkoutUrl };
     } catch (safepayError) {
-      // Order + stock decrement already succeeded and committed — a Safepay
+      // Order already succeeded and committed — a Safepay
       // API failure here must NOT be presented as a failed order. The
       // customer can still pay via the order's confirmation/retry path later.
       console.error("Safepay checkout URL generation failed:", safepayError);

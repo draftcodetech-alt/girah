@@ -21,9 +21,6 @@ export function toProductListItem(p: CardProduct): ProductListItem {
   const enabledVariations = p.variations.filter((v) => v.isEnabled);
   const prices = enabledVariations.map((v) => v.price);
   const startingPrice = prices.length > 0 ? Math.min(...prices) : 0;
-  // Out of stock ONLY when every variation is unavailable — not per-variation.
-  const isOutOfStock =
-    p.variations.length > 0 && p.variations.every((v) => !v.isEnabled || v.stock <= 0);
 
   const approvedRatings = p.reviews.map((review) => review.rating);
   const ratingCount = approvedRatings.length;
@@ -38,7 +35,6 @@ export function toProductListItem(p: CardProduct): ProductListItem {
     slug: p.slug,
     mainImageUrl: p.images[0]?.url ?? null,
     startingPrice,
-    isOutOfStock,
     ratingAverage,
     ratingCount,
     categoryName: p.category.name,
@@ -81,7 +77,6 @@ export function sanitizeFilters(raw: ProductFilters): ProductFilters {
     search: likeSafe,
     minPrice,
     maxPrice,
-    inStockOnly: raw.inStockOnly === true,
     sort,
   };
 }
@@ -92,7 +87,7 @@ export async function getProducts(rawFilters: ProductFilters = {}): Promise<Prod
   // F2 — SQL pushdown. Anything decidable from the row (or its variations)
   // now narrows the result set in the database instead of pulling every
   // product and filtering in JS. Each predicate is its own AND element so the
-  // several `OR` blocks (search, maxPrice, inStockOnly) never collide on the
+  // several `OR` blocks (search, maxPrice) never collide on the
   // same key.
   const conditions: Prisma.ProductWhereInput[] = [];
 
@@ -131,18 +126,6 @@ export async function getProducts(rawFilters: ProductFilters = {}): Promise<Prod
       OR: [
         { variations: { none: { isEnabled: true } } },
         { variations: { some: { isEnabled: true, price: { lte: filters.maxPrice } } } },
-      ],
-    });
-  }
-
-  // inStockOnly — out of stock means "has variations and none of them is
-  // both enabled and stocked", so a product with no variations yet
-  // (createProduct writes the row before variations exist) stays visible.
-  if (filters.inStockOnly) {
-    conditions.push({
-      OR: [
-        { variations: { none: {} } },
-        { variations: { some: { isEnabled: true, stock: { gt: 0 } } } },
       ],
     });
   }
@@ -193,7 +176,6 @@ export async function getProductBySlug(slug: string): Promise<ProductDetail | nu
       id: v.id,
       name: v.name,
       price: v.price,
-      stock: v.stock,
       isEnabled: v.isEnabled,
       images: v.images.map((img) => ({ url: img.url })),
     })),

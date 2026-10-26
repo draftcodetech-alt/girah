@@ -43,7 +43,7 @@ describe("createProduct", () => {
     expect(row.description).toBe("Deep red roses, hand-tied.");
     expect(row.categoryId).toBe(category.id);
 
-    expect(revalidatePath).toHaveBeenCalledWith("/admin/products");
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/catalog");
     expect(revalidatePath).toHaveBeenCalledWith("/shop");
   });
 
@@ -122,7 +122,7 @@ describe("updateProduct", () => {
     const row = await db.product.findUniqueOrThrow({ where: { id: product.id } });
     expect(row.name).toBe("Crimson Rose Bouquet");
     expect(row.slug).toBe("original-product");
-    expect(revalidatePath).toHaveBeenCalledWith("/admin/products");
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/catalog");
     expect(revalidatePath).toHaveBeenCalledWith("/product/original-product");
     expect(revalidatePath).toHaveBeenCalledWith("/shop");
   });

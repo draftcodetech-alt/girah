@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { submitReview } from "@/modules/reviews/actions";
 import type { ExistingReview, ReviewActionResult } from "@/modules/reviews";
 import { Button } from "@/components/ui/Button";
@@ -15,6 +15,14 @@ type ReviewFormProps = {
 const STAR_OPTIONS = [1, 2, 3, 4, 5];
 
 export function ReviewForm({ productId, slug, existing }: ReviewFormProps) {
+  // Star fill is driven by state so selecting N lights stars 1..N (the old
+  // `peer-checked:text-gold` only lit the star whose OWN radio was checked —
+  // pick 4 and 1-3 stayed gray). `hover` previews a rating before clicking;
+  // it never overrides an already-chosen one.
+  const [rating, setRating] = useState(existing?.rating ?? 0);
+  const [hover, setHover] = useState(0);
+  const activeStars = hover > 0 ? hover : rating;
+
   const [state, formAction, pending] = useActionState<ReviewActionResult | null, FormData>(
     async (_previous, formData) =>
       submitReview({
@@ -43,20 +51,32 @@ export function ReviewForm({ productId, slug, existing }: ReviewFormProps) {
         <legend className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-2">
           Your rating
         </legend>
-        <div className="flex gap-1">
+        <div className="flex gap-1" onMouseLeave={() => setHover(0)}>
           {STAR_OPTIONS.map((value) => (
-            <label key={value} className="cursor-pointer">
+            <label
+              key={value}
+              className="cursor-pointer"
+              onMouseEnter={() => setHover(value)}
+            >
               <input
                 type="radio"
                 name="rating"
                 value={value}
-                defaultChecked={existing?.rating === value}
+                checked={rating === value}
+                onChange={() => {
+                  setRating(value);
+                  setHover(0);
+                }}
                 required={value === 1}
+                onFocus={() => setHover(value)}
+                onBlur={() => setHover(0)}
                 className="peer sr-only"
               />
               <span
                 aria-hidden="true"
-                className="text-2xl leading-none text-placeholder transition-colors peer-checked:text-gold"
+                className={`text-2xl leading-none transition-colors peer-focus-visible:rounded peer-focus-visible:ring-2 peer-focus-visible:ring-sage peer-focus-visible:ring-offset-2 ${
+                  value <= activeStars ? "text-gold" : "text-placeholder"
+                }`}
               >
                 ★
               </span>

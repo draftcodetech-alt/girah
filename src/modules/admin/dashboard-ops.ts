@@ -1,8 +1,7 @@
 import type { DailyRevenuePoint } from "./types";
 
-// Phase 13 dashboard tuning — one place so the chart, the KPI cards and the
-// low-stock list can never disagree about the window or the threshold.
-export const LOW_STOCK_THRESHOLD = 3;
+// Phase 13 dashboard tuning — one place so the chart and the KPI cards can
+// never disagree about the window.
 export const KPI_WINDOW_DAYS = 30;
 export const CHART_DAYS = 14;
 

@@ -35,7 +35,6 @@ export async function getCartFor(identity: CartIdentity | null): Promise<CartVie
     unitPrice: item.variation.price,
     quantity: item.quantity,
     subtotal: item.variation.price * item.quantity,
-    availableStock: item.variation.stock,
     isEnabled: item.variation.isEnabled,
   }));
 

@@ -13,8 +13,7 @@ export type CategoryActionResult =
   | { success: false; error: string; fieldErrors?: Record<string, string> };
 
 function revalidateCategoryTargets() {
-  revalidatePath("/admin/categories");
-  revalidatePath("/admin/products");
+  revalidatePath("/admin/catalog");
   // The storefront footer lists categories on every page.
   revalidatePath("/", "layout");
 }

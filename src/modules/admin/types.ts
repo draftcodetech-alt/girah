@@ -18,16 +18,9 @@ export type DashboardMetrics = {
   orders30: number;
   customers30: number;
   pendingReviews: number;
-  lowStockCount: number;
   /** Zero-filled daily PAID revenue for the last 14 days (Asia/Karachi days). */
   series: DailyRevenuePoint[];
   ordersByStatus: { status: string; count: number }[];
-  lowStockList: {
-    id: string;
-    name: string;
-    stock: number;
-    product: { id: string; name: string; slug: string };
-  }[];
   recentOrders: {
     id: string;
     orderNumber: string;
@@ -36,21 +29,4 @@ export type DashboardMetrics = {
     paymentStatus: string;
     createdAt: Date;
   }[];
-};
-
-export type StockFeedRow = {
-  id: string;
-  variationId: string;
-  previousStock: number;
-  adjustment: number;
-  newStock: number;
-  reason: string;
-  adminId: string | null;
-  createdAt: Date;
-  admin: { name: string; email: string } | null;
-  variation: {
-    id: string;
-    name: string;
-    product: { id: string; name: string };
-  };
 };

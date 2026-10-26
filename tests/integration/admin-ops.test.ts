@@ -4,17 +4,12 @@ import { db } from "@/lib/db";
 import { requireAdmin } from "@/lib/require-admin";
 import { revalidatePath } from "next/cache";
 import { refundSafepayPayment } from "@/modules/payments/safepay";
-import {
-  refundOrderPayment,
-  getAdminOrders,
-  getAdminOrderById,
-  getDashboardMetrics,
-  getStockAdjustmentFeed,
-} from "@/modules/admin";
+import { getAdminOrders, getAdminOrderById, getDashboardMetrics } from "@/modules/admin";
 import { resetDb, createTestProduct, createTestUser } from "../setup/helpers";
 
-// Phase 13: the new admin ops — standalone refund (money back, order kept),
-// order filters, dashboard aggregations and the stock audit feed.
+// Phase 13: the new admin ops — order filters and dashboard aggregations.
+// The standalone Refund and the stock audit feed were removed as spec
+// changes; the cancel-path refund is covered by refund-cancel.test.ts.
 
 vi.mock("@/lib/require-admin", () => ({
   requireAdmin: vi.fn(async () => ({ user: { id: "admin-test-id", role: "ADMIN" } })),
@@ -49,141 +44,12 @@ async function freshOrder(id: string) {
   return db.order.findUniqueOrThrow({ where: { id } });
 }
 
-async function auditRows() {
-  return db.stockAdjustment.findMany();
-}
 
 beforeEach(async () => {
   await resetDb();
   vi.mocked(requireAdmin).mockClear();
   vi.mocked(revalidatePath).mockClear();
   vi.mocked(refundSafepayPayment).mockReset().mockResolvedValue(undefined);
-});
-
-describe("refundOrderPayment — money back, order kept", () => {
-  it("refuses a missing order", async () => {
-    const result = await refundOrderPayment("does-not-exist");
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("Order not found.");
-  });
-
-  it("refuses a PENDING payment with an explicit status message", async () => {
-    const order = await seedOrder({ paymentStatus: "PENDING" });
-    const result = await refundOrderPayment(order.id);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toMatch(/Only a PAID payment can be refunded/);
-      expect(result.error).toContain("PENDING");
-    }
-    expect((await freshOrder(order.id)).paymentStatus).toBe("PENDING");
-  });
-
-  it("refuses an already-refunded payment (never double-refunds)", async () => {
-    const order = await seedOrder({ paymentStatus: "REFUNDED" });
-    const result = await refundOrderPayment(order.id);
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toBe("This payment has already been refunded.");
-    expect(refundSafepayPayment).not.toHaveBeenCalled();
-  });
-
-  it("COD PAID: flips to REFUNDED, keeps orderStatus, never calls Safepay, never touches stock", async () => {
-    const { variation } = await createTestProduct(); // stock 5
-    const order = await seedOrder({ paymentStatus: "PAID", orderStatus: "CONFIRMED", total: 4_200 });
-    await db.orderItem.create({
-      data: {
-        orderId: order.id,
-        variationId: variation.id,
-        productName: "Bouquet",
-        variationName: "Test Variation",
-        unitPrice: 4_200,
-        quantity: 1,
-        subtotal: 4_200,
-      },
-    });
-
-    const result = await refundOrderPayment(order.id);
-    expect(result.success).toBe(true);
-
-    const fresh = await freshOrder(order.id);
-    expect(fresh.paymentStatus).toBe("REFUNDED");
-    expect(fresh.orderStatus).toBe("CONFIRMED"); // order kept — not cancelled
-    expect(fresh.total).toBe(4_200); // money record unchanged, only the status moves
-
-    expect(refundSafepayPayment).not.toHaveBeenCalled();
-    expect(await auditRows()).toHaveLength(0); // no restock on a refund
-    expect((await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } })).stock).toBe(5);
-    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith(`/admin/orders/${order.id}`);
-    expect(vi.mocked(requireAdmin)).toHaveBeenCalled();
-  });
-
-  it("SAFEPAY PAID: refunds the recorded tracker for the full total, then REFUNDED", async () => {
-    const order = await seedOrder({
-      paymentMethod: "SAFEPAY",
-      paymentStatus: "PAID",
-      orderStatus: "SHIPPED",
-      total: 15_500,
-      safepayTracker: "track_p13_refund",
-    });
-
-    const result = await refundOrderPayment(order.id);
-    expect(result.success).toBe(true);
-
-    expect(refundSafepayPayment).toHaveBeenCalledTimes(1);
-    expect(refundSafepayPayment).toHaveBeenCalledWith("track_p13_refund", 15_500);
-
-    const fresh = await freshOrder(order.id);
-    expect(fresh.paymentStatus).toBe("REFUNDED");
-    expect(fresh.orderStatus).toBe("SHIPPED");
-    expect(await auditRows()).toHaveLength(0);
-    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/admin/orders");
-    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith(`/admin/orders/${order.id}`);
-  });
-
-  it("SAFEPAY PAID without a tracker: refuses and points at the Safepay dashboard, order untouched", async () => {
-    const order = await seedOrder({
-      paymentMethod: "SAFEPAY",
-      paymentStatus: "PAID",
-      safepayTracker: null,
-    });
-
-    const result = await refundOrderPayment(order.id);
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toMatch(/no Safepay payment reference/);
-    expect(refundSafepayPayment).not.toHaveBeenCalled();
-    expect((await freshOrder(order.id)).paymentStatus).toBe("PAID");
-  });
-
-  it("Safepay API rejects: nothing moves — order stays PAID with no audit rows", async () => {
-    vi.mocked(refundSafepayPayment).mockRejectedValueOnce(new Error("gateway said no"));
-    const order = await seedOrder({
-      paymentMethod: "SAFEPAY",
-      paymentStatus: "PAID",
-      safepayTracker: "track_p13_fail",
-    });
-
-    const result = await refundOrderPayment(order.id);
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toMatch(/Safepay rejected the refund/);
-
-    const fresh = await freshOrder(order.id);
-    expect(fresh.paymentStatus).toBe("PAID");
-    expect(fresh.orderStatus).toBe("PENDING");
-    expect(await auditRows()).toHaveLength(0);
-  });
-
-  it("CAS: refuses when the row changed between read and write", async () => {
-    const order = await seedOrder({ paymentStatus: "PAID" });
-    vi.spyOn(db.order, "findUnique").mockResolvedValueOnce({
-      ...(await db.order.findUniqueOrThrow({ where: { id: order.id } })),
-    });
-    await db.order.update({ where: { id: order.id }, data: { paymentStatus: "REFUNDED" } });
-
-    const result = await refundOrderPayment(order.id);
-    expect(result.success).toBe(false);
-    if (!result.success) expect(result.error).toMatch(/reload/i);
-    expect((await freshOrder(order.id)).paymentStatus).toBe("REFUNDED");
-    vi.restoreAllMocks();
-  });
 });
 
 describe("getAdminOrders filters", () => {
@@ -318,22 +184,6 @@ describe("getDashboardMetrics", () => {
     });
   });
 
-  it("low stock counts enabled variations at or below the threshold only", async () => {
-    const low = await createTestProduct();
-    await db.productVariation.update({ where: { id: low.variation.id }, data: { stock: 3 } });
-    const disabled = await createTestProduct();
-    await db.productVariation.update({
-      where: { id: disabled.variation.id },
-      data: { stock: 0, isEnabled: false },
-    });
-
-    const metrics = await getDashboardMetrics();
-    expect(metrics.lowStockCount).toBe(1);
-    expect(metrics.lowStockList).toHaveLength(1);
-    expect(metrics.lowStockList[0]).toMatchObject({ id: low.variation.id, stock: 3 });
-    expect(metrics.lowStockList[0].product.id).toBe(low.product.id);
-  });
-
   it("counts pending reviews and customers created in the window", async () => {
     const { product } = await createTestProduct();
     const customer = await createTestUser();
@@ -365,91 +215,5 @@ describe("getDashboardMetrics", () => {
     const times = metrics.recentOrders.map((order) => order.createdAt.getTime());
     expect([...times].sort((a, b) => b - a)).toEqual(times);
     expect(metrics.recentOrders[0].orderNumber.startsWith("GIR-P13")).toBe(true);
-  });
-});
-
-describe("getStockAdjustmentFeed", () => {
-  it("returns newest-first with admin attribution, or null for customer cancels", async () => {
-    const admin = await createTestUser({ role: "ADMIN", email: "stock-admin@girah.test" });
-    const { variation } = await createTestProduct();
-    await db.stockAdjustment.create({
-      data: {
-        variationId: variation.id,
-        previousStock: 4,
-        adjustment: -1,
-        newStock: 3,
-        reason: "Manual adjustment",
-        adminId: admin.id,
-        createdAt: new Date("2026-03-01T10:00:00Z"),
-      },
-    });
-    await db.stockAdjustment.create({
-      data: {
-        variationId: variation.id,
-        previousStock: 3,
-        adjustment: 1,
-        newStock: 4,
-        reason: "Stock restored after customer cancelled order",
-        adminId: null,
-        createdAt: new Date("2026-03-02T10:00:00Z"),
-      },
-    });
-
-    const rows = await getStockAdjustmentFeed();
-    expect(rows).toHaveLength(2);
-    expect(rows[0].reason).toContain("customer cancelled"); // newest first
-    expect(rows[0].admin).toBeNull();
-    expect(rows[1].admin).toMatchObject({ email: "stock-admin@girah.test" });
-    expect(rows[0].variation.product.name).toBeTruthy();
-    expect(rows[0].previousStock).toBe(3);
-    expect(rows[0].adjustment).toBe(1);
-  });
-
-  it("search filters by product OR variation name, case-insensitively", async () => {
-    const target = await createTestProduct();
-    const other = await createTestProduct();
-    for (const [variation, adjustment, name] of [
-      [target.variation, 1, "Target"],
-      [other.variation, 2, "Other"],
-    ] as const) {
-      await db.stockAdjustment.create({
-        data: {
-          variationId: variation.id,
-          previousStock: 0,
-          adjustment,
-          newStock: adjustment,
-          reason: `Set ${name}`,
-        },
-      });
-    }
-
-    const byProduct = await getStockAdjustmentFeed({ search: target.product.name.toUpperCase() });
-    expect(byProduct).toHaveLength(1);
-    expect(byProduct[0].variationId).toBe(target.variation.id);
-
-    const byVariation = await getStockAdjustmentFeed({ search: "test variation" });
-    expect(byVariation).toHaveLength(2);
-
-    expect(await getStockAdjustmentFeed({ search: "nothing-matches" })).toHaveLength(0);
-  });
-
-  it("is empty before any adjustment exists", async () => {
-    expect(await getStockAdjustmentFeed()).toEqual([]);
-  });
-
-  it("caps the feed at 200 rows so the page stays one bounded read", async () => {
-    const { variation } = await createTestProduct();
-    await db.stockAdjustment.createMany({
-      data: Array.from({ length: 205 }, (_, i) => ({
-        variationId: variation.id,
-        previousStock: i + 1,
-        adjustment: -1,
-        newStock: i,
-        reason: `Bulk row ${i}`,
-      })),
-    });
-    const rows = await getStockAdjustmentFeed();
-    expect(rows).toHaveLength(200);
-    expect(rows.every((row) => row.reason.startsWith("Bulk row"))).toBe(true); // capped, not an error/short list
   });
 });

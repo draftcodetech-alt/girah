@@ -35,8 +35,6 @@ export function ProductCard({ product, wishlisted, priority }: ProductCardProps)
           ) : (
             <span className="pcard__placeholder">No image</span>
           )}
-
-          {product.isOutOfStock && <span className="pcard__oos">Out of Stock</span>}
         </div>
 
         <div className="pcard__info">

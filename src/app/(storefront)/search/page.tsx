@@ -17,7 +17,6 @@ type SearchPageProps = {
     sort?: string;
     minPrice?: string;
     maxPrice?: string;
-    inStockOnly?: string;
     page?: string;
   }>;
 };
@@ -38,7 +37,6 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       sort: params.sort === "price-desc" ? "price-desc" : "price-asc",
       minPrice: params.minPrice ? Number(params.minPrice) * 100 : undefined,
       maxPrice: params.maxPrice ? Number(params.maxPrice) * 100 : undefined,
-      inStockOnly: params.inStockOnly === "true",
     }),
     getWishlistProductIds(),
   ]);

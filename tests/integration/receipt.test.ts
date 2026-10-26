@@ -126,6 +126,6 @@ async function seedVariation() {
     },
   });
   return db.productVariation.create({
-    data: { productId: product.id, name: "Large", price: 25_000, stock: 5 },
+    data: { productId: product.id, name: "Large", price: 25_000 },
   });
 }

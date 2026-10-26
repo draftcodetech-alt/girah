@@ -121,9 +121,10 @@ the dev terminal for emails).
   URL updates (has `aria-label`).
   Expected:
   Actual:
-- [ ] Set **price range** + **In Stock** → results narrow; panel keeps values
+- [ ] Set **price range** → results narrow; panel keeps values
   after reload; removable **filter chips** appear next to the count.
-  Expected: e.g. `2 pieces [Bouquets ×] [In stock ×]`; × removes one filter.
+  Expected: e.g. `2 pieces [Bouquets ×] [Rs. 500+ ×]`; × removes one filter.
+  (There is no **In Stock** filter/chip — the stock concept was removed.)
   Actual:
 - [ ] Garbage params (`?minPrice=Infinity&maxPrice=NaN`) → page 200, no
   `Rs. NaN`/`Rs. Infinity` chips or prices.
@@ -184,18 +185,19 @@ the dev terminal for emails).
   Actual:
 - [ ] Details accordion lists variations as `Name (Rs. X)` — no dashes, no
   stock counts.
-  Expected: e.g. `Small Bouquet (Rs. 1,800.00)`. The Quantity-section stock
-  hint is separate and remains.
+  Expected: e.g. `Small Bouquet (Rs. 1,800.00)`.
   Actual:
 - [ ] Picking a variation swaps the gallery to that variation's own photos
   (falls back to the product photos while a variation has none).
   Expected: main image = the variation's first image; picking another
   variation resets the gallery to its first image.
   Actual:
-- [ ] Selecting a variation shows a stock hint under Quantity.
-  Expected: `In stock` normally, `Only N left in stock` when N ≤ 3.
+- [ ] Under Quantity there is **no stock hint** (no `In stock` / `Only N left`
+  line anywhere on the page).
+  Expected: price + quantity only.
   Actual:
-- [ ] Stepper: can't go below 1 or above stock.
+- [ ] Stepper: can't go below 1 (the − button disables at 1). The old
+  "above stock" ceiling is gone — the only cap is 999.
   Expected:
   Actual:
 - [ ] **Guest gate**: incognito, the buy button reads **"Sign in to Buy"** and
@@ -226,8 +228,9 @@ the dev terminal for emails).
   shipping FREE; empty state shows **"You may also like"** suggestions.
   Expected:
   Actual:
-- [ ] Raise quantity above stock → inline refusal, quantity unchanged.
-  Expected:
+- [ ] Raise a line's quantity a few steps → line total and Total update every
+  click, money stays at 2 decimals, and **no stock refusal ever appears**.
+  Expected: quantities are capped at 999, never by stock.
   Actual:
 - [ ] Remove a line → disappears; last line → empty state + shop link.
   Expected:
@@ -331,14 +334,15 @@ the dev terminal for emails).
   timeline**, total, payment label.
   Expected:
   Actual:
-- [ ] **Cancel order**: offered while cancellable → two-step confirm →
-  `CANCELLED` (stock returns). Shipped/delivered orders show no button.
-  Expected:
+- [ ] **No Cancel order button** anywhere on an order (removed by spec).
+  Expected: the action bar holds only **View receipt** (plus **Review now** on
+  a delivered order, next item).
   Actual:
-- [ ] **Reorder** ("Buy again") → cart refills + inline confirmation.
-  Expected:
+- [ ] **No "Buy again" button** anywhere on an order (removed by spec).
+  Expected: reordering means adding the product from its page.
   Actual:
-- [ ] **Receipt**: opens; print button opens the print dialog.
+- [ ] **Receipt**: opens with the invoice; **no Print button** (removed by
+  spec) — `Ctrl/Cmd+P` still prints a clean receipt (page chrome hidden).
   Expected:
   Actual:
 - [ ] **Shipping address**: save → reload persists; checkout pre-fills it.
@@ -353,6 +357,12 @@ the dev terminal for emails).
   Actual:
 - [ ] **Review**: on an ordered (non-cancelled) product the form appears;
   submit → saved **PENDING**, invisible publicly (completed in §9).
+  Expected:
+  Actual:
+- [ ] **Review now**: a `DELIVERED` order shows a **Review now** button in the
+  orders list and on its detail page → lands on the product's
+  `/product/<slug>#reviews-heading`. A `PENDING`/`CONFIRMED` order shows no
+  such button (the order number stays the row's link).
   Expected:
   Actual:
 
@@ -393,33 +403,45 @@ The admin door is **not linked anywhere** — type it by hand:
 - [ ] **Authz first**: signed out → executive-door bounce; customer → bounced home.
   Expected:
   Actual:
-- [ ] Left nav wraps on mobile (no horizontal scroll); **Newsletter** item
-  present.
+- [ ] Left nav wraps on mobile (no horizontal scroll); the tabs are
+  **Dashboard · Catalog · Orders · Customers · Reviews · Newsletter** —
+  no Products / Categories / Variations / Stock tabs.
   Expected:
   Actual:
-- [ ] **Dashboard**: metric cards + 14-day revenue SVG reflect today's activity.
+- [ ] **Dashboard**: four metric cards + 14-day revenue SVG reflect today's
+  activity — **no low-stock card**.
   Expected:
   Actual:
-- [ ] **Products**: create (name, description, category, **real image upload**,
-  rupees price, stock) → edit persists → toggle off hides from `/shop` →
-  on reappears → delete unreferenced works; order-referenced delete refused
-  with message.
+- [ ] **Catalog** (`/admin/catalog`) is the ONE page for all three: the
+  Products list, the Categories list, and each product's variations. Expand a
+  product → edit it in place (name, description, category, rupees price,
+  enabled toggle) and manage its **variations** (add / edit price /
+  enable-disable) without leaving the page. **+ Add Product** →
+  `/admin/products/new`, where the **real image upload** lives.
   Expected (paste image URL):
   Actual:
-- [ ] **Categories**: rename, create; deleting a used one is refused clearly.
+- [ ] Catalog toggles: toggle a product off → gone from `/shop`; back on →
+  reappears; delete an unreferenced product → works; try to delete an
+  order-referenced product → refused with a clear message.
   Expected:
   Actual:
-- [ ] **Variations**: enable/disable, edit price/stock; disabled can't be bought.
+- [ ] **Categories** (same Catalog page): rename, create; deleting a used one
+  is refused clearly.
   Expected:
   Actual:
-- [ ] **Stock**: adjustment → history row with reason + timestamp + admin.
+- [ ] **No Stock anywhere**: no Stock tab, no stock field on any product or
+  variation form, no "In stock" hints; `/admin/products`,
+  `/admin/categories`, `/admin/variations`, `/admin/stock` each redirect to
+  `/admin/catalog` (`/admin/products/new` and the image page still work).
   Expected:
   Actual:
 - [ ] **Orders**: filter/search; detail (customer, address, items, totals,
   payment); walk `CONFIRMED → PROCESSING → SHIPPED → DELIVERED` (status
   email per step in terminal); **Mark Paid** on COD `PENDING` → `PAID`;
-  invalid jumps refused; **Refund** while `PAID` → two-step → `REFUNDED`;
-  cancel a cancellable order → `CANCELLED`.
+  invalid jumps refused; **no Refund button anywhere** (removed by spec);
+  the action buttons sit in one compact, evenly-gapped row (no double gap);
+  cancel a cancellable order → `CANCELLED` — a `PAID` one is refunded first
+  (Safepay) or marked `REFUNDED` (COD) before the flip.
   Expected:
   Actual:
 - [ ] **Customers**: roles + Disabled flags; toggle works; deactivated account
@@ -509,7 +531,7 @@ The admin door is **not linked anywhere** — type it by hand:
 ```bash
 npm run test:unit          # fast, no DB
 npm run test:smoke         # 21 pages render clean (needs :3100 prod server)
-E2E_BASE_URL=http://localhost:3100 npm run test:e2e   # ~350 checks
+E2E_BASE_URL=http://localhost:3100 npm run test:e2e   # 345 checks
 ```
 
 They create and clean up their own data. Anything these miss is by definition

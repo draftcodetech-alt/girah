@@ -93,7 +93,6 @@ describe("getWishlistProducts", () => {
       slug: expect.any(String),
       mainImageUrl: null,
       startingPrice: 100_000,
-      isOutOfStock: false,
       ratingCount: 0,
       ratingAverage: null,
     });

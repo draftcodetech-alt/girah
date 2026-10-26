@@ -74,7 +74,7 @@ const checkout: CheckoutInput = {
 };
 
 async function seedCartForGuest(guestId: string, quantity = 2) {
-  const { variation } = await createTestProduct(); // stock 5
+  const { variation } = await createTestProduct();
   const cart = await db.cart.create({ data: { guestId } });
   await db.cartItem.create({ data: { cartId: cart.id, variationId: variation.id, quantity } });
   return { cart, variation };
@@ -118,7 +118,7 @@ afterEach(() => {
 describe("placeOrder — no guest checkout", () => {
   it("refuses a signed-out COD order before any order row exists", async () => {
     authMock.mockResolvedValue(null);
-    const { variation } = await seedCartForGuest("guest-wrapper");
+    await seedCartForGuest("guest-wrapper");
     state.jar.set(GUEST, "guest-wrapper");
 
     const result = await placeOrder(checkout);
@@ -126,12 +126,9 @@ describe("placeOrder — no guest checkout", () => {
     expect(result.success).toBe(false);
     if (!result.success) expect(result.error).toBe("You must be signed in.");
 
-    // Refused before the core: no order, no stock movement, no mail, cart
-    // left exactly as it was.
+    // Refused before the core: no order, no mail, cart left exactly as it
+    // was.
     expect(await db.order.count()).toBe(0);
-    expect(
-      (await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } })).stock
-    ).toBe(5);
     expect(send).not.toHaveBeenCalled();
     expect(createSafepayCheckoutUrl).not.toHaveBeenCalled();
     expect(state.revalidated).toBe(0);
@@ -156,7 +153,7 @@ describe("placeOrder — no guest checkout", () => {
 describe("placeOrder — signed-in COD order", () => {
   it("creates the order against the account, empties the cart, mails once", async () => {
     const user = await signInAs("wrapper@girah.test");
-    const { variation } = await seedCartForUser(user.id);
+    await seedCartForUser(user.id);
 
     const result = await placeOrder(checkout);
 
@@ -170,11 +167,8 @@ describe("placeOrder — signed-in COD order", () => {
     expect(order.paymentStatus).toBe("PENDING");
     expect(order.total).toBe(200_000); // 100_000 × 2
 
-    // Cart emptied, stock decremented once, order-received mail sent once.
+    // Cart emptied, order-received mail sent once.
     expect(await db.cartItem.count()).toBe(0);
-    expect(
-      (await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } })).stock
-    ).toBe(3);
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0].to).toBe(checkout.email);
     expect(state.revalidated).toBeGreaterThan(0);
@@ -323,7 +317,7 @@ describe("placeOrder — saveAddress", () => {
 describe("placeOrder — duplicate-checkout guard", () => {
   it("a second identical submit fails and produces no second order", async () => {
     const user = await signInAs("double@girah.test");
-    const { variation } = await seedCartForUser(user.id);
+    await seedCartForUser(user.id);
 
     const first = await placeOrder(checkout);
     expect(first.success).toBe(true);
@@ -332,20 +326,16 @@ describe("placeOrder — duplicate-checkout guard", () => {
 
     expect(second.success).toBe(false);
     if (!second.success) {
-      // The emptied cart trips the guard before any stock or order work.
+      // The emptied cart trips the guard before any order work.
       expect(second.error).toMatch(/cart is empty|already completed/i);
     }
     expect(await db.order.count()).toBe(1);
-    // Stock decremented exactly once — the refused submit never touched it.
-    expect(
-      (await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } })).stock
-    ).toBe(3);
     expect(send).toHaveBeenCalledTimes(1);
   });
 
   it("two racing submits of the same cart produce exactly one order", async () => {
     const user = await signInAs("race@girah.test");
-    const { variation } = await seedCartForUser(user.id);
+    await seedCartForUser(user.id);
 
     const results = await Promise.all([placeOrder(checkout), placeOrder(checkout)]);
 
@@ -356,8 +346,5 @@ describe("placeOrder — duplicate-checkout guard", () => {
       expect(failure.error).toMatch(/cart is empty|already completed/i);
     }
     expect(await db.order.count()).toBe(1);
-    expect(
-      (await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } })).stock
-    ).toBe(3);
   });
 });

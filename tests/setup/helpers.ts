@@ -9,7 +9,6 @@ export async function resetDb(): Promise<void> {
     TRUNCATE TABLE
       "CartItem", "Cart",
       "OrderItem", "Order",
-      "StockAdjustment",
       "Review",
       "WishlistItem",
       "PasswordResetToken",
@@ -52,7 +51,7 @@ export async function createTestProduct() {
     },
   });
   const variation = await db.productVariation.create({
-    data: { productId: product.id, name: "Test Variation", price: 100_000, stock: 5 },
+    data: { productId: product.id, name: "Test Variation", price: 100_000 },
   });
   return { category, product, variation };
 }

@@ -97,9 +97,9 @@ describe("label association", () => {
   it("repeating admin forms prefix ids per row", () => {
     expect(readSource("src/components/admin/CategoryForm.tsx")).toContain("idPrefix");
     expect(readSource("src/components/admin/VariationForm.tsx")).toContain("idPrefix");
-    const row = readSource("src/components/admin/VariationRow.tsx");
-    expect(row).toContain("adjust-${variation.id}");
-    expect(row).toContain("reason-${variation.id}");
+    // The per-row ids that used to live here belonged to the stock-adjust
+    // form; that form (and the stock concept) is gone by spec.
+    expect(readSource("src/components/admin/VariationRow.tsx")).not.toContain("adjust-${variation.id}");
   });
 });
 
@@ -113,10 +113,12 @@ describe("shop result state (real query data)", () => {
 });
 
 describe("buy-path helpers (real data)", () => {
-  it("PDP shows a live stock hint for the selected variation", () => {
+  it("PDP keeps its failure announcement and shows no stock copy", () => {
     const source = readSource("src/components/storefront/PurchasePanel.tsx");
-    expect(source).toContain("Only ${selected.stock} left in stock");
-    expect(source).toContain('role="status"');
+    expect(source).toContain('role="alert"');
+    // Stock hint ("In stock" / "Only N left in stock") removed by spec.
+    expect(source).not.toContain("left in stock");
+    expect(source).not.toContain("Only ${selected.stock}");
   });
 
   it("checkout summary shows real thumbnails", () => {

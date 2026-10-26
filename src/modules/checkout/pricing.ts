@@ -10,7 +10,7 @@ export type PricedLine = {
 };
 
 // Takes a transaction client, not the global db — pricing must be computed
-// inside the SAME transaction as the stock decrement + order creation, so
+// inside the SAME transaction as order creation, so
 // there's no gap where a price could change between reading and committing.
 export async function priceCartItemsFresh(
   tx: Prisma.TransactionClient,

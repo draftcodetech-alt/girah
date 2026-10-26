@@ -140,13 +140,15 @@ describe("payment.refunded on a PAID order", () => {
     });
 
     expect(result.status).toBe(200);
-    expect((await refresh(order.id)).paymentStatus).toBe("REFUNDED");
+    const fresh = await refresh(order.id);
+    expect(fresh.paymentStatus).toBe("REFUNDED");
     expect(send).toHaveBeenCalledTimes(1);
     expect(send.mock.calls[0][0].to).toBe(order.customerEmail);
 
-    // Refund events never credit stock — only the cancel flow does.
-    expect(await db.stockAdjustment.count()).toBe(0);
-    expect((await db.productVariation.findUniqueOrThrow({ where: { id: variation.id } })).stock).toBe(5);
+    // A refund event is payment-only: fulfillment status stays exactly where
+    // the status machine left it (the stock concept is gone entirely).
+    expect(fresh.orderStatus).toBe(order.orderStatus);
+    expect(await db.orderItem.count()).toBe(1);
   });
 
   it("is a no-op (and no email) when the order is not PAID yet", async () => {

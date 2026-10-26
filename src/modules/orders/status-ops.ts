@@ -32,16 +32,17 @@ export class ConcurrentOrderUpdateError extends Error {
 
 /**
  * Core of the order-status state machine, shared by the admin wrapper
- * (`updateOrderStatus`, adminId set) and the customer `cancelMyOrder` action
- * (adminId null). Extracted from the "use server" wrapper so the state
- * machine + refund + restock behaviour can be integration-tested without
+ * (`updateOrderStatus`) and other server callers.
+ * Extracted from the "use server" wrapper so the state
+ * machine + refund behaviour can be integration-tested without
  * Next request context. Auth is the caller's job. Cancelling a PAID order
- * issues the refund BEFORE mutating state.
+ * issues the refund BEFORE mutating state. (The third argument this used to
+ * take — the acting admin's id — only existed to attribute stock adjustments,
+ * and went away with the stock concept.)
  */
 export async function updateOrderStatusCore(
   orderId: string,
-  input: unknown,
-  adminId: string | null
+  input: unknown
 ): Promise<OrderActionResult> {
   const parsed = orderStatusSchema.safeParse(input);
   if (!parsed.success) {
@@ -58,7 +59,7 @@ export async function updateOrderStatusCore(
   }
 
   // Same status — idempotent no-op. A double-clicked select must neither
-  // fail nor restock a second time.
+  // fail nor apply twice.
   if (order.orderStatus === next) {
     return { success: true };
   }
@@ -81,7 +82,7 @@ export async function updateOrderStatusCore(
       return {
         success: false,
         error:
-          "This paid order has no Safepay payment reference recorded. Refund it from the Safepay dashboard first — once it shows REFUNDED, cancel it here (the order will restock).",
+          "This paid order has no Safepay payment reference recorded. Refund it from the Safepay dashboard first — once it shows REFUNDED, cancel it here.",
       };
     }
     try {
@@ -97,18 +98,12 @@ export async function updateOrderStatusCore(
     }
   }
 
-  // Restock on EVERY cancellation. The old "skip if PAID" carve-out existed
-  // only because refunds weren't wired up yet; with the refund path in place,
-  // CANCELLED always pairs with returned stock (REFUNDED is distinct from
-  // PAID, so the CAS below keeps an already-refunded payment status intact).
-  const shouldRestock = next === "CANCELLED";
-
   try {
     await db.$transaction(
       async (tx) => {
         // Compare-and-swap on BOTH status and paymentStatus: if another
         // admin or the payment webhook changed the order since we read it,
-        // abort instead of restocking on stale assumptions.
+        // abort instead of committing on stale assumptions.
         const claimed = await tx.order.updateMany({
           where: {
             id: orderId,
@@ -125,37 +120,8 @@ export async function updateOrderStatusCore(
         if (claimed.count === 0) {
           throw new ConcurrentOrderUpdateError();
         }
-
-        if (shouldRestock) {
-          // Sorted by variationId — same global lock order as
-          // decrementStockForItems, so concurrent cancellations and
-          // checkouts can't deadlock on variation rows.
-          const restockable = [...order.items].sort((a, b) =>
-            a.variationId.localeCompare(b.variationId)
-          );
-          for (const item of restockable) {
-            // Atomic increment; the returned row gives exact audit values
-            // (previous = new − adjustment) even under concurrency.
-            const variation = await tx.productVariation.update({
-              where: { id: item.variationId },
-              data: { stock: { increment: item.quantity } },
-              select: { stock: true },
-            });
-            await tx.stockAdjustment.create({
-              data: {
-                variationId: item.variationId,
-                previousStock: variation.stock - item.quantity,
-                adjustment: item.quantity,
-                newStock: variation.stock,
-                reason:
-                  adminId === null
-                    ? `Order ${order.orderNumber} cancelled by customer`
-                    : `Order ${order.orderNumber} cancelled${wasPaid ? " — payment refunded" : ""}`,
-                adminId,
-              },
-            });
-          }
-        }
+        // No restock: the stock concept was removed (spec change) —
+        // cancellation only moves status + payment.
       },
       { maxWait: 5000, timeout: 10000 }
     );
@@ -204,22 +170,4 @@ export async function updateOrderStatusCore(
   }
 
   return { success: true };
-}
-
-/**
- * Customer self-service cancel eligibility (Phase 12): UNPAID orders only,
- * while the shop hasn't started preparing them (PENDING/CONFIRMED). Paid,
- * PROCESSING/SHIPPED, DELIVERED and CANCELLED orders must go through
- * support/admin — this keeps the customer path entirely refund-free.
- * Pure so both the page (to decide whether to render the button) and the
- * action (to re-validate, never trusting the client) share ONE rule.
- */
-export function canCustomerCancel(order: {
-  orderStatus: string;
-  paymentStatus: string;
-}): boolean {
-  return (
-    order.paymentStatus === "PENDING" &&
-    (order.orderStatus === "PENDING" || order.orderStatus === "CONFIRMED")
-  );
 }

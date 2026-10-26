@@ -86,7 +86,15 @@ export async function getMyOrderById(id: string): Promise<OrderView | null> {
 
   const order = await db.order.findFirst({
     where: { id, userId: session.user.id },
-    include: { items: true },
+    // variation → product.slug: the "Review now" links on DELIVERED orders
+    // need the live product URL (the frozen snapshot only carries names).
+    include: {
+      items: {
+        include: {
+          variation: { select: { product: { select: { slug: true } } } },
+        },
+      },
+    },
   });
   if (!order) return null;
 
@@ -110,6 +118,7 @@ export async function getMyOrderById(id: string): Promise<OrderView | null> {
       unitPrice: i.unitPrice,
       quantity: i.quantity,
       subtotal: i.subtotal,
+      productSlug: i.variation.product.slug,
     })),
   };
 }

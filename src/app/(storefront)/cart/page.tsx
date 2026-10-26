@@ -90,7 +90,6 @@ export default async function CartPage() {
                     cartItemId={item.id}
                     productName={item.productName}
                     quantity={item.quantity}
-                    availableStock={item.availableStock}
                     isEnabled={item.isEnabled}
                   />
                 </div>
