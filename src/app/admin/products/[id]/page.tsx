@@ -12,6 +12,10 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
 
   return (
     <div>
+      <p className="ax-eyebrow">
+        <span className="ax-eyebrow-line" aria-hidden="true" />
+        CATALOG · EDIT PIECE
+      </p>
       <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal mb-8">Edit Product</h1>
       <ProductForm categories={categories} existingProduct={product} />
 

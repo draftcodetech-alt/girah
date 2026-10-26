@@ -12,7 +12,13 @@ export default async function ProfilePage() {
       <Breadcrumbs
         items={[{ label: "Home", href: "/" }, { label: "Account", href: "/account" }, { label: "Profile" }]}
       />
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase mb-8">Profile</h1>
+      <p className="ax-eyebrow">
+        <span className="ax-eyebrow-line" aria-hidden="true" />
+        YOUR DETAILS
+      </p>
+      <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.8rem)] leading-[1.15] tracking-[0.02em] text-charcoal uppercase mb-8">
+        Profile
+      </h1>
       <ProfileForm profile={profile} />
     </div>
   );

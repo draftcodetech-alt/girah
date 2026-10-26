@@ -38,7 +38,7 @@ export function ProductDeleteButton({
           type="button"
           onClick={handleDelete}
           disabled={isPending}
-          className="font-body text-small text-error font-semibold underline"
+          className="ax-inline-btn ax-inline-btn--danger ax-inline-btn--confirm"
         >
           {isPending ? "Deleting…" : `Yes, delete “${productName}”`}
         </button>
@@ -47,13 +47,13 @@ export function ProductDeleteButton({
           type="button"
           onClick={() => setConfirming(true)}
           disabled={isPending}
-          className="font-body text-small text-error font-medium"
+          className="ax-inline-btn ax-inline-btn--danger"
         >
           Delete
         </button>
       )}
       {error && (
-        <span role="alert" className="font-body text-small text-error mt-1 max-w-[240px] text-right">
+        <span role="alert" className="ax-row-error max-w-[240px] text-right">
           {error}
         </span>
       )}

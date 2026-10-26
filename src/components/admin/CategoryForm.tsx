@@ -44,34 +44,32 @@ export function CategoryForm({
   }
 
   const inputClass = (field: string) =>
-    `h-10 rounded-[var(--radius-control)] border px-3 font-body text-body bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-sage ${
-      fieldErrors[field] ? "border-error" : "border-border"
-    }`;
+    `ax-input w-48${fieldErrors[field] ? " ax-input--error" : ""}`;
 
   // This form renders once per row in edit mode — prefix ids so simultaneous
   // editors never share an id.
   const idPrefix = existing?.id ?? "new-category";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
+    <form onSubmit={handleSubmit} className="ax-form-grid">
       <div>
-        <label htmlFor={`${idPrefix}-name`} className="font-body text-small text-charcoal block mb-1">Name</label>
-        <input id={`${idPrefix}-name`} name="name" defaultValue={existing?.name} required className={`${inputClass("name")} w-48`} />
-        {fieldErrors.name && <p role="alert" className="text-small text-error mt-1">{fieldErrors.name}</p>}
+        <label htmlFor={`${idPrefix}-name`} className="ax-form-label">Name</label>
+        <input id={`${idPrefix}-name`} name="name" defaultValue={existing?.name} required className={inputClass("name")} />
+        {fieldErrors.name && <p role="alert" className="ax-form-error">{fieldErrors.name}</p>}
       </div>
       <div>
-        <label htmlFor={`${idPrefix}-slug`} className="font-body text-small text-charcoal block mb-1">Slug</label>
-        <input id={`${idPrefix}-slug`} name="slug" defaultValue={existing?.slug} required className={`${inputClass("slug")} w-48`} />
-        {fieldErrors.slug && <p role="alert" className="text-small text-error mt-1">{fieldErrors.slug}</p>}
+        <label htmlFor={`${idPrefix}-slug`} className="ax-form-label">Slug</label>
+        <input id={`${idPrefix}-slug`} name="slug" defaultValue={existing?.slug} required className={inputClass("slug")} />
+        {fieldErrors.slug && <p role="alert" className="ax-form-error">{fieldErrors.slug}</p>}
       </div>
       <button
         type="submit"
         disabled={isPending}
-        className="h-10 px-4 rounded-[var(--radius-control)] bg-sage text-cream font-body text-small font-semibold disabled:opacity-60"
+        className="ax-btn ax-btn--primary disabled:opacity-60"
       >
         {isPending ? "Saving…" : existing ? "Save category" : "Add category"}
       </button>
-      {error && <p role="alert" className="w-full font-body text-small text-error">{error}</p>}
+      {error && <p role="alert" className="w-full ax-form-note">{error}</p>}
     </form>
   );
 }

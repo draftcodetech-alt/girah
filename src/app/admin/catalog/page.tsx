@@ -27,34 +27,33 @@ export default async function AdminCatalogPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+      <div className="ax-heading">
         <div>
-          <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">Catalog</h1>
-          <p className="font-body text-small text-muted mt-1">
-            Products, categories and variations — all on one page.
+          <p className="ax-eyebrow">
+            <span className="ax-eyebrow-line" aria-hidden="true" />
+            PRODUCTS · CATEGORIES · VARIATIONS
           </p>
+          <h1 className="ax-title">
+            Catalog<span className="ax-period">.</span>
+          </h1>
+          <p className="ax-sub">Products, categories and variations — all on one page.</p>
         </div>
-        <Link
-          href="/admin/products/new"
-          className="h-12 px-6 leading-[48px] rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold"
-        >
+        <Link href="/admin/products/new" className="ax-btn ax-btn--primary">
           + Add Product
         </Link>
       </div>
 
-      <section aria-labelledby="catalog-products-heading">
-        <h2
-          id="catalog-products-heading"
-          className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-3"
-        >
-          Products ({products.length})
-        </h2>
+      <section aria-labelledby="catalog-products-heading" className="ax-panel ax-panel--body">
+        <div className="ax-section-label">
+          <div>
+            <p className="ax-kicker">INVENTORY</p>
+            <h2 id="catalog-products-heading">Products ({products.length})</h2>
+          </div>
+        </div>
         {products.length === 0 ? (
-          <p className="font-body text-body text-muted">
-            No products yet — add the first one.
-          </p>
+          <p className="ax-sub">No products yet — add the first one.</p>
         ) : (
-          <div className="divide-y divide-border border-t border-border">
+          <div className="ax-rows">
             {products.map((product) => (
               <CatalogProductRow
                 key={product.id}
@@ -66,25 +65,26 @@ export default async function AdminCatalogPage() {
         )}
       </section>
 
-      <section aria-labelledby="catalog-categories-heading" className="mt-12">
-        <h2
-          id="catalog-categories-heading"
-          className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-3"
-        >
-          Categories ({categories.length})
-        </h2>
+      <section
+        aria-labelledby="catalog-categories-heading"
+        className="ax-panel ax-panel--body mt-6"
+      >
+        <div className="ax-section-label">
+          <div>
+            <p className="ax-kicker">TAXONOMY</p>
+            <h2 id="catalog-categories-heading">Categories ({categories.length})</h2>
+          </div>
+        </div>
 
-        <div className="mb-6">
-          <h3 className="font-body text-small text-charcoal font-semibold mb-2">Add category</h3>
+        <div className="ax-inline-panel">
+          <h3 className="ax-form-label">Add category</h3>
           <CategoryForm />
         </div>
 
         {categories.length === 0 ? (
-          <p className="font-body text-body text-muted">
-            No categories yet — add the first one.
-          </p>
+          <p className="ax-sub mt-6">No categories yet — add the first one.</p>
         ) : (
-          <div className="divide-y divide-border border-t border-border">
+          <div className="ax-rows mt-6">
             {categories.map((category) => (
               <CategoryRow key={category.id} category={category} />
             ))}

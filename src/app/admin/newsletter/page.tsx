@@ -9,19 +9,37 @@ export default async function AdminNewsletterPage() {
 
   return (
     <div>
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal mb-1">Newsletter</h1>
-      <p className="font-body text-small text-muted mb-8">
-        {subscribers.length === 0
-          ? "No subscribers yet — signups land here from the footer form."
-          : `${subscribers.length} ${subscribers.length === 1 ? "subscriber" : "subscribers"}`}
-      </p>
+      <div className="ax-heading">
+        <div>
+          <p className="ax-eyebrow">
+            <span className="ax-eyebrow-line" aria-hidden="true" />
+            AUDIENCE · SIGNUPS
+          </p>
+          <h1 className="ax-title">
+            Newsletter<span className="ax-period">.</span>
+          </h1>
+          <p className="ax-sub">
+            {subscribers.length === 0
+              ? "No subscribers yet — signups land here from the footer form."
+              : `${subscribers.length} ${subscribers.length === 1 ? "subscriber" : "subscribers"}`}
+          </p>
+        </div>
+      </div>
 
       {subscribers.length > 0 && (
-        <ul className="divide-y divide-border border-y border-border">
-          {subscribers.map((s) => (
-            <NewsletterRow key={s.id} id={s.id} email={s.email} date={formatDate(s.createdAt)} />
-          ))}
-        </ul>
+        <section className="ax-panel ax-panel--body">
+          <div className="ax-section-label">
+            <div>
+              <p className="ax-kicker">SUBSCRIBERS</p>
+              <h2>On the list</h2>
+            </div>
+          </div>
+          <ul className="ax-rows">
+            {subscribers.map((s) => (
+              <NewsletterRow key={s.id} id={s.id} email={s.email} date={formatDate(s.createdAt)} />
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

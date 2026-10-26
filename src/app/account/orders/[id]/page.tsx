@@ -19,19 +19,29 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
           { label: `Order #${order.orderNumber}` },
         ]}
       />
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">
-        Order #{order.orderNumber}
-      </h1>
-      <p className="font-body text-body text-muted mt-2">
-        Placed {formatDate(order.createdAt)}
-      </p>
+      <header className="mb-8">
+        <p className="ax-eyebrow">
+          <span className="ax-eyebrow-line" aria-hidden="true" />
+          PLACED {formatDate(order.createdAt)}
+        </p>
+        <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.8rem)] leading-[1.15] tracking-[0.02em] text-charcoal uppercase">
+          Order #{order.orderNumber}
+        </h1>
+      </header>
 
-      <div className="bg-sage-light rounded-[var(--radius-surface)] p-6 mt-8">
-        <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-charcoal mb-4">
-          Items
-        </h2>
+      <section className="ax-panel ax-panel--body">
+        <div className="ax-section-label">
+          <div>
+            <p className="ax-kicker">ITEMS</p>
+            <h2>What you ordered</h2>
+          </div>
+          <span className="ax-pill">
+            <i aria-hidden="true" />
+            {order.orderStatus}
+          </span>
+        </div>
         {order.items.map((item, i) => (
-          <div key={i} className="flex justify-between items-start gap-4 font-body text-small py-1.5">
+          <div key={i} className="flex justify-between items-start gap-4 py-1.5 text-[13px]">
             <span className="text-charcoal">
               {item.productName} — {item.variationName} × {item.quantity}
             </span>
@@ -49,37 +59,40 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
             </span>
           </div>
         ))}
-        <div className="flex justify-between font-body text-body font-semibold text-charcoal mt-4 pt-4 border-t border-border">
+        <div className="flex justify-between text-[15px] font-semibold text-charcoal mt-4 pt-4 border-t border-border">
           <span>Total</span>
           <span>{formatPrice(order.total)}</span>
         </div>
-      </div>
+      </section>
 
-      <div className="mt-6">
-        <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-2">
-          Shipping
-        </h2>
-        <p className="font-body text-body text-charcoal">
+      <section className="ax-panel ax-panel--body mt-6">
+        <div className="ax-section-label">
+          <div>
+            <p className="ax-kicker">SHIPPING</p>
+            <h2>Where it went</h2>
+          </div>
+        </div>
+        <p className="ax-row-name">
           {order.shippingAddress}, {order.shippingCity}
         </p>
-      </div>
+      </section>
 
-      <div className="mt-6">
-        <h2 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-2">
-          Status
-        </h2>
-        <p className="font-body text-body text-charcoal">
+      <section className="ax-panel ax-panel--body mt-6">
+        <div className="ax-section-label">
+          <div>
+            <p className="ax-kicker">STATUS</p>
+            <h2>How it went</h2>
+          </div>
+        </div>
+        <p className="ax-row-meta">
           Order: {order.orderStatus} — Payment: {order.paymentStatus}
         </p>
-      </div>
+      </section>
 
       {/* Action bar: receipt always (cancel / buy-again were removed as
           spec'd; the review prompt lives on each delivered line item). */}
       <div className="flex flex-wrap items-start gap-4 mt-8">
-        <Link
-          href={`/account/orders/${order.id}/receipt`}
-          className="h-12 px-6 inline-flex items-center rounded-[var(--radius-control)] font-body text-button font-semibold bg-cream text-charcoal border border-border"
-        >
+        <Link href={`/account/orders/${order.id}/receipt`} className="ax-btn ax-btn--ghost">
           View receipt
         </Link>
       </div>

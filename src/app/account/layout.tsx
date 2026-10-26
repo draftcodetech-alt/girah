@@ -7,11 +7,15 @@ export default function AccountLayout({ children }: { children: React.ReactNode 
     <>
       <Header />
       <main id="main-content" className="flex-1">
-        {/* Shared section nav — every account page sits under this wrapper. */}
-        <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 pt-8">
-          <AccountNav />
+        {/* Cream console surface for the whole customer dashboard — the shop
+            Header / Footer and the shared nav below stay exactly as they were. */}
+        <div className="acct-shell">
+          {/* Shared section nav — every account page sits under this wrapper. */}
+          <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 pt-8">
+            <AccountNav />
+          </div>
+          {children}
         </div>
-        {children}
       </main>
       <Footer />
     </>

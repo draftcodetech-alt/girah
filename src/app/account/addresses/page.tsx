@@ -21,10 +21,14 @@ export default async function AddressesPage() {
           { label: "Shipping Address" },
         ]}
       />
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase">
+      <p className="ax-eyebrow">
+        <span className="ax-eyebrow-line" aria-hidden="true" />
+        DELIVERY
+      </p>
+      <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.8rem)] leading-[1.15] tracking-[0.02em] text-charcoal uppercase">
         Shipping Address
       </h1>
-      <p className="font-body text-body text-muted mt-2">
+      <p className="ax-sub mb-8">
         Your default delivery address — checkout fills it in automatically.
       </p>
 

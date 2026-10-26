@@ -21,12 +21,15 @@ export default async function OrdersPage() {
         <Breadcrumbs
           items={[{ label: "Home", href: "/" }, { label: "Account", href: "/account" }, { label: "Orders" }]}
         />
-        <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase">Orders</h1>
-        <p className="font-body text-body text-muted mt-4">You haven&apos;t placed any orders yet.</p>
-        <Link
-          href="/shop"
-          className="inline-block mt-8 h-12 px-6 leading-[48px] rounded-[var(--radius-control)] bg-sage text-cream font-body text-button font-semibold"
-        >
+        <p className="ax-eyebrow justify-center">
+          <span className="ax-eyebrow-line" aria-hidden="true" />
+          YOUR ORDERS
+        </p>
+        <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.8rem)] leading-[1.15] tracking-[0.02em] text-charcoal uppercase">
+          Orders
+        </h1>
+        <p className="ax-sub">You haven&apos;t placed any orders yet.</p>
+        <Link href="/shop" className="ax-btn ax-btn--primary mt-8">
           Shop Handmade
         </Link>
       </div>
@@ -38,40 +41,51 @@ export default async function OrdersPage() {
       <Breadcrumbs
         items={[{ label: "Home", href: "/" }, { label: "Account", href: "/account" }, { label: "Orders" }]}
       />
-      <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal uppercase mb-8">Orders</h1>
-      <div className="divide-y divide-border">
-        {orders.map((order) => (
-          <div
-            key={order.id}
-            className="flex flex-wrap items-center justify-between gap-3 py-4 -mx-4 px-4 hover:bg-sage-light/30"
-          >
-            <div>
-              <Link
-                href={`/account/orders/${order.id}`}
-                className="font-body text-body font-medium text-charcoal hover:text-sage underline-offset-2 hover:underline"
-              >
-                #{order.orderNumber}
-              </Link>
-              <p className="font-body text-small text-muted mt-1">{order.items.length} item(s)</p>
-            </div>
-            <div className="flex items-center gap-4">
-              {/* Received products → prompt the review loop (detail page has the per-item links). */}
-              {order.orderStatus === "DELIVERED" && (
+      <header className="mb-8">
+        <p className="ax-eyebrow">
+          <span className="ax-eyebrow-line" aria-hidden="true" />
+          {orders.length} {orders.length === 1 ? "ORDER" : "ORDERS"}
+        </p>
+        <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.8rem)] leading-[1.15] tracking-[0.02em] text-charcoal uppercase">
+          Orders
+        </h1>
+      </header>
+
+      <section className="ax-panel ax-panel--body">
+        <div className="ax-rows">
+          {orders.map((order) => (
+            <div
+              key={order.id}
+              className="flex flex-wrap items-center justify-between gap-3 py-4 -mx-4 px-4 hover:bg-sage-light/30"
+            >
+              <div>
                 <Link
                   href={`/account/orders/${order.id}`}
-                  className="h-10 px-5 inline-flex items-center rounded-[var(--radius-control)] font-body text-small font-semibold bg-sage text-cream"
+                  className="ax-row-name hover:text-sage underline-offset-2 hover:underline"
                 >
-                  Review now
+                  #{order.orderNumber}
                 </Link>
-              )}
-              <div className="text-right">
-                <p className="font-body text-body text-charcoal">{formatPrice(order.total)}</p>
-                <p className="font-body text-small text-sage mt-1">{order.orderStatus}</p>
+                <p className="ax-row-meta">{order.items.length} item(s)</p>
+              </div>
+              <div className="flex items-center gap-4">
+                {/* Received products → prompt the review loop (detail page has the per-item links). */}
+                {order.orderStatus === "DELIVERED" && (
+                  <Link
+                    href={`/account/orders/${order.id}`}
+                    className="ax-btn ax-btn--primary h-9 px-4"
+                  >
+                    Review now
+                  </Link>
+                )}
+                <div className="text-right">
+                  <p className="ax-row-name">{formatPrice(order.total)}</p>
+                  <p className="ax-row-meta">{order.orderStatus}</p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

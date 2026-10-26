@@ -12,6 +12,10 @@ export default async function AdminCustomerDetailPage({ params }: { params: Prom
 
   return (
     <div className="max-w-[700px]">
+      <p className="ax-eyebrow">
+        <span className="ax-eyebrow-line" aria-hidden="true" />
+        CUSTOMER · {orders.length} {orders.length === 1 ? "ORDER" : "ORDERS"}
+      </p>
       <div className="flex items-center justify-between mb-2">
         <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">{customer.name}</h1>
         <ToggleActiveButton customerId={customer.id} isActive={customer.isActive} />

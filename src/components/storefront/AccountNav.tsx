@@ -32,10 +32,10 @@ export function AccountNav() {
               <Link
                 href={tab.href}
                 aria-current={isCurrent ? "page" : undefined}
-                className={`inline-block py-3 font-body text-small font-semibold border-b-2 -mb-px transition-colors ${
+                className={`inline-flex items-center h-10 -mb-px px-1 font-body text-[12.5px] font-semibold tracking-[0.02em] border-b-2 transition-colors ${
                   isCurrent
-                    ? "border-sage text-charcoal"
-                    : "border-transparent text-muted hover:text-charcoal"
+                    ? "border-[#a8802f] text-charcoal"
+                    : "border-transparent text-muted hover:text-charcoal hover:border-[#d9dfd2]"
                 }`}
               >
                 {tab.label}

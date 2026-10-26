@@ -30,20 +30,20 @@ export function CategoryRow({ category }: { category: AdminCategory }) {
   }
 
   return (
-    <div className="py-4 border-b border-border">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="py-4">
+      <div className="ax-row-head">
         <div>
-          <p className="font-body text-body font-medium text-charcoal">{category.name}</p>
-          <p className="font-body text-small text-muted mt-1">
+          <p className="ax-row-name">{category.name}</p>
+          <p className="ax-row-meta">
             /{category.slug} · {category._count.products} product(s)
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="ax-row-actions">
           <button
             type="button"
             onClick={() => setEditing((value) => !value)}
             disabled={isPending}
-            className="font-body text-small text-sage font-medium"
+            className="ax-inline-btn"
           >
             {editing ? "Close" : "Edit"}
           </button>
@@ -52,7 +52,7 @@ export function CategoryRow({ category }: { category: AdminCategory }) {
               type="button"
               onClick={handleDelete}
               disabled={isPending}
-              className="font-body text-small text-error font-semibold underline"
+              className="ax-inline-btn ax-inline-btn--danger ax-inline-btn--confirm"
             >
               {isPending ? "Deleting…" : "Yes, delete"}
             </button>
@@ -61,7 +61,7 @@ export function CategoryRow({ category }: { category: AdminCategory }) {
               type="button"
               onClick={() => setConfirming(true)}
               disabled={isPending}
-              className="font-body text-small text-error font-medium"
+              className="ax-inline-btn ax-inline-btn--danger"
             >
               Delete
             </button>
@@ -70,12 +70,12 @@ export function CategoryRow({ category }: { category: AdminCategory }) {
       </div>
 
       {editing && (
-        <div className="mt-3">
+        <div className="ax-row-panel">
           <CategoryForm existing={category} onSaved={() => setEditing(false)} />
         </div>
       )}
       {error && (
-        <p role="alert" className="font-body text-small text-error mt-2">
+        <p role="alert" className="ax-row-error">
           {error}
         </p>
       )}

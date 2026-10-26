@@ -51,38 +51,35 @@ export function CatalogProductRow({
   const cover = product.images[0]?.url ?? null;
 
   return (
-    <div className="py-4 border-b border-border">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4 min-w-0">
+    <div className="py-4">
+      <div className="ax-row-head">
+        <div className="ax-row-id">
           {cover && isOptimizableImageUrl(cover) ? (
             <Image
               src={cover}
               alt={product.name}
               width={56}
               height={56}
-              className="w-14 h-14 rounded-[var(--radius-control)] object-cover bg-sage-light shrink-0"
+              className="ax-thumb"
             />
           ) : (
-            <div
-              aria-hidden="true"
-              className="w-14 h-14 rounded-[var(--radius-control)] bg-sage-light shrink-0"
-            />
+            <div aria-hidden="true" className="ax-thumb" />
           )}
           <div className="min-w-0">
-            <p className="font-body text-body font-medium text-charcoal truncate">{product.name}</p>
-            <p className="font-body text-small text-muted mt-1">
+            <p className="ax-row-name truncate">{product.name}</p>
+            <p className="ax-row-meta">
               {product.category.name} · {product.variations.length} variation(s) · {priceRange}
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="ax-row-actions">
           <button
             type="button"
             onClick={() => {
               setShowEdit((s) => !s);
               setShowVariations(false);
             }}
-            className="font-body text-small text-sage font-medium"
+            className="ax-inline-btn"
           >
             {showEdit ? "Close" : "Edit"}
           </button>
@@ -92,14 +89,11 @@ export function CatalogProductRow({
               setShowVariations((s) => !s);
               setShowEdit(false);
             }}
-            className="font-body text-small text-sage font-medium"
+            className="ax-inline-btn"
           >
             {showVariations ? "Hide variations" : "Variations"}
           </button>
-          <Link
-            href={`/admin/products/${product.id}`}
-            className="font-body text-small text-sage font-medium"
-          >
+          <Link href={`/admin/products/${product.id}`} className="ax-inline-btn">
             Images
           </Link>
           <ProductDeleteButton productId={product.id} productName={product.name} />
@@ -107,7 +101,7 @@ export function CatalogProductRow({
       </div>
 
       {showEdit && (
-        <div className="mt-4">
+        <div className="ax-row-panel">
           <ProductForm
             categories={categories}
             existingProduct={{
@@ -122,16 +116,14 @@ export function CatalogProductRow({
       )}
 
       {showVariations && (
-        <div className="mt-4 bg-sage-light rounded-[var(--radius-surface)] p-4">
-          <h4 className="font-body text-label font-semibold tracking-[0.08em] uppercase text-sage mb-1">
-            Variations — {product.name}
-          </h4>
+        <div className="ax-inline-panel">
+          <h4 className="ax-kicker">Variations — {product.name}</h4>
           {product.variations.length === 0 ? (
-            <p className="font-body text-small text-muted">
+            <p className="ax-row-meta">
               No variations yet — add the first one below.
             </p>
           ) : (
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-[#e7eade]">
               {product.variations.map((variation) => (
                 <VariationRow
                   key={variation.id}

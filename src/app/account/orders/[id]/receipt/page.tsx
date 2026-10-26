@@ -30,20 +30,21 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
             { label: `Receipt #${order.orderNumber}` },
           ]}
         />
-        <h1 className="font-[family-name:var(--font-display)] text-h1 text-charcoal">
+        <p className="ax-eyebrow">
+          <span className="ax-eyebrow-line" aria-hidden="true" />
+          INVOICE
+        </p>
+        <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.8rem)] leading-[1.15] tracking-[0.02em] text-charcoal uppercase">
           Receipt
         </h1>
         <div className="flex flex-wrap gap-4 mt-6">
-          <Link
-            href={`/account/orders/${order.id}`}
-            className="h-12 px-6 inline-flex items-center rounded-[var(--radius-control)] font-body text-button font-semibold bg-cream text-charcoal border border-border"
-          >
+          <Link href={`/account/orders/${order.id}`} className="ax-btn ax-btn--ghost">
             Back to order
           </Link>
         </div>
       </div>
 
-      <div className="bg-cream rounded-[var(--radius-surface)] p-6 mt-8">
+      <div className="ax-panel ax-panel--body mt-8">
         <div className="flex justify-between items-start">
           <div>
             <p className="font-[family-name:var(--font-display)] text-card-title text-charcoal">

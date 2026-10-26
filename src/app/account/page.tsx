@@ -53,14 +53,14 @@ export default async function AccountPage() {
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Account" }]} />
 
       <header className="mb-9 md:mb-10">
-        {/* Refined serif heading (editorial scale, not the 52px page h1) —
-            uppercase keeps the section's shared heading language. */}
+        <p className="ax-eyebrow">
+          <span className="ax-eyebrow-line" aria-hidden="true" />
+          YOUR DASHBOARD
+        </p>
         <h1 className="font-[family-name:var(--font-display)] text-[clamp(2rem,4vw,2.8rem)] leading-[1.15] tracking-[0.02em] text-charcoal uppercase">
           My Account
         </h1>
-        <p className="font-body text-body text-muted mt-3">
-          {displayName ? `Welcome back, ${displayName}` : "Welcome back"}
-        </p>
+        <p className="ax-sub">{displayName ? `Welcome back, ${displayName}` : "Welcome back"}</p>
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
@@ -68,15 +68,13 @@ export default async function AccountPage() {
           <Link
             key={card.href}
             href={card.href}
-            className="group flex flex-col rounded-[var(--radius-panel)] border border-border bg-sage-light p-6 md:p-7 transition-colors hover:border-sage/50 hover:bg-sage-light/70"
+            className="group flex flex-col ax-panel ax-panel-link p-6 md:p-7"
           >
-            <h2 className="font-[family-name:var(--font-display)] text-card-title text-charcoal">
-              {card.title}
-            </h2>
-            <p className="font-body text-small text-muted mt-2">{card.description}</p>
+            <h2 className="ax-h2">{card.title}</h2>
+            <p className="ax-row-meta mt-2">{card.description}</p>
             {/* mt-auto pins the action to the bottom of every card so the
                 rows stay aligned regardless of description length. */}
-            <span className="mt-auto pt-5 inline-flex items-center gap-1.5 font-body text-small font-medium text-sage">
+            <span className="mt-auto pt-5 ax-text-link">
               {card.action}
               <span aria-hidden="true" className="transition-transform group-hover:translate-x-0.5">
                 →
@@ -90,10 +88,7 @@ export default async function AccountPage() {
           separated by a hairline so it never reads as a fifth card. */}
       <div className="mt-9 md:mt-10 pt-7 md:pt-8 border-t border-border">
         <form action={logout}>
-          <button
-            type="submit"
-            className="h-11 px-6 rounded-[var(--radius-control)] border border-border bg-transparent font-body text-button font-semibold uppercase tracking-[0.02em] text-muted transition-colors hover:text-charcoal hover:border-sage"
-          >
+          <button type="submit" className="ax-btn ax-btn--ghost uppercase tracking-[0.06em]">
             Log Out
           </button>
         </form>
