@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { ImageFallback } from "./ImageFallback";
 
 export function ProductGallery({ images, alt }: { images: { url: string }[]; alt: string }) {
   const [current, setCurrent] = useState(0);
@@ -9,7 +10,7 @@ export function ProductGallery({ images, alt }: { images: { url: string }[]; alt
   if (images.length === 0) {
     return (
       <div className="aspect-4/5 bg-sage-light rounded-[var(--radius-surface)] flex items-center justify-center text-muted">
-        No image
+        <ImageFallback />
       </div>
     );
   }

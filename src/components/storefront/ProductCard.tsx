@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ProductListItem } from "@/modules/catalog";
 import { formatPrice } from "@/lib/format";
 import { WishlistButton } from "./WishlistButton";
+import { ImageFallback } from "./ImageFallback";
 
 type ProductCardProps = {
   product: ProductListItem;
@@ -33,7 +34,7 @@ export function ProductCard({ product, wishlisted, priority }: ProductCardProps)
               sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
             />
           ) : (
-            <span className="pcard__placeholder">No image</span>
+            <ImageFallback className="pcard__placeholder" />
           )}
         </div>
 

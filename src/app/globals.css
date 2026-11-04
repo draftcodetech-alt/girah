@@ -1215,6 +1215,28 @@ body {
   color: var(--pc-muted);
 }
 
+/* Shared brand fallback for merchandise awaiting its photo set (products
+   stay listed without photos — owner decision). Botanical motif + caption;
+   used by the product-card stage and the product gallery empty state. */
+.ax-imgfallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #94a78f;
+  user-select: none;
+}
+.ax-imgfallback svg { width: clamp(64px, 30%, 110px); height: auto; }
+.ax-imgfallback-caption {
+  color: #616d62;
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .pcard__badge {
   position: absolute;
   top: 16px;
