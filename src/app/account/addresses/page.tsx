@@ -13,7 +13,7 @@ export default async function AddressesPage() {
   const address = await getMyShippingAddress();
 
   return (
-    <div className="max-w-[700px] mx-auto px-4 py-12">
+    <div className="acct-page max-w-[700px]">
       <Breadcrumbs
         items={[
           { label: "Home", href: "/" },

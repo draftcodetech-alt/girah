@@ -121,6 +121,17 @@ function parseActionPayload(text) {
       const value = JSON.parse(m[1]);
       if (!value || typeof value !== "object" || Array.isArray(value)) continue;
       if ("b" in value && "i" in value && "a" in value) continue; // row envelope
+      // Bound server-action references serialized for client forms (e.g. the
+      // account layout's <form action={logout}>) decode as {"id","bound"} —
+      // that's the action registry, never an action's RESULT.
+      if (
+        Object.keys(value).length === 2 &&
+        "id" in value &&
+        "bound" in value &&
+        typeof value.id === "string"
+      ) {
+        continue;
+      }
       return value;
     } catch {
       /* keep looking */

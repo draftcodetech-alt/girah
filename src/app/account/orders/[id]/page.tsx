@@ -10,7 +10,7 @@ export default async function OrderDetailsPage({ params }: { params: Promise<{ i
   if (!order) notFound();
 
   return (
-    <div className="max-w-[700px] mx-auto px-4 py-12">
+    <div className="acct-page max-w-[700px]">
       <Breadcrumbs
         items={[
           { label: "Home", href: "/" },

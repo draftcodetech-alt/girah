@@ -17,7 +17,7 @@ export default async function OrdersPage() {
 
   if (orders.length === 0) {
     return (
-      <div className="max-w-[1280px] mx-auto px-4 py-16 text-center">
+      <div className="acct-page text-center">
         <Breadcrumbs
           items={[{ label: "Home", href: "/" }, { label: "Account", href: "/account" }, { label: "Orders" }]}
         />
@@ -37,7 +37,7 @@ export default async function OrdersPage() {
   }
 
   return (
-    <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-12">
+    <div className="acct-page">
       <Breadcrumbs
         items={[{ label: "Home", href: "/" }, { label: "Account", href: "/account" }, { label: "Orders" }]}
       />

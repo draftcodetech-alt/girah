@@ -4226,12 +4226,223 @@ a.ax-stat:hover, .ax-stat--linked:hover {
   --radius-panel: 18px;
 
   min-height: 55vh;
-  padding-bottom: 10px;
+  padding: 26px 18px 34px;
   color: var(--ax-ink);
   background:
     radial-gradient(ellipse at 100% 0%, rgba(214, 225, 202, 0.4), transparent 34rem),
     radial-gradient(ellipse at 0% 100%, rgba(240, 231, 208, 0.5), transparent 30rem),
     var(--ax-cream);
+}
+
+/* the app frame: one rounded console card holding sidebar + content */
+.acct-frame {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  max-width: 1320px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--ax-border);
+  border-radius: 22px;
+  background: var(--ax-paper-soft);
+  box-shadow: 0 22px 70px rgba(57, 76, 58, 0.055);
+}
+
+/* ——— vertical sidebar ——————————————————————————————— */
+.acct-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 100%;
+  padding: 26px 17px 22px;
+  border-right: 1px solid var(--ax-border);
+  background: linear-gradient(155deg, #eef0e6 0%, #e9ede3 58%, #e5eadf 100%);
+}
+
+.acct-mini {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 9px 20px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid rgba(100, 125, 104, 0.15);
+}
+.acct-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border: 3px solid rgba(255, 253, 247, 0.7);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #d9dfce, #aab9a2);
+  color: var(--ax-sage-800);
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(49, 74, 59, 0.08);
+}
+.acct-mini-copy { min-width: 0; }
+.acct-mini-copy strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ax-ink);
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 15px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acct-mini-copy span {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--ax-muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* section nav lives inside the sidebar and links the real /account routes */
+.acct-nav-list { display: grid; gap: 5px; }
+.acct-nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: #3f5145;
+  font-size: 12.5px;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  transition: background 0.2s var(--ease-ui), color 0.2s var(--ease-ui),
+    transform 0.2s var(--ease-ui), box-shadow 0.2s var(--ease-ui);
+}
+.acct-nav-link svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  stroke-width: 1.7;
+}
+.acct-nav-link:hover {
+  background: rgba(255, 253, 247, 0.55);
+  transform: translateX(2px);
+  color: var(--ax-sage-800);
+}
+.acct-nav-link.is-current {
+  background: var(--ax-sage-700);
+  color: var(--ax-paper);
+  box-shadow: 0 7px 16px rgba(73, 98, 79, 0.16);
+}
+.acct-nav-link:focus-visible {
+  outline: 3px solid rgba(205, 166, 79, 0.85);
+  outline-offset: 2px;
+}
+
+/* sidebar log-out — same server action, quiet chrome */
+.acct-logout { margin-top: 14px; border-top: 1px solid rgba(100, 125, 104, 0.15); }
+.acct-logout button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #525f53;
+  font-size: 12.5px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-ui), color 0.2s var(--ease-ui);
+}
+.acct-logout button svg { width: 17px; height: 17px; flex: 0 0 auto; stroke-width: 1.7; }
+.acct-logout button:hover { background: rgba(255, 253, 247, 0.55); color: #8a3a34; }
+.acct-logout button:focus-visible {
+  outline: 3px solid rgba(205, 166, 79, 0.85);
+  outline-offset: 2px;
+}
+
+/* support card below the nav */
+.acct-support {
+  position: relative;
+  overflow: hidden;
+  margin-top: auto;
+  padding: 14px 13px 13px;
+  border: 1px solid rgba(217, 223, 210, 0.95);
+  border-radius: 15px;
+  background: rgba(255, 253, 247, 0.77);
+}
+.acct-support::after {
+  content: "";
+  position: absolute;
+  width: 92px;
+  height: 92px;
+  right: -46px;
+  top: -44px;
+  border: 1px solid rgba(125, 149, 124, 0.13);
+  border-radius: 50%;
+}
+.acct-support-top { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.acct-support-icon {
+  display: grid;
+  place-items: center;
+  width: 33px;
+  height: 33px;
+  border-radius: 50%;
+  background: var(--ax-sage-100);
+  color: var(--ax-sage-700);
+}
+.acct-support-icon svg { width: 17px; height: 17px; }
+.acct-support strong { font-family: var(--font-display), Georgia, serif; font-size: 13.5px; font-weight: 600; }
+.acct-support p {
+  margin: 0 0 11px;
+  color: var(--ax-muted);
+  font-size: 10.5px;
+  line-height: 1.55;
+}
+.acct-support-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--ax-sage-100);
+  color: var(--ax-sage-800);
+  font-size: 10.5px;
+  font-weight: 650;
+  transition: background 0.2s var(--ease-ui);
+}
+.acct-support-btn:hover { background: var(--ax-sage-200); }
+.acct-support-btn:focus-visible {
+  outline: 3px solid rgba(205, 166, 79, 0.85);
+  outline-offset: 2px;
+}
+
+/* ——— main column ————————————————————————————————————— */
+.acct-main { min-width: 0; background: var(--ax-paper-soft); }
+.acct-page { padding: 26px 34px 44px; }
+
+/* account forms read as the reference's soft fields without markup churn */
+.acct-shell :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+  border: 1px solid var(--ax-border-strong);
+  border-radius: 10px;
+  background: var(--ax-paper-soft);
+  transition: border-color 0.2s var(--ease-ui), box-shadow 0.2s var(--ease-ui);
+}
+.acct-shell :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select):focus {
+  border-color: var(--ax-sage-500);
+  box-shadow: 0 0 0 3px rgba(125, 149, 124, 0.12);
+  outline: none;
+}
+.acct-shell input[type="checkbox"] {
+  accent-color: var(--ax-sage-700);
 }
 
 .acct-shell .text-charcoal { color: var(--ax-ink); }
@@ -4255,14 +4466,24 @@ a.ax-stat:hover, .ax-stat--linked:hover {
   outline: 3px solid rgba(205, 166, 79, 0.85);
   outline-offset: 3px;
 }
-.acct-shell .ax-page { padding-top: 10px; }
-
-/* account nav sits on the cream wash — give it the console treatment */
-.acct-shell nav[aria-label="Account sections"] {
-  padding-bottom: 2px;
-}
 
 /* linked panel surface (account dashboard cards) */
+.ax-card-glyph {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-bottom: 15px;
+  border-radius: 50%;
+  background: var(--ax-sage-100);
+  color: var(--ax-sage-700);
+  transition: background 0.2s var(--ease-ui), color 0.2s var(--ease-ui);
+}
+.ax-card-glyph svg { width: 20px; height: 20px; }
+.group:hover .ax-card-glyph {
+  background: var(--ax-gold-soft);
+  color: var(--ax-gold);
+}
 .ax-panel-link {
   transition: transform 0.2s var(--ease-ui), box-shadow 0.2s var(--ease-ui),
     border-color 0.2s var(--ease-ui);
@@ -4275,6 +4496,70 @@ a.ax-stat:hover, .ax-stat--linked:hover {
 .ax-panel-link:focus-visible {
   outline: 3px solid rgba(205, 166, 79, 0.85);
   outline-offset: 3px;
+}
+
+/* ——— responsive: the sidebar folds into a chip rail above the content —— */
+@media (max-width: 1120px) {
+  .acct-frame { grid-template-columns: 226px minmax(0, 1fr); }
+  .acct-page { padding: 22px 24px 36px; }
+}
+@media (max-width: 900px) {
+  .acct-shell { padding: 12px 10px 22px; }
+  .acct-frame { grid-template-columns: 1fr; border-radius: 17px; }
+  .acct-sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0 10px;
+    padding: 14px 14px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--ax-border);
+  }
+  .acct-mini {
+    display: none;
+  }
+  .acct-nav-list {
+    display: flex;
+    flex: 1 1 auto;
+    gap: 6px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+  .acct-nav-link {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 11px;
+    gap: 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    transform: none;
+  }
+  .acct-nav-link svg { width: 15px; height: 15px; }
+  .acct-logout { margin: 0; flex: 0 0 auto; border-top: 0; }
+  .acct-logout button {
+    min-height: 38px;
+    margin-top: 0;
+    padding: 0 10px;
+    gap: 7px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+  .acct-support { display: none; }
+  .acct-page { padding: 20px 18px 30px; }
+}
+@media (max-width: 560px) {
+  .acct-shell { padding: 0; }
+  .acct-frame { border: 0; border-radius: 0; box-shadow: none; }
+  .acct-sidebar { padding: 11px 10px 9px; }
+  .acct-nav-link { min-height: 35px; padding: 0 9px; font-size: 10.5px; }
+  .acct-logout button { min-height: 35px; padding: 0 9px; font-size: 10.5px; }
+  .acct-page { padding: 18px 14px 26px; }
+}
+@media print {
+  .acct-sidebar { display: none; }
+  .acct-shell { padding: 0; }
+  .acct-frame { display: block; border: 0; box-shadow: none; background: transparent; }
 }
 
 /* file-picker buttons carry their own variant classes — repaint those too */

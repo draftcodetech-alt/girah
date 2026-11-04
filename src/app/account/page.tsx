@@ -2,7 +2,36 @@ import { auth } from "@/lib/auth";
 import { logout } from "@/modules/accounts/actions";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Breadcrumbs } from "@/components/shared/Breadcrumbs";
+
+// Sidebar-matching glyph per destination — purely decorative (aria-hidden),
+// same house style as the reference console.
+const CARD_ICONS: Record<string, ReactNode> = {
+  "/account/orders": (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M5 8h14l1 13H4L5 8Z" />
+      <path d="M9 9V6a3 3 0 0 1 6 0v3" />
+    </svg>
+  ),
+  "/account/profile": (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-2a8 8 0 0 1 16 0v2z" />
+    </svg>
+  ),
+  "/account/addresses": (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  ),
+  "/wishlist": (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M20.8 8.8c0 5.1-8.8 11-8.8 11s-8.8-5.9-8.8-11A4.8 4.8 0 0 1 12 6.1a4.8 4.8 0 0 1 8.8 2.7Z" />
+    </svg>
+  ),
+};
 
 // The four dashboard destinations, kept as data so every card renders the
 // same structure — title / description / action — with no drift between
@@ -49,7 +78,7 @@ export default async function AccountPage() {
   const displayName = session.user.name?.trim();
 
   return (
-    <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-10 md:py-14">
+    <div className="acct-page">
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Account" }]} />
 
       <header className="mb-9 md:mb-10">
@@ -70,6 +99,9 @@ export default async function AccountPage() {
             href={card.href}
             className="group flex flex-col ax-panel ax-panel-link p-6 md:p-7"
           >
+            <span className="ax-card-glyph" aria-hidden="true">
+              {CARD_ICONS[card.href]}
+            </span>
             <h2 className="ax-h2">{card.title}</h2>
             <p className="ax-row-meta mt-2">{card.description}</p>
             {/* mt-auto pins the action to the bottom of every card so the

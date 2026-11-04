@@ -19,7 +19,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
   if (!order) notFound();
 
   return (
-    <div className="max-w-[700px] mx-auto px-4 py-12">
+    <div className="acct-page max-w-[700px]">
       {/* Screen-only chrome: hidden when printing. */}
       <div className="print:hidden">
         <Breadcrumbs
