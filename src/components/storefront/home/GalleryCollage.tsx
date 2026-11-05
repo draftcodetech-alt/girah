@@ -40,6 +40,22 @@ type CollageItem = {
   cap?: Caption;
 };
 
+/**
+ * Real slot width per collage item, replacing the old flat
+ * "(max-width: 860px) 84vw, 30vw" claim (which served ~640px files for
+ * slots as narrow as ~77px — ~300 KiB of waste per homepage load).
+ * Geometry comes from globals.css: desktop slots are `var(--w)`% of
+ * .gg-stage = min(100%, 1480px); on ≤860px the stage becomes a flowing
+ * flex cluster with slots at clamp(38%, w*2.7%, 84%). Slightly
+ * overestimating (full vw for the stage) errs on the sharp side.
+ */
+function collageSizes(w: string): string {
+  // Note the spaces after the function parens: next/image's srcset scanner
+  // only counts integer "NNvw" tokens preceded by whitespace/start, so
+  // "clamp(38vw…" would hide the smallest ratio and floor the srcset at 640w.
+  return `(max-width: 860px) clamp( 38vw, ${(parseFloat(w) * 2.7).toFixed(1)}vw, 84vw ), calc(${w} * min( 100vw, 1480px ) / 100)`;
+}
+
 const SAGE = "var(--gg-sage)";
 const BUTTER = "var(--gg-butter)";
 const BLUSH = "var(--gg-blush)";
@@ -649,7 +665,7 @@ export function GalleryCollage() {
                     width={item.width}
                     height={item.height}
                     loading="lazy"
-                    sizes="(max-width: 860px) 84vw, 30vw"
+                    sizes={collageSizes(item.w)}
                   />
                 </div>
               </div>
