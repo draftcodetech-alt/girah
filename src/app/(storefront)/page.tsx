@@ -7,6 +7,17 @@ import { CollectionSections } from "@/components/storefront/home/CollectionSecti
 import { InstagramShowcase } from "@/components/storefront/home/InstagramShowcase";
 import { HandmadePromise } from "@/components/storefront/home/HandmadePromise";
 
+
+/**
+ * JSON-LD hardening: JSON.stringify does not escape "<", so a value
+ * containing "</script>" (or "<!--") could break out of the structured-data
+ * script tag. Every structured-data sink goes through this — cheap
+ * insurance even though the fields are owner-authored today.
+ */
+function toSafeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
 export default async function Home() {
   const [featuredPool, newestPool, botanicalPool, giftPool, wishedIds] =
     await Promise.all([
@@ -63,7 +74,7 @@ export default async function Home() {
     <div>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(siteJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toSafeJsonLd(siteJsonLd) }}
       />
       <Hero />
       <GalleryCollage />

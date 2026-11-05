@@ -23,6 +23,17 @@ type ShopPageProps = {
   }>;
 };
 
+
+/**
+ * JSON-LD hardening: JSON.stringify does not escape "<", so a value
+ * containing "</script>" (or "<!--") could break out of the structured-data
+ * script tag. Every structured-data sink goes through this — cheap
+ * insurance even though the fields are owner-authored today.
+ */
+function toSafeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
 export default async function ShopPage({ searchParams }: ShopPageProps) {
   const params = await searchParams;
   const categories = await getCategories();
@@ -60,7 +71,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
       <Breadcrumbs items={[{ label: "Home", href: "/" }, { label: "Shop" }]} />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toSafeJsonLd(breadcrumbJsonLd) }}
       />
       {/* Visually removed per spec: the breadcrumb already names the page.
           Kept sr-only so the page keeps exactly one h1 for a11y/SEO. */}

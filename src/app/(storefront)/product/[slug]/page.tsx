@@ -38,6 +38,17 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
   };
 }
 
+
+/**
+ * JSON-LD hardening: JSON.stringify does not escape "<", so a value
+ * containing "</script>" (or "<!--") could break out of the structured-data
+ * script tag. Every structured-data sink goes through this — cheap
+ * insurance even though the fields are owner-authored today.
+ */
+function toSafeJsonLd(data: unknown): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
 export default async function ProductPage({ params }: ProductPageProps) {
   const { slug } = await params;
   const product = await getProductBySlug(slug);
@@ -215,7 +226,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
       )}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: toSafeJsonLd(productJsonLd) }}
       />
     </div>
   );
