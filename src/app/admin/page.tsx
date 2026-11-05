@@ -120,7 +120,35 @@ export default async function AdminDashboard() {
           </div>
 
           {peak === 0 ? (
-            <p className="ax-sub">No paid orders in the last 14 days.</p>
+            // Empty state keeps the chart frame (baseline + date labels) so the
+            // panel doesn't stretch into a blank void next to the fulfilment
+            // panel — the note sits inside the plot area instead.
+            <svg
+              viewBox={`0 0 ${CHART_W} ${CHART_H + CHART_PAD_BOTTOM}`}
+              className="w-full h-auto"
+              role="img"
+              aria-label="No paid orders in the last 14 days"
+            >
+              <text x={CHART_W / 2} y={CHART_H / 2} textAnchor="middle" fontSize="13" fill="#9aa395">
+                No paid orders in the last 14 days.
+              </text>
+              {metrics.series.map((point, index) => {
+                const x = index * BAR_SLOT + 4;
+                return index % 2 === 0 || index === metrics.series.length - 1 ? (
+                  <text
+                    key={point.date}
+                    x={x + BAR_W / 2}
+                    y={CHART_H + 16}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill="#9aa395"
+                  >
+                    {point.date.slice(5)}
+                  </text>
+                ) : null;
+              })}
+              <line x1="0" y1={CHART_H} x2={CHART_W} y2={CHART_H} strokeWidth="1" stroke="#e6e9de" />
+            </svg>
           ) : (
             <svg
               viewBox={`0 0 ${CHART_W} ${CHART_H + CHART_PAD_BOTTOM}`}

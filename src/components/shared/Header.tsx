@@ -22,7 +22,7 @@ export async function Header() {
 
   return (
     <header className="border-b border-border relative">
-      <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 h-16 md:h-20 flex items-center gap-4 md:gap-6">
+      <div className="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 h-16 md:h-20 flex items-center gap-4 lg:gap-6">
         <Link
           href="/"
           className="font-[family-name:var(--font-display)] text-h3 text-charcoal shrink-0 hover:text-sage transition-colors"
@@ -30,7 +30,7 @@ export async function Header() {
           Girah
         </Link>
 
-        <nav className="hidden md:flex items-center gap-6" aria-label="Primary">
+        <nav className="hidden md:flex items-center gap-4 lg:gap-6" aria-label="Primary">
           {primaryLinks.map((link) => (
             <Link
               key={link.href}
@@ -55,7 +55,10 @@ export async function Header() {
             placeholder="Search products"
             size="sm"
             autoComplete="off"
-            className="max-w-[360px]"
+            /* min-w keeps the field usable at the md band (768–1023px) where
+               the nav, account and cart leave it the least room — without it
+               the input collapses to a few characters wide. */
+            className="max-w-[360px] min-w-[120px]"
           />
         </form>
 
