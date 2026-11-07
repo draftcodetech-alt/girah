@@ -39,7 +39,7 @@ export function ProductCard({ product, wishlisted, priority }: ProductCardProps)
         </div>
 
         <div className="pcard__info">
-          <h3 className="pcard__title">{product.name}</h3>
+          <h2 className="pcard__title">{product.name}</h2>
           <p className="pcard__tagline">
             Handmade<i>•</i>Fresh Blooms<i>•</i>Lasts Forever
           </p>

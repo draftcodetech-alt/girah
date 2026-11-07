@@ -971,7 +971,10 @@ let reviewOrder = null;
     "approved text not public"
   );
   const shopApproved = await get(`/shop?search=${TS}`);
-  const cardAt = shopApproved.html.indexOf(`${FIXTURE_NAME}</h3>`);
+  // Card titles are h2 (a11y: shop/search/wishlist sit under a single h1;
+  // h3 under them skipped a level). Homepage sections use h2 headings, so
+  // h2 cards remain a valid order there too.
+  const cardAt = shopApproved.html.indexOf(`${FIXTURE_NAME}</h2>`);
   const cardSlice = cardAt >= 0 ? shopApproved.html.slice(cardAt, cardAt + 500) : "";
   check(
     "shop card shows the star line after approval",

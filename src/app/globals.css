@@ -1144,10 +1144,14 @@ body {
 .pcard {
   --pc-card: #f9f4e6;
   --pc-ink: #3f4a30;
-  --pc-muted: #7d8468;
-  --pc-olive: #7a8466;
-  --pc-btn: #8b9476;
-  --pc-btn-hover: #7d8668;
+  /* AA contrast pass (4.5:1 minimum on the cream card): the mockup's
+     lighter sages (#7d8468/#7a8466/#8b9476) measured 3.56/3.49/2.97 on
+     the micro-copy they carry. Same hue family, darkened to the nearest
+     passing steps: 4.92 / 5.21 / 4.86; hover darkens further (5.91). */
+  --pc-muted: #666d55;
+  --pc-olive: #5e684f;
+  --pc-btn: #677057;
+  --pc-btn-hover: #5a6349;
   --pc-line: #e6dfca;
 
   /* Card-width container: shop's sidebar makes cards ~40px narrower than
@@ -4453,6 +4457,12 @@ a.ax-stat:hover, .ax-stat--linked:hover {
   .acct-sidebar { display: none; }
   .acct-shell { padding: 0; }
   .acct-frame { display: block; border: 0; box-shadow: none; background: transparent; }
+  /* Site chrome is noise on paper — a printed receipt should be the
+     invoice, not the nav plus a full newsletter footer. Scoped to the
+     body-level chrome elements so section <header>s (collage heading,
+     admin topbar) are untouched. */
+  body > header,
+  body > footer { display: none !important; }
 }
 
 /* file-picker buttons carry their own variant classes — repaint those too */
