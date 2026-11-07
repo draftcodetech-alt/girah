@@ -111,7 +111,9 @@ the dev terminal for emails).
   Expected: grid + `N pieces` count.
   Actual:
 - [ ] Product cards show image, name, **Rs. price with 2 decimals**, star line.
-  Expected: no `From Rs. 0`, no `Rs. NaN` anywhere.
+  Expected: no `From Rs. 0`, no `Rs. NaN` anywhere. Products without photos
+  (all of them right now — owner decision, see §13) render a botanical
+  **"PHOTO COMING SOON"** motif in the image slot — not a broken image.
   Actual:
 - [ ] Click a **category tab** → grid filters; URL carries `?category=…`;
   active tab underlined + `aria-current="page"`.
@@ -174,7 +176,8 @@ the dev terminal for emails).
 
 - [ ] Open any product — gallery images (+ counter + thumbs), name,
   `From Rs. X` price, description accordion **open** by default.
-  Expected:
+  Expected: for a product with no photos yet the gallery shows the
+  "PHOTO COMING SOON" motif instead of an empty/broken frame.
   Actual:
 - [ ] Toggle accordions (±, `aria-expanded` flips).
   Expected:
@@ -523,6 +526,7 @@ The admin door is **not linked anywhere** — type it by hand:
 | Online (Safepay) order stays `PENDING` after paying in sandbox | Webhook can't reach `localhost` — needs a public tunnel in production |
 | Emails send for real + mirror to the terminal | Resend key is set; `next dev` prints `[email] dev-log` lines for visibility (production stays silent). Onboarding sender delivers **only to `draftcode.tech@gmail.com`** — other addresses are accepted but bounce |
 | `/shipping|/returns|/privacy|/terms` are 404 | Removed by owner decision |
+| Products show a botanical **"PHOTO COMING SOON"** motif instead of photos | Owner decision: no product photos yet — all products stay listed; real photos drop into the same slot via the admin catalog when available |
 | Register says "too many attempts" | 10-per-15-minutes per IP throttle (skipped only in tests) |
 | Safepay radio visible but online payment can't finish | Correct — only COD completes locally |
 

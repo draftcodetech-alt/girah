@@ -2,8 +2,9 @@
 
 Written 2026-10-26 as the deferred checklist; **executed the same day** — every
 suite below was run after the edits and is green (results in §2). Keep it as
-the run record; §4 (browser probes) and the `test.md` manual walk are still
-manual work.
+the run record; §4 (browser probes) is fully ticked — original 57/57 Playwright
+run plus the §4.1 hardening-pass addendum (2026-11-07). What remains is the
+human `test.md` manual walk (§5), still the last gate before deploy.
 
 **Do not deploy until the manual pass is green and the owner says so.**
 
@@ -52,6 +53,10 @@ do that before believing the errors.
 | Smoke | build + boot :3100, then `npm run test:smoke` | 23 | ✅ **21 / 21** |
 | Type-check | `npx tsc --noEmit` | 0 | ✅ 0 |
 | Lint | `npm run lint` | 0/0 | ✅ 0/0 |
+
+All six totals were **re-verified 2026-11-07** after the hardening/polish pass
+(image fallback, UI sweep, JSON-LD hardening, dead-CSS sweep, a11y/print pass) —
+same numbers, no regressions.
 
 ### 2.0 What failed on the first run (and how it was fixed)
 
@@ -233,6 +238,36 @@ Sub-checks exercised here instead of being left to `test.md`: the COD
 checkout, the disabled-variation cart line, and the legacy-route redirect in a
 real browser. What remains is the human `test.md` walk (copy, layout, feel).
 
+### 4.1 Hardening-pass probes (2026-11-07, CDP harness — added after the pass)
+
+The polish/hardening pass (image fallback → UI sweep → business-logic review →
+security audit → dead-CSS/perf → a11y/print) re-ran the browser probes with the
+headless-Chrome CDP harness (`~/.cache/girah-phase/shot.js`, Lighthouse 12,
+raw-protocol server-action calls) against the production build on **:3100**:
+
+- **Product-card image fallback** — the 9 imageless products render the
+  botanical "PHOTO COMING SOON" motif on shop/home/wishlist/search cards and
+  the PDP gallery; no broken-image icons, 0 `brokenImgs` on every capture.
+- **Performance (Lighthouse, home)** — perf 37 → 53–56, CLS 0.288 → 0,
+  page weight 1263 → 1120 KB, wasted image bytes 334 → 165 KB (collage
+  srcset fix + dead-CSS removal). Scores jitter ±3 run-to-run.
+- **Accessibility (Lighthouse, categories-only)** — home/shop/product
+  96/94/96 → **100/100/100**; cart/login already 100. Failures fixed:
+  card-palette contrast (one AA step darker, same hue family), card-title
+  heading order (h3 → h2), printed-receipt chrome.
+- **Keyboard walk (CDP tab-through)** — home/shop/product/login: skip link
+  first, logical order, visible focus ring at every stop; login inputs carry
+  real `<label>` associations.
+- **Print capture** — with `emulateMedia print` (CDP **old form**
+  `{media:"print"}`; the features-form silently resets to screen) the order
+  receipt renders the invoice alone: `body > header`/`footer` and the account
+  sidebar all `display: none` (screenshot `p6-print-receipt3.png`).
+- **Raw-protocol commerce loop** — login → addToCart → placeOrder (COD,
+  `GIR-250A45B46B9F`) → receipt render, all against the prod build; probe
+  order removed afterwards, DB back to baseline (3 users, 0 activity).
+- Screenshots: `~/.cache/girah-phase/shots/` (`p21`–`p26`, `p5-*`, `p6-*`),
+  Lighthouse JSON: `lh-home*.json`, `lh-a11y*.json` in the same directory.
+
 ---
 
 ## 5. `test.md` sections to walk (edited to match the spec changes)
@@ -260,8 +295,8 @@ only what this refactor touched.
 - [x] `npm run build` + `next start -p 3100` → smoke **21/21**
 - [x] E2E → **345/345**
 - [x] `prisma validate` + `prisma migrate status` → valid / up to date
-- [ ] Schema probe (§3) → `User_single_admin` survives, no `stock`, no `StockAdjustment` (verified once on dev at migration time; re-run if in doubt)
-- [x] Browser probes (§4) → **57/57** with Playwright + 29 screenshots
+- [x] Schema probe (§3) → `User_single_admin` survives, no `stock`, no `StockAdjustment` (re-run 2026-11-07 on dev: indexes `User_pkey, User_email_key, User_single_admin` · variation columns end at `isEnabled` · table `null` · checks `none`; `prisma migrate status` up to date)
+- [x] Browser probes (§4) → **57/57** with Playwright + 29 screenshots; **§4.1 addendum 2026-11-07** — hardening-pass probes (Lighthouse perf/a11y, keyboard walk, print capture, raw-protocol COD loop) all green
 - [ ] `test.md` manual pass → all ticked (last gate before deploy)
 - [x] README test counts updated to the real totals
 - [x] Owner says **commit**
