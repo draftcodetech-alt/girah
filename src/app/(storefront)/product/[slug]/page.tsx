@@ -77,7 +77,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
     "@context": "https://schema.org",
     "@type": "Product",
     name: product.name,
-    image: product.images.map((image) => image.url),
+    // schema.org wants absolute image URLs — catalogue rows are now
+    // root-relative local assets (/products/<slug>/NN.webp).
+    image: product.images.map((image) =>
+      appUrl && image.url.startsWith("/") ? `${appUrl}${image.url}` : image.url
+    ),
     description: product.description,
     brand: { "@type": "Brand", name: "Girah" },
     url: productUrl,

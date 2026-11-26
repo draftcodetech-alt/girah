@@ -50,3 +50,7 @@ cookies.txt
 
 # local agent workspace (has its own node_modules)
 /.opencode/
+
+# raw photo sources for scripts/import-product-images.mjs — the processed
+# copies the site serves live in public/products/ and ARE committed
+/images/
