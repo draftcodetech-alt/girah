@@ -4,8 +4,9 @@ import { describe, it, expect } from "vitest";
 
 // Phase 7: the storefront Header used to mount inside the root layout, so the
 // admin console rendered storefront chrome (Cart badge, "Sign In"). The Header
-// moved into (storefront)/(auth)/account layouts, and the app gained a full
-// loading/404/error boundary set.
+// moved into (storefront)/(auth)/account layouts, and the app gained a
+// 404/error boundary set (the route-level loading.tsx files were later
+// removed — see ABSENT_FILES).
 
 const ROOT = new URL("../..", import.meta.url).pathname;
 
@@ -24,12 +25,18 @@ const HEADER_LAYOUTS = [
 ];
 
 const SPECIAL_FILES = [
-  "src/app/loading.tsx",
   "src/app/not-found.tsx",
   "src/app/error.tsx",
   "src/app/global-error.tsx",
-  "src/app/(storefront)/loading.tsx",
   "src/app/(storefront)/not-found.tsx",
+];
+
+// Next 16 streams the shell before hydration; a route-segment loading.tsx
+// made every production page stick on "Loading…" (vercel/next.js#86151).
+// The route-level spinners were removed on purpose — they must stay gone.
+const ABSENT_FILES = [
+  "src/app/loading.tsx",
+  "src/app/(storefront)/loading.tsx",
   "src/app/account/loading.tsx",
   "src/app/admin/loading.tsx",
 ];
@@ -62,6 +69,10 @@ describe("app shell: Header scoping", () => {
 describe("app shell: loading / 404 / error boundaries", () => {
   it.each(SPECIAL_FILES)("%s exists", (relativePath) => {
     expect(exists(relativePath)).toBe(true);
+  });
+
+  it.each(ABSENT_FILES)("%s stays removed (streaming-hydration fix)", (relativePath) => {
+    expect(exists(relativePath)).toBe(false);
   });
 
   it("error.tsx uses Next 16's `retry` prop (not `reset`)", () => {
