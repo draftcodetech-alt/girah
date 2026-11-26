@@ -17,8 +17,15 @@ export type SubscribeResult =
  * address is not sensitive).
  */
 export async function subscribeNewsletter(rawEmail: string): Promise<SubscribeResult> {
+  // Server actions are plain HTTP endpoints: the client can send any JSON
+  // value here, so a non-string must be refused (not crash on .trim()).
+  if (typeof rawEmail !== "string") {
+    return { success: false, error: "Please enter a valid email address." };
+  }
   const email = rawEmail.trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+  // RFC 5321 caps an address at 254 chars; without this a multi-KB string
+  // passes the loose regex and lands in the DB.
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { success: false, error: "Please enter a valid email address." };
   }
 

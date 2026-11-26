@@ -49,11 +49,26 @@ function shell(title: string, bodyHtml: string): string {
 </html>`;
 }
 
+/**
+ * Minimal HTML entity escape for interpolated values. Email bodies are built
+ * from template strings, and names/order fields are user-controlled (checkout
+ * `fullName`, register `name`) — nothing user-derived may reach the HTML
+ * unescaped. Plain-text `text:` bodies deliberately do NOT use this.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function orderFacts(data: OrderMailData, extraRows = ""): string {
   const rows = [
-    `<tr><td style="padding:6px 0;color:#7a7f78;">Order</td><td style="padding:6px 0;text-align:right;">#${data.orderNumber}</td></tr>`,
+    `<tr><td style="padding:6px 0;color:#7a7f78;">Order</td><td style="padding:6px 0;text-align:right;">#${escapeHtml(data.orderNumber)}</td></tr>`,
     `<tr><td style="padding:6px 0;color:#7a7f78;">Total</td><td style="padding:6px 0;text-align:right;">${formatPrice(data.total)}</td></tr>`,
-    `<tr><td style="padding:6px 0;color:#7a7f78;">Payment</td><td style="padding:6px 0;text-align:right;">${paymentLabel(data.paymentMethod)}</td></tr>`,
+    `<tr><td style="padding:6px 0;color:#7a7f78;">Payment</td><td style="padding:6px 0;text-align:right;">${escapeHtml(paymentLabel(data.paymentMethod))}</td></tr>`,
     ...(data.createdAt
       ? [`<tr><td style="padding:6px 0;color:#7a7f78;">Placed</td><td style="padding:6px 0;text-align:right;">${formatDate(data.createdAt)}</td></tr>`]
       : []),
@@ -62,12 +77,18 @@ function orderFacts(data: OrderMailData, extraRows = ""): string {
   return `<table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px;">${rows}</table>`;
 }
 
+/** Escapes its argument — the safe default for every paragraph(). */
 function paragraph(text: string): string {
-  return `<p style="font-size:14px;line-height:1.6;margin:0 0 16px;">${text}</p>`;
+  return `<p style="font-size:14px;line-height:1.6;margin:0 0 16px;">${escapeHtml(text)}</p>`;
+}
+
+/** For trusted, pre-built HTML fragments only (static copy in this file). */
+function paragraphHtml(html: string): string {
+  return `<p style="font-size:14px;line-height:1.6;margin:0 0 16px;">${html}</p>`;
 }
 
 function button(href: string, label: string): string {
-  return `<p style="margin:20px 0;"><a href="${href}" style="display:inline-block;background:#526b5a;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:bold;">${label}</a></p>`;
+  return `<p style="margin:20px 0;"><a href="${escapeHtml(href)}" style="display:inline-block;background:#526b5a;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:8px;font-size:14px;font-weight:bold;">${escapeHtml(label)}</a></p>`;
 }
 
 function textBlock(lines: string[]): string {
@@ -173,7 +194,7 @@ export function newsletterWelcomeEmail(data: { to: string }): SendEmailInput {
       "You're in the loop",
       paragraph(intro) +
         (BASE() ? button(`${BASE()}/shop`, "Browse the shop") : "") +
-        paragraph(`<span style="font-size:12px;color:#7a7f78;">${why}</span>`)
+        paragraphHtml(`<span style="font-size:12px;color:#7a7f78;">${why}</span>`)
     ),
     text: textBlock(["Welcome to Girah — you're subscribed", "", intro, "", why]),
   };
@@ -189,7 +210,7 @@ export function passwordResetEmail(data: { to: string; name: string; link: strin
       "Reset your password",
       paragraph(intro) +
         button(data.link, "Reset password") +
-        paragraph(`<span style="font-size:12px;color:#7a7f78;">${safety}</span>`)
+        paragraphHtml(`<span style="font-size:12px;color:#7a7f78;">${safety}</span>`)
     ),
     text: textBlock(["Reset your Girah password", "", intro, "", data.link, "", safety]),
   };

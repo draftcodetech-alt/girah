@@ -13,7 +13,7 @@ function readSource(relativePath: string): string {
 }
 
 describe("isOptimizableImageUrl", () => {
-  it("accepts Cloudinary delivery URLs (the only host next/image whitelists)", () => {
+  it("accepts Cloudinary delivery URLs (whitelisted in images.remotePatterns)", () => {
     expect(
       isOptimizableImageUrl(
         "https://res.cloudinary.com/demo/image/upload/v1/girah/bouquet.png"
@@ -21,9 +21,14 @@ describe("isOptimizableImageUrl", () => {
     ).toBe(true);
   });
 
-  it("rejects other hosts, relative and malformed URLs", () => {
+  it("accepts same-origin assets (no localPatterns → local paths optimize)", () => {
+    expect(isOptimizableImageUrl("/products/crochet-duck-keychain/01.webp")).toBe(true);
+  });
+
+  it("rejects other hosts, protocol-relative, relative and malformed URLs", () => {
     expect(isOptimizableImageUrl("https://evil.example.com/x.png")).toBe(false);
-    expect(isOptimizableImageUrl("/uploads/local.png")).toBe(false);
+    expect(isOptimizableImageUrl("//evil.example.com/x.png")).toBe(false);
+    expect(isOptimizableImageUrl("uploads/local.png")).toBe(false);
     expect(isOptimizableImageUrl("not a url")).toBe(false);
     expect(isOptimizableImageUrl("")).toBe(false);
   });
@@ -46,10 +51,17 @@ describe("Phase 11: image upload gate", () => {
     expect(ops).not.toContain('"application/pdf"');
   });
 
-  it("keeps the app limit under the 4mb server-action body cap", () => {
+  it("keeps the app limit under the server-action body cap", () => {
     expect(ops).toContain("MAX_IMAGE_BYTES = 3.5 * 1024 * 1024");
     const config = readSource("next.config.ts");
-    expect(config).toContain('bodySizeLimit: "4mb"');
+    // The cap must sit ABOVE the in-app limit with headroom for multipart
+    // boundaries, so oversized files reach the action's graceful refusal
+    // ("smaller than 3.5 MB") instead of an opaque framework 500.
+    const limitMatch = config.match(/bodySizeLimit:\s*"(\d+)mb"/);
+    expect(limitMatch).not.toBeNull();
+    const capMb = Number(limitMatch![1]);
+    expect(capMb * 1024 * 1024).toBeGreaterThan(3.5 * 1024 * 1024);
+    expect(capMb).toBeGreaterThanOrEqual(5); // ≥1.5MB headroom over the 3.5MB app cap
   });
 
   it("configures Cloudinary lazily (no import-time credentials)", () => {
