@@ -155,10 +155,12 @@ await hit("customer /wishlist renders", "/wishlist", customer);
 let cart = await db.cart.findUnique({ where: { userId: customerRow.id }, include: { items: true } });
 const seededLine = cart?.items?.[0] ?? null;
 if (!seededLine) {
+  // The cart row can already exist with no items (a prior run consumed them),
+  // so the update branch must seed the line too — not just the create branch.
   await db.cart.upsert({
     where: { userId: customerRow.id },
     create: { userId: customerRow.id, items: { create: { variationId: variation.id, quantity: 1 } } },
-    update: {},
+    update: { items: { create: { variationId: variation.id, quantity: 1 } } },
   });
 }
 await hit("customer /checkout renders with a filled cart", "/checkout", customer);
