@@ -7,5 +7,14 @@
 	"assets": {
 		"directory": ".open-next/assets",
 		"binding": "ASSETS"
+	},
+	// Runtime vars — bindings are applied before the build-time .env baked
+	// into next-env.mjs (which fills only unset keys), so these win over the
+	// localhost dev values. Secrets stay out of here: `wrangler secret put`.
+	"vars": {
+		"NEXT_PUBLIC_APP_URL": "https://www.girah.workers.dev",
+		"AUTH_URL": "https://www.girah.workers.dev",
+		"NEXTAUTH_URL": "https://www.girah.workers.dev",
+		"SAFEPAY_ENV": "sandbox"
 	}
 }
